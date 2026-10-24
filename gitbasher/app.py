@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
 )
 
 from . import config
+
+APP_ICON = Path(__file__).parent / "assets" / "gitbasher.ico"
 
 
 def create_terminal(parent):
@@ -181,6 +183,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.terminal_factory = terminal_factory
         self.setWindowTitle("gitbasher — Git Bash")
+        self.setWindowIcon(QIcon(str(APP_ICON)))
         self.resize(1120, 760)
         self.config_error = ""
         self.restoring = True
@@ -454,8 +457,12 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("chrisbokitch.gitbasher")
     app = QApplication(sys.argv)
     app.setApplicationName("gitbasher")
+    app.setWindowIcon(QIcon(str(APP_ICON)))
     if sys.platform != "win32":
         QMessageBox.warning(None, "Windows required", "gitbasher currently supports Windows 10/11 with Git for Windows.")
         return

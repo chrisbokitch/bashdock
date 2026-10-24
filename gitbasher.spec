@@ -23,6 +23,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name="gitbasher",
+    icon=str(root / "gitbasher" / "assets" / "gitbasher.ico"),
     debug=False,
     strip=False,
     upx=False,

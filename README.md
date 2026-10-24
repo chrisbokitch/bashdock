@@ -27,6 +27,8 @@ The executable build must run **on Windows**. Output is `dist/gitbasher/gitbashe
 
 Quit the built app before rebuilding it, so Windows can replace its files. Build output is ignored by Git. The Windows executable build still needs validation on Windows.
 
+The executable and app window use the GitBasher terminal-and-buttons icon. Its PNG artwork and multi-size Windows `.ico` are in `gitbasher/assets/`. Rebuild with `npm run compile` to embed the icon in the executable.
+
 ## Run from source
 
 Open PowerShell and clone the project into `C:\Development\gitbasher`:
