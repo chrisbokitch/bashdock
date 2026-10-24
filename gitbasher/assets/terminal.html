@@ -2,8 +2,13 @@
 <html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' qrc:; style-src 'self' 'unsafe-inline'">
 <link rel="stylesheet" href="xterm.css">
-<style>html,body{height:100%;margin:0;background:#10141c;overflow:hidden}#terminal{height:100%;box-sizing:border-box;padding:12px}</style>
-</head><body><div id="terminal"></div>
+<style>
+html,body{height:100%;margin:0;background:#10141c;overflow:hidden}
+/* Keep spacing outside xterm's measured host so FitAddon sees usable space. */
+#terminal-frame{position:absolute;inset:12px;overflow:hidden}
+#terminal{width:100%;height:100%;padding:0}
+</style>
+</head><body><div id="terminal-frame"><div id="terminal"></div></div>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script src="xterm.js"></script><script src="addon-fit.js"></script>
 <script src="terminal.js"></script></body></html>

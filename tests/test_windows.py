@@ -1,4 +1,5 @@
 """Real Windows/ConPTY tests. Run on Windows with Git for Windows installed."""
+import json
 import os
 import queue
 import sys
@@ -109,6 +110,52 @@ class WindowsTests(unittest.TestCase):
                 wait_for(lambda: os.path.normcase(os.path.normpath(directories[-1])) ==
                                 os.path.normcase(os.path.normpath(target)))
                 terminal.stop()
+        finally:
+            terminal.stop()
+            terminal.close()
+
+    def test_terminal_rows_fit_inside_view_after_resize(self):
+        from PySide6.QtWidgets import QApplication
+        from gitbasher.terminal import Terminal
+        app = QApplication.instance() or QApplication([])
+        terminal = Terminal()
+        terminal.show()
+
+        def evaluate(script):
+            results = []
+            terminal.page().runJavaScript(script, results.append)
+            deadline = time.monotonic() + 10
+            while not results and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(results, "Timed out measuring terminal layout")
+            return results[0]
+
+        try:
+            deadline = time.monotonic() + 20
+            while not terminal.ready and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(terminal.ready)
+            geometry = """JSON.stringify((() => {
+                const r = document.querySelector('.xterm-screen').getBoundingClientRect();
+                const proposed = fit.proposeDimensions();
+                return {bottom:r.bottom,right:r.right,height:innerHeight,width:innerWidth,
+                    fitted:terminal.rows === proposed.rows && terminal.cols === proposed.cols};
+            })())"""
+            for width, height in ((900, 600), (713, 419), (1040, 701)):
+                terminal.resize(width, height)
+                deadline = time.monotonic() + 10
+                while True:
+                    app.processEvents()
+                    bounds = json.loads(evaluate(geometry))
+                    if (abs(bounds["width"] - width) <= 1 and
+                            abs(bounds["height"] - height) <= 1 and bounds["fitted"]):
+                        break
+                    self.assertLess(time.monotonic(), deadline, "Terminal did not finish resizing")
+                    time.sleep(0.01)
+                self.assertLessEqual(bounds["bottom"], bounds["height"] - 12 + 1, bounds)
+                self.assertLessEqual(bounds["right"], bounds["width"] - 12 + 1, bounds)
         finally:
             terminal.stop()
             terminal.close()
