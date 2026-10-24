@@ -73,6 +73,7 @@ class WorkspaceTests(unittest.TestCase):
 
     def tearDown(self):
         self.window.allow_save = False
+        self.window.data["confirm_on_exit"] = False
         self.window.close()
         self.window.deleteLater()
         self.app.processEvents()
@@ -122,6 +123,7 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(str(remembered), restored.tabs.widget(0).terminal.starts[0][1])
         finally:
             restored.allow_save = False
+            restored.data["confirm_on_exit"] = False
             restored.close()
             restored.deleteLater()
 
@@ -181,3 +183,56 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(original["buttons"], dialog.result_data["buttons"])
         finally:
             dialog.deleteLater()
+
+    def test_dont_show_again_saves_preference_and_workspace_before_stopping(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+
+        def accept_dialog(dialog):
+            self.assertEqual("Don't show this again", dialog.checkBox().text())
+            dialog.checkBox().setChecked(True)
+            return QMessageBox.StandardButton.Yes
+
+        with patch.object(QMessageBox, "exec", accept_dialog):
+            self.assertTrue(self.window.close())
+        saved = config.load(self.path)
+        self.assertFalse(saved["confirm_on_exit"])
+        self.assertEqual(tab.data, saved["tabs"][0])
+        self.assertEqual(1, tab.terminal.stops)
+        restored = MainWindow(terminal_factory=FakeTerminal)
+        try:
+            self.ready(restored.current_tab())
+            with patch.object(restored, "confirm_quit") as confirm:
+                self.assertTrue(restored.close())
+                confirm.assert_not_called()
+        finally:
+            restored.allow_save = False
+            restored.data["confirm_on_exit"] = False
+            restored.close()
+            restored.deleteLater()
+
+    def test_cancelling_quit_does_not_change_preference_or_stop_shell(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        with patch.object(self.window, "confirm_quit", return_value=(False, True)):
+            self.assertFalse(self.window.close())
+        self.assertTrue(self.window.data["confirm_on_exit"])
+        self.assertTrue(config.load(self.path)["confirm_on_exit"])
+        self.assertEqual(0, tab.terminal.stops)
+
+    def test_menu_setting_can_disable_and_reenable_confirmation(self):
+        self.window.confirm_exit_action.setChecked(False)
+        self.assertFalse(config.load(self.path)["confirm_on_exit"])
+        self.window.confirm_exit_action.setChecked(True)
+        self.assertTrue(config.load(self.path)["confirm_on_exit"])
+
+    def test_save_failure_during_opt_out_keeps_shell_and_original_preference(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        with patch.object(self.window, "confirm_quit", return_value=(True, True)), \
+                patch("gitbasher.config.save", side_effect=PermissionError("locked")), \
+                patch("gitbasher.app.QMessageBox.warning"):
+            self.assertFalse(self.window.close())
+        self.assertTrue(self.window.data["confirm_on_exit"])
+        self.assertTrue(self.window.confirm_exit_action.isChecked())
+        self.assertEqual(0, tab.terminal.stops)

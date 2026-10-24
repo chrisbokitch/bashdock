@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
-    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox,
 )
 
 from . import config
@@ -222,6 +222,12 @@ class MainWindow(QMainWindow):
             if shortcut:
                 action.setShortcut(shortcut)
             menu.addAction(action)
+        menu.addSeparator()
+        self.confirm_exit_action = QAction("Confirm before quitting", self)
+        self.confirm_exit_action.setCheckable(True)
+        self.confirm_exit_action.setChecked(self.data["confirm_on_exit"])
+        self.confirm_exit_action.toggled.connect(self.set_confirm_on_exit)
+        menu.addAction(self.confirm_exit_action)
         for profile in self.data["tabs"]:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
@@ -297,6 +303,7 @@ class MainWindow(QMainWindow):
 
     def snapshot(self):
         return {"version": 2, "bash_path": self.data["bash_path"],
+                "confirm_on_exit": self.data["confirm_on_exit"],
                 "active_tab": self.tabs.currentIndex(),
                 "tabs": [copy.deepcopy(self.tabs.widget(i).data) for i in range(self.tabs.count())]}
 
@@ -396,17 +403,50 @@ class MainWindow(QMainWindow):
         tab.deleteLater()
         self.schedule_save()
 
+    def set_confirm_on_exit(self, enabled):
+        previous = self.data["confirm_on_exit"]
+        self.data["confirm_on_exit"] = enabled
+        if not self.persist():
+            self.data["confirm_on_exit"] = previous
+            self.sync_confirm_action()
+            QMessageBox.warning(self, "Setting was not saved", "Could not save the confirmation setting. Check the status bar for details.")
+
+    def sync_confirm_action(self):
+        self.confirm_exit_action.blockSignals(True)
+        self.confirm_exit_action.setChecked(self.data["confirm_on_exit"])
+        self.confirm_exit_action.blockSignals(False)
+
+    def confirm_quit(self, running):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Close gitbasher?")
+        dialog.setText(f"Close {running} shell session(s) and quit?")
+        dialog.setInformativeText("Your tabs and folders will be remembered.")
+        dialog.setIcon(QMessageBox.Icon.Question)
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        dialog.setDefaultButton(QMessageBox.StandardButton.No)
+        skip = QCheckBox("Don't show this again", dialog)
+        dialog.setCheckBox(skip)
+        accepted = dialog.exec() == QMessageBox.StandardButton.Yes
+        return accepted, skip.isChecked()
+
     def closeEvent(self, event):
         running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))
-        if running and QMessageBox.question(self, "Close gitbasher?",
-                f"Close {running} shell session(s) and quit? Your tabs and folders will be remembered.") != QMessageBox.StandardButton.Yes:
-            event.ignore()
-            return
+        previous_confirm = self.data["confirm_on_exit"]
+        if running and previous_confirm:
+            accepted, skip = self.confirm_quit(running)
+            if not accepted:
+                event.ignore()
+                return
+            if skip:
+                self.data["confirm_on_exit"] = False
         self.save_timer.stop()
         if self.allow_save and not self.persist():
+            self.data["confirm_on_exit"] = previous_confirm
+            self.sync_confirm_action()
             QMessageBox.warning(self, "Workspace was not saved", "Could not save your tabs. Resolve the save error before closing.")
             event.ignore()
             return
+        self.sync_confirm_action()
         self.closing = True
         for i in range(self.tabs.count()):
             self.tabs.widget(i).terminal.stop()

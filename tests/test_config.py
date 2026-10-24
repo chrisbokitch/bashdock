@@ -80,6 +80,17 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config.validate(data)
 
+    def test_existing_workspace_defaults_to_confirmation_and_rejects_nonboolean(self):
+        old = config.defaults()
+        del old["confirm_on_exit"]
+        self.assertTrue(config.migrate(old)["confirm_on_exit"])
+        self.assertNotIn("confirm_on_exit", old)
+        for value in ("false", 0, None):
+            data = config.defaults()
+            data["confirm_on_exit"] = value
+            with self.assertRaises(ValueError):
+                config.validate(data)
+
 
 if __name__ == "__main__":
     unittest.main()

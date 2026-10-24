@@ -73,6 +73,8 @@ Restoring creates **fresh shells** in the remembered folders. Running programs, 
 
 Existing version 0.1 settings migrate into the first tab automatically, including your custom buttons. Closing the last tab quits the application and remembers that tab for next time. Closing another tab removes it from the saved workspace.
 
+The app-close confirmation includes **Don't show this again**. Check it and choose **Yes** to close without prompting next time. You can change this anytime under **Session → Confirm before quitting**. This is an app-wide setting; tabs and folders are still saved before shells close. Confirmation starts enabled, and choosing **No** never changes the setting. Individual tab-close and shell-restart confirmations remain separate.
+
 ## Command buttons
 
 Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command. Double-click a cell to edit. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.

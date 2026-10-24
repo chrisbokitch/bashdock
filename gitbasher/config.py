@@ -23,7 +23,8 @@ def default_tab(name="Git Bash"):
 
 
 def defaults():
-    return {"version": 2, "bash_path": "", "tabs": [default_tab()], "active_tab": 0}
+    return {"version": 2, "bash_path": "", "tabs": [default_tab()], "active_tab": 0,
+            "confirm_on_exit": True}
 
 
 def validate_buttons(buttons):
@@ -55,6 +56,8 @@ def validate(data):
         raise ValueError("Unsupported settings version.")
     if not isinstance(data.get("bash_path"), str):
         raise ValueError("bash_path must be a string.")
+    if type(data.get("confirm_on_exit", True)) is not bool:
+        raise ValueError("confirm_on_exit must be a boolean.")
     if not isinstance(data.get("tabs"), list) or not data["tabs"]:
         raise ValueError("At least one tab is required.")
     for tab in data["tabs"]:
@@ -73,7 +76,11 @@ def migrate(data):
         tab = default_tab()
         tab.update(startup_folder=data["startup_folder"], current_folder=data["startup_folder"],
                    buttons=copy.deepcopy(data["buttons"]))
-        return validate({"version": 2, "bash_path": data["bash_path"], "tabs": [tab], "active_tab": 0})
+        return validate({"version": 2, "bash_path": data["bash_path"], "tabs": [tab],
+                         "active_tab": 0, "confirm_on_exit": True})
+    if isinstance(data, dict) and data.get("version") == 2:
+        data = dict(data)
+        data.setdefault("confirm_on_exit", True)
     return validate(data)
 
 
