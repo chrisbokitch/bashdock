@@ -7,6 +7,25 @@ A Python/Qt Windows desktop app with multiple Git Bash tabs and a custom command
 - Windows 10 (1809 or newer) or Windows 11
 - Python 3.11 or newer (64-bit; Python 3.12/3.13 recommended)
 - [Git for Windows](https://gitforwindows.org/)
+- Node.js 20+ and npm for the shortcut commands below (the app itself is Python)
+
+## Everyday npm commands
+
+Run these from the project folder in Git Bash or PowerShell:
+
+| Command | Action |
+| --- | --- |
+| `npm test` or `npm run test` | Run the Python test suite in `.venv`. |
+| `npm run go` | Run `git pull --ff-only`, then the test suite. A failed pull stops the command. |
+| `npm run preview` | Launch the desktop app from source using `.venv`. Close and relaunch to pick up edits. |
+| `npm run compile` | Install optional build tools and package the Windows app with PyInstaller. |
+| `npm run setup` | Create `.venv` if missing and install/update the Python project and dependencies. |
+
+Your existing `.venv` works with these commands. No activation or `npm install` is required: there are no JavaScript dependencies. For a fresh clone, run `npm run setup` once, then `npm run preview`.
+
+The executable build must run **on Windows**. Output is `dist/gitbasher/gitbasher.exe`. Keep the entire `dist/gitbasher` folder together when copying it; the `_internal` folder includes Python, Qt WebEngine, and other runtime files. Python and Node are not required to run the built app, but Git for Windows must still be installed. This creates a runnable app folder rather than an installer.
+
+Quit the built app before rebuilding it, so Windows can replace its files. Build output is ignored by Git. The Windows executable build still needs validation on Windows.
 
 ## Run from source
 
@@ -95,6 +114,6 @@ Manual Windows acceptance checks: create and rename two tabs, give them differen
 
 PySide6 supplies the native window and Qt WebEngine. Vendored xterm.js 5.5.0 and fit addon 0.10.0 render terminal output. QWebChannel connects the local terminal page to Python; pywinpty starts Git Bash using Windows ConPTY. No localhost server, browser tab, runtime CDN, or separate terminal window is used.
 
-This is a source release. Configuration, migration, shell-hook, and Qt workspace tests were run in the authoring environment. Qt workspace tests use fake terminal processes to verify routing and restoration; Windows ConPTY and full terminal GUI smoke tests are included but have **not** been run there. No standalone `.exe` is included.
+This is a source release with an executable build recipe. Configuration, migration, shell-hook, and Qt workspace tests were run in the authoring environment. Qt workspace tests use fake terminal processes to verify routing and restoration; Windows ConPTY, full terminal GUI smoke tests, and the packaged executable have **not** been run there. No prebuilt `.exe` is included.
 
 Third-party xterm.js/fit code is MIT licensed; see `gitbasher/assets/LICENSE`. PySide6/Qt and pywinpty retain their upstream licenses. Review those licenses before redistributing a packaged application.

@@ -1,0 +1,14 @@
+{
+  "name": "gitbasher",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Development shortcuts for the gitbasher Python desktop app",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "setup": "node scripts/tasks.cjs setup",
+    "test": "node scripts/tasks.cjs test",
+    "go": "git pull --ff-only && npm test",
+    "preview": "node scripts/tasks.cjs preview",
+    "compile": "node scripts/tasks.cjs compile"
+  }
+}
