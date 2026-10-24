@@ -1,6 +1,6 @@
 // Use the project's Python directly: no venv activation or shell-specific paths.
 const { spawnSync } = require('node:child_process');
-const { existsSync } = require('node:fs');
+const { existsSync, readFileSync, rmSync } = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -8,8 +8,11 @@ const windows = process.platform === 'win32';
 const python = path.join(root, '.venv', windows ? 'Scripts/python.exe' : 'bin/python');
 const task = process.argv[2];
 
-function run(executable, args) {
-  const result = spawnSync(executable, args, { cwd: root, stdio: 'inherit' });
+function run(executable, args, options = {}) {
+  const result = spawnSync(executable, args, { cwd: root, stdio: 'inherit', timeout: options.timeout });
+  if ((result.error || result.status !== 0) && options.report && existsSync(options.report)) {
+    console.error(readFileSync(options.report, 'utf8'));
+  }
   if (result.error) {
     console.error(`Could not run ${executable}: ${result.error.message}`);
     process.exit(1);
@@ -57,5 +60,9 @@ if (task === 'test') {
     console.error(`Build completed without the expected executable: ${executable}`);
     process.exit(1);
   }
+  console.log('Checking the compiled app can run an interactive Git Bash command…');
+  const report = path.join(root, 'build', 'packaged-shell-smoke.json');
+  rmSync(report, { force: true });
+  run(executable, ['--shell-smoke-test', report], { timeout: 60000, report });
   console.log(`Built ${executable}\nKeep the entire dist/gitbasher folder together when copying the app.`);
 }

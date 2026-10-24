@@ -1,5 +1,6 @@
 """Desktop window and transactional command/settings editor."""
 import copy
+import logging
 import sys
 from pathlib import Path
 
@@ -340,8 +341,10 @@ class MainWindow(QMainWindow):
                 self.schedule_save()
             tab.terminal.start(self.data["bash_path"], folder)
         except Exception as error:
+            logging.exception("Could not start Git Bash")
             self.show_status(tab, f"Cannot start shell: {error}")
             tab.set_running(False)
+            QMessageBox.warning(self, "Cannot start Git Bash", str(error))
             return
         tab.set_running(True)
         self.show_status(tab, "Git Bash · Buttons type into this shell · Copy: Ctrl+Shift+C · Paste: Ctrl+Shift+V")
@@ -457,6 +460,8 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    from .diagnostics import initialize
+    initialize()
     if sys.platform == "win32":
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("chrisbokitch.gitbasher")

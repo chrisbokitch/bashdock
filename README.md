@@ -29,6 +29,10 @@ Quit the built app before rebuilding it, so Windows can replace its files. Build
 
 The executable and app window use the GitBasher terminal-and-buttons icon. Its PNG artwork and multi-size Windows `.ico` are in `gitbasher/assets/`. Rebuild with `npm run compile` to embed the icon in the executable.
 
+`compile` explicitly bundles pywinpty's native DLLs and helper executables, then launches the **built executable** to check that Git Bash accepts a command and returns output. Compilation fails if that check fails; its report is at `build/packaged-shell-smoke.json`. The check briefly starts a shell and loads your usual Bash profile scripts. Close other copies of the built app before rebuilding.
+
+If a shell cannot start, the app shows the error. Startup and terminal-reader errors are also recorded in `%APPDATA%\gitbasher\gitbasher.log`, including when the executable runs without a console window.
+
 ## Run from source
 
 Open PowerShell and clone the project into `C:\Development\gitbasher`:

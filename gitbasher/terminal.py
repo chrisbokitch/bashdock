@@ -1,8 +1,7 @@
 """Qt/WebChannel bridge to a Windows pseudoterminal. No network listener."""
-import os
 import queue
-import sys
 import threading
+import logging
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, QUrl, Signal, Slot
@@ -10,7 +9,8 @@ from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMessageBox
-from .shell_integration import create_init_file, valid_reported_directory
+from .shell_integration import valid_reported_directory
+from .shell_backend import spawn_shell
 
 
 class LocalPage(QWebEnginePage):
@@ -102,22 +102,9 @@ class Terminal(QWebEngineView):
             raise RuntimeError("A shell is already running.")
         if self.reader and self.reader.is_alive():
             raise RuntimeError("The previous shell is still closing. Try again shortly.")
-        if sys.platform != "win32":
-            raise RuntimeError("gitbasher currently requires Windows 10/11.")
-        from winpty import PtyProcess, Backend
-        env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", CHERE_INVOKING="1",
-                   GITBASHER_START_DIR=Path(folder).as_posix())
         self.stopping.clear()
         self.cleanup_init_file()
-        self.init_file = create_init_file()
-        try:
-            self.process = PtyProcess.spawn(
-                [bash_path, "--rcfile", self.init_file.as_posix(), "-i"], cwd=folder, env=env,
-                dimensions=self.dimensions, backend=Backend.ConPTY,
-            )
-        except Exception:
-            self.cleanup_init_file()
-            raise
+        self.process, self.init_file = spawn_shell(bash_path, folder, self.dimensions)
         self.reader = threading.Thread(target=self.read_loop, args=(self.process,), daemon=True)
         self.reader.start()
 
@@ -140,6 +127,7 @@ class Terminal(QWebEngineView):
             pass
         except Exception as error:
             if not self.stopping.is_set():
+                logging.exception("Terminal reader failed")
                 self.enqueue("error", str(error))
         finally:
             self.enqueue("end", "Shell exited. Use Restart shell to open a new session.")
