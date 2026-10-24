@@ -19,9 +19,12 @@ Run these from the project folder in Git Bash or PowerShell:
 | `npm run go` | Run `git pull --ff-only`, then the test suite. A failed pull stops the command. |
 | `npm run preview` | Launch the desktop app from source using `.venv`. Close and relaunch to pick up edits. |
 | `npm run compile` | Install optional build tools and package the Windows app with PyInstaller. |
+| `npm run copy` | Copy the entire compiled app to `C:\Program Files\GitBasher`, creating the folder if necessary. |
 | `npm run setup` | Create `.venv` if missing and install/update the Python project and dependencies. |
 
 Your existing `.venv` works with these commands. No activation or `npm install` is required: there are no JavaScript dependencies. For a fresh clone, run `npm run setup` once, then `npm run preview`.
+
+After a successful `npm run compile`, close any running installed copy and run `npm run copy`. The copy command includes the executable, `_internal`, and all other build files; it overwrites matching files while retaining unrelated destination files. It is a separate command and does not rebuild the app. Writing to Program Files normally requires a terminal opened **as administrator**. After copying, launch `C:\Program Files\GitBasher\gitbasher.exe`. Your settings remain in AppData. If copying fails partway through (for example, because the app is running), resolve the error and rerun it before launching the installed app.
 
 The executable build must run **on Windows**. Output is `dist/gitbasher/gitbasher.exe`. Keep the entire `dist/gitbasher` folder together when copying it; the `_internal` folder includes Python, Qt WebEngine, and other runtime files. Python and Node are not required to run the built app, but Git for Windows must still be installed. This creates a runnable app folder rather than an installer.
 
