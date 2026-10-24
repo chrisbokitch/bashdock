@@ -3,27 +3,34 @@ import copy
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
-    QHeaderView, QAbstractItemView,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog,
 )
 
 from . import config
-from .terminal import Terminal
+
+
+def create_terminal(parent):
+    from .terminal import Terminal
+    return Terminal(parent)
 
 
 class SettingsDialog(QDialog):
     def __init__(self, data, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("gitbasher settings")
+        self.setWindowTitle("Configure tab")
         self.resize(780, 520)
         self.result_data = None
+        self.original = copy.deepcopy(data)
         layout = QVBoxLayout(self)
         form = QFormLayout()
+        self.name = QLineEdit(data["name"])
+        form.addRow("Tab name", self.name)
         self.bash = QLineEdit(data["bash_path"] or config.find_bash())
         self.folder = QLineEdit(data["startup_folder"])
         for label, edit, is_folder in (("Git Bash executable", self.bash, False),
@@ -36,7 +43,8 @@ class SettingsDialog(QDialog):
             form.addRow(label, row)
         layout.addLayout(form)
         note = QLabel("Buttons send commands to the active terminal. Use them at an empty shell prompt.\n"
-                      "Shell path and startup folder changes apply when you restart the shell.")
+                      "Buttons belong to this tab. The Git Bash executable is shared by all tabs.\n"
+                      "Startup folder changes apply when you restart this shell.")
         note.setWordWrap(True)
         layout.addWidget(note)
         self.table = QTableWidget(0, 2)
@@ -94,18 +102,20 @@ class SettingsDialog(QDialog):
         self.table.selectRow(target)
 
     def commit(self):
-        data = {"bash_path": self.bash.text().strip(),
+        data = {"name": self.name.text().strip(), "bash_path": self.bash.text().strip(),
+                "current_folder": self.original["current_folder"],
                 "startup_folder": self.folder.text().strip(), "buttons": []}
         for row in range(self.table.rowCount()):
             data["buttons"].append({key: self.table.item(row, col).text()
                                     for col, key in enumerate(("label", "command"))})
         try:
-            config.validate(data)
+            config.validate_tab(data)
             if not Path(data["bash_path"]).is_file() or Path(data["bash_path"]).name.lower() != "bash.exe":
                 raise ValueError("Select Git for Windows' bash.exe (usually Git/bin/bash.exe).")
             if not Path(data["startup_folder"]).is_dir():
                 raise ValueError("Select an existing startup folder.")
-            config.save(data)
+            if data["startup_folder"] != self.original["startup_folder"]:
+                data["current_folder"] = data["startup_folder"]
         except (ValueError, OSError) as error:
             QMessageBox.warning(self, "Cannot save settings", str(error))
             return
@@ -113,64 +123,35 @@ class SettingsDialog(QDialog):
         self.accept()
 
 
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("gitbasher — Git Bash")
-        self.resize(1120, 760)
-        self.config_error = ""
-        try:
-            self.data = config.load()
-        except (OSError, ValueError) as error:
-            self.data = config.defaults()
-            self.config_error = str(error)
-        self.data["bash_path"] = self.data["bash_path"] or config.find_bash()
-        body = QWidget()
-        layout = QVBoxLayout(body)
-        layout.setContentsMargins(10, 10, 10, 5)
-        header = QHBoxLayout()
-        title = QLabel("GITBASHER")
-        title.setStyleSheet("font-weight:700;letter-spacing:2px;color:#70dcc2;padding:8px")
-        header.addWidget(title)
+class ShellTab(QWidget):
+    """Each tab owns a shell, its button bar, and its saved profile."""
+    configure_requested = Signal()
+
+    def __init__(self, data, parent=None, terminal_factory=create_terminal):
+        super().__init__(parent)
+        self.data = copy.deepcopy(data)
+        self.status = "Loading terminal…"
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 4, 0, 0)
+        self.terminal = terminal_factory(self)
+        layout.addWidget(self.terminal, 1)
+        footer = QHBoxLayout()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setFixedHeight(60)
+        scroll.setFixedHeight(64)
         self.bar = QWidget()
         self.bar_layout = QHBoxLayout(self.bar)
         self.bar_layout.setContentsMargins(0, 0, 0, 0)
         scroll.setWidget(self.bar)
-        header.addWidget(scroll, 1)
-        settings = QPushButton("Configure…")
-        settings.clicked.connect(self.configure)
-        header.addWidget(settings)
-        layout.addLayout(header)
-        self.terminal = Terminal()
-        layout.addWidget(self.terminal, 1)
-        self.setCentralWidget(body)
+        footer.addWidget(scroll, 1)
+        configure = QPushButton("Configure tab…")
+        configure.clicked.connect(self.configure_requested.emit)
+        footer.addWidget(configure)
+        layout.addLayout(footer)
         self.command_buttons = []
         self.build_buttons()
-        self.terminal.loaded.connect(self.on_ready)
-        self.terminal.ended.connect(self.on_ended)
-        self.terminal.problem.connect(lambda text: self.statusBar().showMessage(text))
-        menu = self.menuBar().addMenu("Session")
-        restart = QAction("Restart shell…", self)
-        restart.triggered.connect(self.restart)
-        menu.addAction(restart)
-        interrupt = QAction("Interrupt (Ctrl+C)", self)
-        interrupt.triggered.connect(lambda: self.terminal.write("\x03"))
-        menu.addAction(interrupt)
-        menu.addAction("Settings…", self.configure)
-        self.statusBar().showMessage("Loading terminal…")
-        self.setStyleSheet("""
-            QMainWindow,QDialog,QWidget { background:#181e29;color:#dde4ef; }
-            QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
-            QPushButton:hover { border-color:#70dcc2; }
-            QPushButton:disabled { color:#77818f; }
-            QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
-            QLineEdit { padding:6px; }
-        """)
 
     def build_buttons(self):
         while self.bar_layout.count():
@@ -181,63 +162,254 @@ class MainWindow(QMainWindow):
         for entry in self.data["buttons"]:
             button = QPushButton(entry["label"])
             button.setToolTip(entry["command"])
-            button.clicked.connect(lambda checked=False, command=entry["command"]: self.terminal.run_command(command))
-            button.setEnabled(bool(self.terminal.process))
+            # A mouse click should return input to this tab's terminal.
+            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            button.clicked.connect(lambda checked=False, command=entry["command"]:
+                                   self.terminal.run_command(command))
             self.bar_layout.addWidget(button)
             self.command_buttons.append(button)
         self.bar_layout.addStretch()
+        self.set_running(bool(self.terminal.process))
 
-    def on_ready(self):
+    def set_running(self, running):
+        for button in self.command_buttons:
+            button.setEnabled(running)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, terminal_factory=create_terminal):
+        super().__init__()
+        self.terminal_factory = terminal_factory
+        self.setWindowTitle("gitbasher — Git Bash")
+        self.resize(1120, 760)
+        self.config_error = ""
+        self.restoring = True
+        self.closing = False
+        try:
+            self.data = config.load()
+        except (OSError, ValueError) as error:
+            self.data = config.defaults()
+            self.config_error = str(error)
+        self.allow_save = not bool(self.config_error)
+        self.data["bash_path"] = self.data["bash_path"] or config.find_bash()
+        self.save_timer = QTimer(self)
+        self.save_timer.setSingleShot(True)
+        self.save_timer.setInterval(350)
+        self.save_timer.timeout.connect(self.persist)
+        self.tabs = QTabWidget()
+        self.tabs.setTabsClosable(True)
+        self.tabs.setMovable(True)
+        self.tabs.setDocumentMode(True)
+        self.tabs.tabCloseRequested.connect(self.close_tab)
+        self.tabs.tabBarDoubleClicked.connect(self.rename_tab)
+        self.tabs.currentChanged.connect(self.tab_changed)
+        self.tabs.tabBar().tabMoved.connect(self.schedule_save)
+        add = QPushButton("+ New tab")
+        add.clicked.connect(self.new_tab)
+        self.tabs.setCornerWidget(add, Qt.Corner.TopRightCorner)
+        self.setCentralWidget(self.tabs)
+        menu = self.menuBar().addMenu("Session")
+        for label, callback, shortcut in (
+            ("New tab", self.new_tab, "Ctrl+Shift+T"),
+            ("Rename tab…", lambda: self.rename_tab(self.tabs.currentIndex()), ""),
+            ("Close tab", lambda: self.close_tab(self.tabs.currentIndex()), "Ctrl+Shift+W"),
+            ("Restart shell…", self.restart, ""),
+            ("Interrupt (Ctrl+C)", self.interrupt, ""),
+            ("Configure tab…", self.configure, ""),
+        ):
+            action = QAction(label, self)
+            action.triggered.connect(callback)
+            if shortcut:
+                action.setShortcut(shortcut)
+            menu.addAction(action)
+        for profile in self.data["tabs"]:
+            self.add_tab(profile)
+        self.tabs.setCurrentIndex(self.data["active_tab"])
+        self.restoring = False
+        self.tab_changed()
+        self.setStyleSheet("""
+            QMainWindow,QDialog,QWidget { background:#181e29;color:#dde4ef; }
+            QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
+            QPushButton:hover { border-color:#70dcc2; }
+            QPushButton:disabled { color:#77818f; }
+            QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
+            QLineEdit { padding:6px; }
+            QTabBar::tab { padding:9px 16px;background:#202a39; }
+            QTabBar::tab:selected { background:#33475a;color:#70dcc2; }
+        """)
         if self.config_error:
-            QMessageBox.warning(self, "Settings could not be read",
-                f"{self.config_error}\n\nDefaults are in use. The original file is unchanged until you save settings.")
-        if not self.data["bash_path"]:
-            self.statusBar().showMessage("Choose your Git Bash executable in Configure.")
-            self.configure()
-        self.start_shell()
+            QTimer.singleShot(0, self.show_config_error)
 
-    def start_shell(self):
+    def show_config_error(self):
+        QMessageBox.warning(self, "Settings could not be read",
+            f"{self.config_error}\n\nDefaults are in use. The original file is unchanged until you save tab settings.")
+
+    def current_tab(self):
+        return self.tabs.currentWidget()
+
+    def add_tab(self, profile):
+        tab = ShellTab(profile, self, self.terminal_factory)
+        tab.configure_requested.connect(lambda: self.configure(tab))
+        tab.terminal.loaded.connect(lambda: self.start_shell(tab))
+        tab.terminal.ended.connect(lambda text: self.on_ended(tab, text))
+        tab.terminal.problem.connect(lambda text: self.show_status(tab, text))
+        tab.terminal.directory_changed.connect(lambda path: self.directory_changed(tab, path))
+        self.tabs.addTab(tab, profile["name"])
+        return tab
+
+    def new_tab(self):
+        profile = config.default_tab(f"Git Bash {self.tabs.count() + 1}")
+        current = self.current_tab()
+        if current:
+            profile["startup_folder"] = current.data["current_folder"]
+            profile["current_folder"] = current.data["current_folder"]
+        tab = self.add_tab(profile)
+        self.tabs.setCurrentWidget(tab)
+        self.schedule_save()
+
+    def rename_tab(self, index):
+        if index < 0:
+            return
+        tab = self.tabs.widget(index)
+        name, accepted = QInputDialog.getText(self, "Rename tab", "Tab name:", text=tab.data["name"])
+        if accepted and name.strip():
+            tab.data["name"] = name.strip()
+            self.tabs.setTabText(index, tab.data["name"])
+            self.schedule_save()
+
+    def tab_changed(self, *args):
+        tab = self.current_tab()
+        if tab:
+            self.statusBar().showMessage(tab.status)
+            if tab.terminal.ready:
+                tab.terminal.bridge.focus.emit()
+        self.schedule_save()
+
+    def show_status(self, tab, text):
+        tab.status = text
+        if tab is self.current_tab():
+            self.statusBar().showMessage(text)
+
+    def directory_changed(self, tab, path):
+        if tab.data["current_folder"] != path:
+            tab.data["current_folder"] = path
+            self.schedule_save()
+
+    def snapshot(self):
+        return {"version": 2, "bash_path": self.data["bash_path"],
+                "active_tab": self.tabs.currentIndex(),
+                "tabs": [copy.deepcopy(self.tabs.widget(i).data) for i in range(self.tabs.count())]}
+
+    def schedule_save(self, *args):
+        if not self.restoring and not self.closing and self.allow_save:
+            self.save_timer.start()
+
+    def persist(self):
+        if not self.allow_save:
+            return False
+        try:
+            config.save(self.snapshot())
+            return True
+        except (ValueError, OSError) as error:
+            self.statusBar().showMessage(f"Could not save workspace: {error}")
+            return False
+
+    def start_shell(self, tab):
+        if self.tabs.indexOf(tab) < 0 or self.closing:
+            return
         try:
             if not Path(self.data["bash_path"]).is_file():
-                raise ValueError("Git Bash was not found. Choose Git/bin/bash.exe in Configure.")
-            if not Path(self.data["startup_folder"]).is_dir():
-                raise ValueError("Startup folder no longer exists. Update it in Configure.")
-            self.terminal.start(self.data["bash_path"], self.data["startup_folder"])
+                raise ValueError("Git Bash was not found. Choose Git/bin/bash.exe in Configure tab.")
+            folder = tab.data["current_folder"]
+            if not Path(folder).is_dir():
+                folder = tab.data["startup_folder"]
+            if not Path(folder).is_dir():
+                folder = str(Path.home())
+            if folder != tab.data["current_folder"]:
+                tab.data["current_folder"] = folder
+                self.schedule_save()
+            tab.terminal.start(self.data["bash_path"], folder)
         except Exception as error:
-            self.statusBar().showMessage("Shell could not start. Configure, then use Session → Restart shell.")
-            QMessageBox.warning(self, "Cannot start Git Bash", str(error))
+            self.show_status(tab, f"Cannot start shell: {error}")
+            tab.set_running(False)
             return
-        for button in self.command_buttons:
-            button.setEnabled(True)
-        self.statusBar().showMessage("Git Bash · Buttons type into the active terminal · Copy: Ctrl+Shift+C · Paste: Ctrl+Shift+V")
+        tab.set_running(True)
+        self.show_status(tab, "Git Bash · Buttons type into this shell · Copy: Ctrl+Shift+C · Paste: Ctrl+Shift+V")
 
-    def configure(self):
-        dialog = SettingsDialog(copy.deepcopy(self.data), self)
+    def configure(self, tab=None):
+        if not isinstance(tab, ShellTab):
+            tab = self.current_tab()
+        if not tab:
+            return
+        original = copy.deepcopy(tab.data)
+        original_bash = self.data["bash_path"]
+        dialog = SettingsDialog(dict(tab.data, bash_path=original_bash), self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.data = dialog.result_data
-            self.build_buttons()
+            result = copy.deepcopy(dialog.result_data)
+            self.data["bash_path"] = result.pop("bash_path")
+            tab.data = result
+            previous_allow = self.allow_save
+            self.allow_save = True
+            if not self.persist():
+                tab.data = original
+                self.data["bash_path"] = original_bash
+                self.allow_save = previous_allow
+                QMessageBox.warning(self, "Cannot save tab", "Changes were not saved. Check the status bar for details.")
+                return
+            self.tabs.setTabText(self.tabs.indexOf(tab), tab.data["name"])
+            tab.build_buttons()
+            if not tab.terminal.process and tab.terminal.ready:
+                self.start_shell(tab)
 
-    def on_ended(self, text):
-        for button in self.command_buttons:
-            button.setEnabled(False)
-        self.statusBar().showMessage(text)
+    def on_ended(self, tab, text):
+        tab.set_running(False)
+        self.show_status(tab, text)
+
+    def interrupt(self):
+        tab = self.current_tab()
+        if tab:
+            tab.terminal.write("\x03")
 
     def restart(self):
-        if not self.terminal.ready:
+        tab = self.current_tab()
+        if not tab or not tab.terminal.ready:
             return
-        if self.terminal.process and QMessageBox.question(self, "Restart shell?",
-                "Close the current shell and start a fresh session?") != QMessageBox.StandardButton.Yes:
+        if tab.terminal.process and QMessageBox.question(self, "Restart shell?",
+                f"Close the shell in {tab.data['name']} and start a fresh session?") != QMessageBox.StandardButton.Yes:
             return
-        self.terminal.stop()
-        self.on_ended("Starting shell…")
-        self.start_shell()
+        tab.terminal.stop()
+        tab.set_running(False)
+        self.start_shell(tab)
+
+    def close_tab(self, index):
+        if index < 0:
+            return
+        if self.tabs.count() == 1:
+            self.close()
+            return
+        tab = self.tabs.widget(index)
+        if tab.terminal.process and QMessageBox.question(self, "Close tab?",
+                f"Close {tab.data['name']} and its shell session?") != QMessageBox.StandardButton.Yes:
+            return
+        tab.terminal.stop()
+        self.tabs.removeTab(index)
+        tab.deleteLater()
+        self.schedule_save()
 
     def closeEvent(self, event):
-        if self.terminal.process and QMessageBox.question(self, "Close gitbasher?",
-                "Close the active shell session and quit?") != QMessageBox.StandardButton.Yes:
+        running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))
+        if running and QMessageBox.question(self, "Close gitbasher?",
+                f"Close {running} shell session(s) and quit? Your tabs and folders will be remembered.") != QMessageBox.StandardButton.Yes:
             event.ignore()
             return
-        self.terminal.stop()
+        self.save_timer.stop()
+        if self.allow_save and not self.persist():
+            QMessageBox.warning(self, "Workspace was not saved", "Could not save your tabs. Resolve the save error before closing.")
+            event.ignore()
+            return
+        self.closing = True
+        for i in range(self.tabs.count()):
+            self.tabs.widget(i).terminal.stop()
         event.accept()
 
 
@@ -250,3 +422,5 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
+

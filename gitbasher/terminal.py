@@ -10,6 +10,7 @@ from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMessageBox
+from .shell_integration import create_init_file, valid_reported_directory
 
 
 class LocalPage(QWebEnginePage):
@@ -37,6 +38,11 @@ class Bridge(QObject):
     @Slot(str)
     def input(self, data):
         self.terminal.write(data)
+
+    @Slot(str)
+    def directory(self, path):
+        if valid_reported_directory(path):
+            self.terminal.directory_changed.emit(path)
 
     @Slot(str)
     def copy(self, text):
@@ -68,6 +74,7 @@ class Terminal(QWebEngineView):
     loaded = Signal()
     ended = Signal(str)
     problem = Signal(str)
+    directory_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -77,6 +84,7 @@ class Terminal(QWebEngineView):
         self.messages = queue.Queue(maxsize=128)
         self.stopping = threading.Event()
         self.reader = None
+        self.init_file = None
         self.setPage(LocalPage(self))
         self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False)
         self.channel = QWebChannel(self.page())
@@ -97,12 +105,19 @@ class Terminal(QWebEngineView):
         if sys.platform != "win32":
             raise RuntimeError("gitbasher currently requires Windows 10/11.")
         from winpty import PtyProcess, Backend
-        env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", CHERE_INVOKING="1")
+        env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", CHERE_INVOKING="1",
+                   GITBASHER_START_DIR=Path(folder).as_posix())
         self.stopping.clear()
-        self.process = PtyProcess.spawn(
-            [bash_path, "--login", "-i"], cwd=folder, env=env,
-            dimensions=self.dimensions, backend=Backend.ConPTY,
-        )
+        self.cleanup_init_file()
+        self.init_file = create_init_file()
+        try:
+            self.process = PtyProcess.spawn(
+                [bash_path, "--rcfile", self.init_file.as_posix(), "-i"], cwd=folder, env=env,
+                dimensions=self.dimensions, backend=Backend.ConPTY,
+            )
+        except Exception:
+            self.cleanup_init_file()
+            raise
         self.reader = threading.Thread(target=self.read_loop, args=(self.process,), daemon=True)
         self.reader.start()
 
@@ -143,6 +158,7 @@ class Terminal(QWebEngineView):
                 self.problem.emit(data)
             else:
                 self.process = None
+                self.cleanup_init_file()
                 self.ended.emit(data)
         if chunks:
             self.bridge.output.emit("".join(chunks))
@@ -156,8 +172,17 @@ class Terminal(QWebEngineView):
 
     def run_command(self, command):
         # Terminal.paste uses bracketed-paste mode when enabled by the active program.
-        self.bridge.paste.emit(command)
-        self.bridge.focus.emit()
+        if self.process:
+            self.bridge.paste.emit(command)
+            self.bridge.focus.emit()
+
+    def cleanup_init_file(self):
+        if self.init_file:
+            try:
+                self.init_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            self.init_file = None
 
     def stop(self):
         self.stopping.set()
@@ -169,6 +194,7 @@ class Terminal(QWebEngineView):
                 pass
         if self.reader:
             self.reader.join(timeout=0.5)
+        self.cleanup_init_file()
         while True:
             try:
                 self.messages.get_nowait()

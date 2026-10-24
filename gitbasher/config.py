@@ -1,5 +1,6 @@
 """Validated settings; atomic writes leave previous settings intact on failure."""
 import json
+import copy
 import os
 import shutil
 import tempfile
@@ -11,8 +12,9 @@ def config_path():
     return root / "gitbasher" / "settings.json"
 
 
-def defaults():
-    return {"bash_path": "", "startup_folder": str(Path.home()), "buttons": [
+def default_tab(name="Git Bash"):
+    return {"name": name, "startup_folder": str(Path.home()),
+            "current_folder": str(Path.home()), "buttons": [
         {"label": "Status", "command": "git status --short --branch"},
         {"label": "Diff", "command": "git diff"},
         {"label": "Log", "command": "git log --oneline -15"},
@@ -20,15 +22,14 @@ def defaults():
     ]}
 
 
-def validate(data):
-    if not isinstance(data, dict):
-        raise ValueError("Settings must be a JSON object.")
-    for key in ("bash_path", "startup_folder"):
-        if not isinstance(data.get(key), str):
-            raise ValueError(f"{key} must be a string.")
-    if not isinstance(data.get("buttons"), list):
+def defaults():
+    return {"version": 2, "bash_path": "", "tabs": [default_tab()], "active_tab": 0}
+
+
+def validate_buttons(buttons):
+    if not isinstance(buttons, list):
         raise ValueError("buttons must be a list.")
-    for button in data["buttons"]:
+    for button in buttons:
         if not isinstance(button, dict):
             raise ValueError("Each button must have a label and command.")
         if any(not isinstance(button.get(k), str) or not button[k].strip()
@@ -36,14 +37,51 @@ def validate(data):
             raise ValueError("Each button needs a nonempty label and command.")
         if any(ord(ch) < 32 and ch not in "\n\t" for ch in button["command"]):
             raise ValueError("Commands cannot contain terminal control characters.")
+
+
+def validate_tab(tab):
+    if not isinstance(tab, dict):
+        raise ValueError("Each tab must be an object.")
+    for key in ("name", "startup_folder", "current_folder"):
+        if not isinstance(tab.get(key), str) or not tab[key].strip():
+            raise ValueError(f"Tab {key} must be a nonempty string.")
+    validate_buttons(tab.get("buttons"))
+
+
+def validate(data):
+    if not isinstance(data, dict):
+        raise ValueError("Settings must be a JSON object.")
+    if data.get("version") != 2:
+        raise ValueError("Unsupported settings version.")
+    if not isinstance(data.get("bash_path"), str):
+        raise ValueError("bash_path must be a string.")
+    if not isinstance(data.get("tabs"), list) or not data["tabs"]:
+        raise ValueError("At least one tab is required.")
+    for tab in data["tabs"]:
+        validate_tab(tab)
+    active = data.get("active_tab")
+    if type(active) is not int or not 0 <= active < len(data["tabs"]):
+        raise ValueError("active_tab must identify an existing tab.")
     return data
+
+
+def migrate(data):
+    if isinstance(data, dict) and "version" not in data and "tabs" not in data:
+        if not isinstance(data.get("bash_path"), str) or not isinstance(data.get("startup_folder"), str):
+            raise ValueError("Invalid legacy shell settings.")
+        validate_buttons(data.get("buttons"))
+        tab = default_tab()
+        tab.update(startup_folder=data["startup_folder"], current_folder=data["startup_folder"],
+                   buttons=copy.deepcopy(data["buttons"]))
+        return validate({"version": 2, "bash_path": data["bash_path"], "tabs": [tab], "active_tab": 0})
+    return validate(data)
 
 
 def load(path=None):
     path = path or config_path()
     if not path.exists():
         return defaults()
-    return validate(json.loads(path.read_text(encoding="utf-8")))
+    return migrate(json.loads(path.read_text(encoding="utf-8")))
 
 
 def save(data, path=None):

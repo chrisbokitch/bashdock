@@ -8,6 +8,7 @@ import time
 import unittest
 
 from gitbasher.config import find_bash
+from gitbasher.shell_integration import create_init_file
 
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
@@ -17,7 +18,9 @@ class WindowsTests(unittest.TestCase):
         bash = find_bash()
         self.assertTrue(bash, "Install Git for Windows before running smoke tests")
         with tempfile.TemporaryDirectory(prefix="gitbasher space ") as folder:
-            process = PtyProcess.spawn([bash, "--login", "-i"], cwd=folder,
+            init_file = create_init_file()
+            self.addCleanup(lambda: init_file.unlink(missing_ok=True))
+            process = PtyProcess.spawn([bash, "--rcfile", init_file.as_posix(), "-i"], cwd=folder,
                 env=dict(os.environ, TERM="xterm-256color", CHERE_INVOKING="1"),
                 dimensions=(24, 80), backend=Backend.ConPTY)
             output = queue.Queue()
@@ -72,6 +75,40 @@ class WindowsTests(unittest.TestCase):
             self.assertTrue(terminal.ready, "Local xterm assets/WebChannel did not initialize")
             self.assertGreater(terminal.dimensions[0], 2)
             self.assertGreater(terminal.dimensions[1], 2)
+        finally:
+            terminal.stop()
+            terminal.close()
+
+    def test_terminal_reports_actual_working_directory_after_cd(self):
+        from PySide6.QtWidgets import QApplication
+        from gitbasher.terminal import Terminal
+        app = QApplication.instance() or QApplication([])
+        terminal = Terminal()
+        terminal.resize(900, 600)
+        terminal.show()
+        directories = []
+        terminal.directory_changed.connect(directories.append)
+
+        def wait_for(predicate):
+            deadline = time.monotonic() + 20
+            while not predicate() and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(predicate(), f"Timed out; reported folders: {directories}")
+
+        try:
+            wait_for(lambda: terminal.ready)
+            with tempfile.TemporaryDirectory(prefix="gitbasher cwd ") as folder:
+                terminal.start(find_bash(), folder)
+                wait_for(lambda: bool(directories))
+                self.assertEqual(os.path.normcase(os.path.normpath(folder)),
+                                 os.path.normcase(os.path.normpath(directories[-1])))
+                target = os.path.join(folder, "child with spaces")
+                os.mkdir(target)
+                terminal.run_command("cd 'child with spaces'")
+                wait_for(lambda: os.path.normcase(os.path.normpath(directories[-1])) ==
+                                os.path.normcase(os.path.normpath(target)))
+                terminal.stop()
         finally:
             terminal.stop()
             terminal.close()

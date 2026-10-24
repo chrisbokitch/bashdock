@@ -9,6 +9,12 @@ terminal.loadAddon(fit);
 terminal.open(document.getElementById('terminal'));
 new QWebChannel(qt.webChannelTransport, channel => {
   const bridge = channel.objects.bridge;
+  terminal.parser.registerOscHandler(777, data => {
+    const prefix = 'gitbasher-cwd;';
+    if (!data.startsWith(prefix)) return false;
+    bridge.directory(data.slice(prefix.length));
+    return true;
+  });
   terminal.onData(data => bridge.input(data));
   terminal.onResize(size => bridge.resize(size.cols, size.rows));
   bridge.output.connect(data => terminal.write(data));
@@ -28,6 +34,13 @@ new QWebChannel(qt.webChannelTransport, channel => {
     return true;
   });
   function bridgeCopy() { bridge.copy(terminal.getSelection()); }
-  new ResizeObserver(() => fit.fit()).observe(document.getElementById('terminal'));
-  requestAnimationFrame(() => { fit.fit(); bridge.ready(terminal.cols, terminal.rows); terminal.focus(); });
+  const fitVisible = () => {
+    const host = document.getElementById('terminal');
+    if (host.clientWidth > 30 && host.clientHeight > 30) fit.fit();
+  };
+  new ResizeObserver(fitVisible).observe(document.getElementById('terminal'));
+  // Hidden restored tabs must initialize too; requestAnimationFrame pauses while hidden.
+  fitVisible();
+  bridge.ready(terminal.cols, terminal.rows);
+  terminal.focus();
 });
