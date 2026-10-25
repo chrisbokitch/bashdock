@@ -204,6 +204,8 @@ class MainWindow(QMainWindow):
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
         self.tabs.setDocumentMode(True)
+        self.tabs.tabBar().setExpanding(False)
+        self.tabs.tabBar().setDrawBase(False)
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.tabBarDoubleClicked.connect(self.rename_tab)
         self.tabs.currentChanged.connect(self.tab_changed)
@@ -211,7 +213,12 @@ class MainWindow(QMainWindow):
         add = QPushButton("+ New tab")
         add.clicked.connect(self.new_tab)
         self.tabs.setCornerWidget(add, Qt.Corner.TopRightCorner)
-        self.setCentralWidget(self.tabs)
+        body = QWidget()
+        layout = QVBoxLayout(body)
+        layout.setContentsMargins(3, 0, 3, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self.tabs)
+        self.setCentralWidget(body)
         menu = self.menuBar().addMenu("Session")
         for label, callback, shortcut in (
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
@@ -244,8 +251,19 @@ class MainWindow(QMainWindow):
             QPushButton:disabled { color:#77818f; }
             QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
             QLineEdit { padding:6px; }
-            QTabBar::tab { padding:9px 16px;background:#202a39; }
-            QTabBar::tab:selected { background:#33475a;color:#70dcc2; }
+            QTabWidget::pane { border:0;border-top:1px solid #3c4b60;top:-1px; }
+            QTabBar::tab {
+                padding:4px 8px;background:#202a39;color:#aab6c8;
+                border:1px solid #3c4b60;
+                border-top-left-radius:6px;border-top-right-radius:6px;
+                margin-right:3px;margin-top:2px;
+            }
+            QTabBar::tab:!selected:hover { background:#2b394b;color:#dde4ef; }
+            QTabBar::tab:selected {
+                background:#181e29;color:#70dcc2;
+                border-top:2px solid #70dcc2;border-bottom-color:#181e29;
+                margin-top:0;
+            }
         """)
         if self.config_error:
             QTimer.singleShot(0, self.show_config_error)
