@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from . import config
 from ._version import __version__
-from .window_theme import apply_titlebar
+from .window_theme import install_titlebar_theme
 from .external_shell import open_external
 from .terminal_settings import TerminalSettingsDialog
 
@@ -324,6 +324,7 @@ class TabStrip(QTabBar):
 class MainWindow(QMainWindow):
     def __init__(self, terminal_factory=create_terminal):
         super().__init__()
+        install_titlebar_theme(QApplication.instance())
         self.terminal_factory = terminal_factory
         self.setWindowTitle("BashDock — Git Bash")
         self.setWindowIcon(QIcon(str(APP_ICON)))
@@ -865,11 +866,6 @@ class MainWindow(QMainWindow):
         dialog.setCheckBox(skip)
         accepted = dialog.exec() == QMessageBox.StandardButton.Yes
         return accepted, skip.isChecked()
-
-    def showEvent(self, event):
-        super().showEvent(event)
-        if sys.platform == "win32":
-            apply_titlebar(int(self.winId()))
 
     def closeEvent(self, event):
         running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))

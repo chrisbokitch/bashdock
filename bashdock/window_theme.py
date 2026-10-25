@@ -3,6 +3,31 @@ import ctypes
 import sys
 from ctypes import wintypes
 
+from PySide6.QtCore import QEvent, QObject, Qt
+from PySide6.QtWidgets import QWidget
+
+
+class TitlebarTheme(QObject):
+    """Theme each app window when its native handle is available, including modal dialogs."""
+    def eventFilter(self, watched, event):
+        if (sys.platform == "win32" and event.type() == QEvent.Type.Show
+                and isinstance(watched, QWidget) and watched.isWindow()
+                and watched.windowType() not in (Qt.WindowType.Popup, Qt.WindowType.ToolTip)):
+            apply_titlebar(int(watched.winId()))
+        return False
+
+
+def install_titlebar_theme(app):
+    if sys.platform != "win32":
+        return
+    if getattr(app, "_bashdock_titlebar_theme", None) is None:
+        # Qt-owned file/folder and colour pickers can use the same caption theme
+        # as our other dialogs; OS-owned common dialogs cannot use this filter.
+        app.setAttribute(Qt.ApplicationAttribute.AA_DontUseNativeDialogs, True)
+        theme = TitlebarTheme(app)
+        app.installEventFilter(theme)
+        app._bashdock_titlebar_theme = theme
+
 
 def colorref(hex_color):
     red, green, blue = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
