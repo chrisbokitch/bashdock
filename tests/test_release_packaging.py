@@ -107,7 +107,8 @@ class ReleasePackagingTests(unittest.TestCase):
             commit = git('rev-parse', 'HEAD')
             archive = create_source_archive(root, root / 'release', '0.10.2', commit)
             with zipfile.ZipFile(archive) as bundle:
-                self.assertEqual('print("committed")\n', bundle.read('bashdock-source/app.py').decode())
+                committed = subprocess.check_output(['git', 'show', 'HEAD:app.py'], cwd=root)
+                self.assertEqual(committed, bundle.read('bashdock-source/app.py'))
                 self.assertEqual(commit, bundle.read('bashdock-source/SOURCE-COMMIT.txt').decode().strip())
                 self.assertFalse(any('copy.sh' in n for n in bundle.namelist()))
             (root / 'app.py').write_text('uncommitted change')
