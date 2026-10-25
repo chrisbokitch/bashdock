@@ -397,6 +397,15 @@ class MainWindow(QMainWindow):
         terminal_action.triggered.connect(self.configure_terminal)
         settings.addAction(terminal_action)
         settings.addSeparator()
+        for label, callback in (
+            ("Export settings…", self.export_settings),
+            ("Import settings…", self.import_settings),
+            ("Restore automatic backup…", self.restore_backup),
+        ):
+            action = QAction(label, self)
+            action.triggered.connect(callback)
+            settings.addAction(action)
+        settings.addSeparator()
         self.confirm_exit_action = QAction("Confirm before quitting", self)
         self.confirm_exit_action.setCheckable(True)
         self.confirm_exit_action.setChecked(self.data["confirm_on_exit"])
@@ -449,8 +458,103 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(0, self.show_config_error)
 
     def show_config_error(self):
-        QMessageBox.warning(self, "Settings could not be read",
-            f"{self.config_error}\n\nDefaults are in use. The original file is unchanged until you save tab settings.")
+        if not self.config_error:
+            return
+        self.statusBar().showMessage("Settings could not be read. Choose a recovery option in Settings.")
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Recover settings")
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setText("BashDock could not read your settings.")
+        dialog.setInformativeText(
+            "Restore the automatic backup, import an exported settings file, or start fresh. "
+            "The damaged file will be preserved when you recover.\n\n"
+            "Until then, defaults are in use and automatic saving is paused.\n\n"
+            f"File: {config.config_path()}\n{self.config_error}")
+        restore = dialog.addButton("Restore backup…", QMessageBox.ButtonRole.ActionRole)
+        restore.setEnabled(config.backup_path().is_file())
+        imported = dialog.addButton("Import settings…", QMessageBox.ButtonRole.ActionRole)
+        fresh = dialog.addButton("Start fresh…", QMessageBox.ButtonRole.ActionRole)
+        dialog.addButton(QMessageBox.StandardButton.Cancel)
+        dialog.exec()
+        clicked = dialog.clickedButton()
+        dialog.deleteLater()
+        if clicked == restore:
+            self.restore_backup()
+        elif clicked == imported:
+            self.import_settings()
+        elif clicked == fresh:
+            self.replace_workspace(config.defaults(), "Start with default settings")
+
+    def export_settings(self):
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export settings", str(Path.home() / "bashdock-settings.json"), "JSON settings (*.json)")
+        if not filename:
+            return
+        try:
+            path = Path(filename)
+            if path.resolve() in (config.config_path().resolve(), config.backup_path().resolve()):
+                raise ValueError("Choose a separate file for your export, outside the active settings and automatic backup.")
+            config.save(self.snapshot(), path, backup=False)
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, "Cannot export settings", str(error))
+            return
+        self.statusBar().showMessage(f"Settings exported to {filename}")
+
+    def import_settings(self, checked=False, *, path=None):
+        if path is None:
+            filename, _ = QFileDialog.getOpenFileName(
+                self, "Import settings", str(Path.home()), "Settings files (*.json *.bak);;All files (*)")
+            if not filename:
+                return
+            path = Path(filename)
+        try:
+            data = config.read(path)
+        except (OSError, ValueError) as error:
+            QMessageBox.warning(self, "Cannot import settings", f"The settings file was not imported.\n\n{error}")
+            return
+        self.replace_workspace(data, f"Import settings from {path}")
+
+    def restore_backup(self):
+        self.import_settings(path=config.backup_path())
+
+    def replace_workspace(self, data, description):
+        running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))
+        if QMessageBox.question(self, "Replace workspace?",
+                f"{description}?\n\nThis will replace your tabs and settings with {len(data['tabs'])} tab(s) "
+                f"and close {running} running shell session(s). "
+                "Your current workspace will be backed up first. Only import settings files you trust.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+            return False
+        self.save_timer.stop()
+        try:
+            if self.allow_save:
+                config.archive_workspace(self.snapshot())
+            # Commit to disk before touching any live shells. Saving also preserves damaged files.
+            config.save(data)
+        except (OSError, ValueError) as error:
+            self.schedule_save()
+            QMessageBox.warning(self, "Cannot replace workspace", f"Your open shells were kept.\n\n{error}")
+            return False
+        self.restoring = True
+        for i in reversed(range(self.tabs.count())):
+            tab = self.tabs.widget(i)
+            tab.terminal.stop()
+            self.tabs.removeTab(i)
+            tab.deleteLater()
+        self.data = copy.deepcopy(data)
+        self.data["bash_path"] = self.data["bash_path"] or config.find_bash()
+        self.config_error = ""
+        self.allow_save = True
+        for profile in self.data["tabs"]:
+            self.add_tab(profile)
+        self.tabs.setCurrentIndex(self.data["active_tab"])
+        self.sync_confirm_action()
+        self.restore_window_geometry()
+        self.restoring = False
+        self.tab_changed()
+        self.statusBar().showMessage("Settings restored. Your previous settings were backed up.")
+        return True
 
     def current_tab(self):
         return self.tabs.currentWidget()

@@ -88,6 +88,142 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def test_export_includes_unsaved_workspace_without_changing_live_sessions(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        tab.data["name"] = "Unsaved name"
+        target = Path(self.temp.name) / "export.json"
+        original = self.path.read_bytes()
+        with patch("bashdock.app.QFileDialog.getSaveFileName", return_value=(str(target), "")):
+            self.window.export_settings()
+        self.assertEqual("Unsaved name", config.read(target)["tabs"][0]["name"])
+        self.assertEqual(original, self.path.read_bytes())
+        self.assertFalse(config.backup_path(target).exists())
+        self.assertEqual(0, tab.terminal.stops)
+
+    def test_import_restores_workspace_and_archives_live_settings_before_stopping_shells(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        tab.data["name"] = "Unsaved previous workspace"
+        imported = config.defaults()
+        imported["bash_path"] = str(self.bash)
+        imported["tabs"] = [config.default_tab("Imported one"), config.default_tab("Imported two")]
+        imported["active_tab"] = 1
+        imported["terminal"]["font_size"] = 22
+        imported["confirm_on_exit"] = False
+        target = Path(self.temp.name) / "export.json"
+        config.save(imported, target, backup=False)
+        self.window.import_settings(path=target)
+        self.assertEqual(1, tab.terminal.stops)
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertEqual("Imported two", self.window.current_tab().data["name"])
+        self.assertEqual(22, self.window.current_tab().terminal.preferences["font_size"])
+        self.assertFalse(self.window.confirm_exit_action.isChecked())
+        self.assertEqual(imported, config.read(self.path))
+        archives = list((self.path.parent / "backups").glob("settings-before-import-*.json"))
+        self.assertEqual(1, len(archives))
+        self.assertEqual("Unsaved previous workspace", config.read(archives[0])["tabs"][0]["name"])
+
+    def test_cancelled_or_invalid_import_keeps_settings_and_shells(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = self.path.read_bytes()
+        with patch("bashdock.app.QMessageBox.question", return_value=QMessageBox.StandardButton.No):
+            self.window.import_settings(path=self.path)
+        target = Path(self.temp.name) / "invalid.json"
+        target.write_text('{"version": 999}', encoding="utf-8")
+        with patch("bashdock.app.QMessageBox.warning") as warning:
+            self.window.import_settings(path=target)
+            self.window.import_settings(path=target.parent / "missing.json")
+        self.assertEqual(2, warning.call_count)
+        self.assertEqual(0, tab.terminal.stops)
+        self.assertEqual(original, self.path.read_bytes())
+        self.assertFalse((self.path.parent / "backups").exists())
+
+    def test_failed_import_write_keeps_existing_shells_and_workspace(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = self.path.read_bytes()
+        real_save = config.save
+        for fail_archive in (True, False):
+            def fail_save(data, path=None, **kwargs):
+                if fail_archive or path is None:
+                    raise PermissionError("locked")
+                real_save(data, path, **kwargs)
+
+            with patch("bashdock.config.save", side_effect=fail_save), \
+                    patch("bashdock.app.QMessageBox.warning") as warning:
+                self.assertFalse(self.window.replace_workspace(config.defaults(), "Import settings"))
+            warning.assert_called_once()
+            self.assertIs(tab, self.window.current_tab())
+            self.assertEqual(0, tab.terminal.stops)
+            self.assertEqual(original, self.path.read_bytes())
+
+    def test_startup_recovery_restores_backup_and_preserves_damaged_file(self):
+        from PySide6.QtCore import QTimer
+
+        self.window.allow_save = False
+        self.window.close()
+        self.window.deleteLater()
+        expected = config.read(config.backup_path(self.path))
+        damaged = b'{"version": broken'
+        self.path.write_bytes(damaged)
+        self.window = MainWindow(terminal_factory=FakeTerminal)
+        self.assertFalse(self.window.allow_save)
+
+        def choose_restore():
+            dialog = self.app.activeModalWidget()
+            self.assertEqual("Recover settings", dialog.windowTitle())
+            next(b for b in dialog.buttons() if b.text() == "Restore backup…").click()
+
+        QTimer.singleShot(0, choose_restore)
+        self.app.processEvents()
+        self.assertTrue(self.window.allow_save)
+        self.assertEqual("", self.window.config_error)
+        self.assertEqual(expected, config.read(self.path))
+        archives = list((self.path.parent / "backups").glob("settings-damaged-*.json"))
+        self.assertEqual([damaged], [p.read_bytes() for p in archives])
+
+    def test_cancelled_recovery_does_not_overwrite_damaged_settings(self):
+        from PySide6.QtCore import QTimer
+
+        self.window.allow_save = False
+        self.window.close()
+        self.window.deleteLater()
+        damaged = b'not json'
+        self.path.write_bytes(damaged)
+        self.window = MainWindow(terminal_factory=FakeTerminal)
+        QTimer.singleShot(0, lambda: self.app.activeModalWidget().reject())
+        self.app.processEvents()
+        self.assertFalse(self.window.allow_save)
+        self.assertFalse(self.window.persist())
+        self.assertEqual(damaged, self.path.read_bytes())
+
+    def test_start_fresh_without_backup_preserves_damaged_settings_and_resumes_saving(self):
+        from PySide6.QtCore import QTimer
+
+        self.window.allow_save = False
+        self.window.close()
+        self.window.deleteLater()
+        config.backup_path(self.path).unlink()
+        damaged = b'not json'
+        self.path.write_bytes(damaged)
+        self.window = MainWindow(terminal_factory=FakeTerminal)
+
+        def choose_fresh():
+            dialog = self.app.activeModalWidget()
+            restore = next(b for b in dialog.buttons() if b.text() == "Restore backup…")
+            self.assertFalse(restore.isEnabled())
+            next(b for b in dialog.buttons() if b.text() == "Start fresh…").click()
+
+        QTimer.singleShot(0, choose_fresh)
+        self.app.processEvents()
+        self.assertTrue(self.window.allow_save)
+        self.assertEqual(config.defaults(), config.read(self.path))
+        archives = list((self.path.parent / "backups").glob("settings-damaged-*.json"))
+        self.assertEqual([damaged], [p.read_bytes() for p in archives])
+        self.assertTrue(self.window.persist())
+
     def reopen_window(self):
         self.window.data["confirm_on_exit"] = False
         self.window.close()
@@ -373,6 +509,9 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual("Ctrl+Shift+T", manage[0].shortcut().toString())
         self.assertEqual("Ctrl+Shift+W", manage[2].shortcut().toString())
         self.assertIn(self.window.confirm_exit_action, menus["Settings"].actions())
+        settings_labels = [a.text() for a in menus["Settings"].actions()]
+        for label in ("Export settings…", "Import settings…", "Restore automatic backup…"):
+            self.assertIn(label, settings_labels)
         manage[0].trigger()
         self.assertEqual(2, self.window.tabs.count())
         with patch("bashdock.app.QDialog.exec", return_value=0) as show:

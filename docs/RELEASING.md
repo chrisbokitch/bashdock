@@ -52,6 +52,8 @@ Download the ZIP attached to the draft and test that exact file on the clean Win
 - Exercise typing, arrows, completion, Ctrl+C, Unicode, and pagers such as `git log`/`less`.
 - Check selection, copy/paste, multiline confirmation, and optional mouse behaviour.
 - Change terminal settings, verify every tab updates, and verify settings survive reopening.
+- Export settings, change tab names/buttons, then import the export; confirm the restored workspace and the separate pre-import backup. Cancel an import and try an invalid file; existing shells must remain open.
+- In the disposable VM, close BashDock, damage `%APPDATA%\bashdock\settings.json`, and relaunch. Restore the automatic backup and confirm the damaged file is preserved in the `backups` folder. Also check cancelling recovery and starting fresh.
 - Open an external shell in the expected folder; confirm it survives closing BashDock.
 - Resize/maximize and inspect at 100%, 125%, and 150% scaling.
 - Check quit confirmation and the saved opt-out setting; confirm embedded shells stop on exit.

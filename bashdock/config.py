@@ -4,6 +4,8 @@ import copy
 import os
 import shutil
 import tempfile
+from datetime import datetime, timezone
+from uuid import uuid4
 from pathlib import Path
 from . import terminal_preferences
 
@@ -94,26 +96,72 @@ def load(path=None):
         legacy = path.parent.parent / "gitbasher" / "settings.json"
         if not path.exists() and legacy.exists():
             # Copy validated settings once; preserve the original for older installs.
-            data = migrate(json.loads(legacy.read_text(encoding="utf-8")))
+            data = read(legacy)
             save(data, path)
             return data
     if not path.exists():
         return defaults()
-    return migrate(json.loads(path.read_text(encoding="utf-8")))
+    return read(path)
 
 
-def save(data, path=None):
-    validate(data)
-    path = path or config_path()
+def read(path):
+    """Read an existing settings file; imports must never default a missing file."""
+    return migrate(json.loads(Path(path).read_text(encoding="utf-8")))
+
+
+def backup_path(path=None):
+    path = Path(path or config_path())
+    return path.with_name(path.name + ".bak")
+
+
+def archive_path(label, path=None):
+    path = Path(path or config_path())
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    return path.parent / "backups" / f"settings-{label}-{stamp}-{uuid4().hex[:8]}.json"
+
+
+def archive_workspace(data):
+    """Keep a separate, non-rotating copy before replacing an open workspace."""
+    path = archive_path("before-import")
+    save(data, path, backup=False)
+    return path
+
+
+def atomic_write(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(dir=path.parent, prefix="settings-", suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            json.dump(data, stream, indent=2, ensure_ascii=False)
-            stream.write("\n")
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
         os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)
+
+
+def save(data, path=None, *, backup=True):
+    validate(data)
+    path = Path(path or config_path())
+    content = (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    previous = path.read_bytes() if path.exists() else None
+    if previous == content:
+        if backup and not backup_path(path).exists():
+            atomic_write(backup_path(path), content)
+        return
+    if backup:
+        if previous is None:
+            # Also protect the very first saved workspace.
+            atomic_write(backup_path(path), content)
+        else:
+            try:
+                migrate(json.loads(previous.decode("utf-8")))
+            except (ValueError, UnicodeError):
+                # A damaged file must never replace the last valid backup.
+                atomic_write(archive_path("damaged", path), previous)
+            else:
+                atomic_write(backup_path(path), previous)
+    atomic_write(path, content)
 
 
 def find_bash():

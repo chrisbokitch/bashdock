@@ -55,7 +55,90 @@ class ConfigTests(unittest.TestCase):
                 with self.assertRaises(PermissionError):
                     config.save(changed, path)
             self.assertEqual(original, path.read_bytes())
+            self.assertEqual({path, config.backup_path(path)}, set(path.parent.iterdir()))
+
+    def test_automatic_backup_keeps_previous_valid_settings_and_ignores_noop_saves(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            first = config.defaults()
+            config.save(first, path)
+            self.assertEqual(first, config.read(config.backup_path(path)))
+            second = config.defaults()
+            second["tabs"][0]["name"] = "Changed workspace"
+            config.save(second, path)
+            config.save(second, path)
+            self.assertEqual(first, config.read(config.backup_path(path)))
+            self.assertEqual(second, config.read(path))
+
+    def test_saving_over_damaged_settings_preserves_bytes_and_good_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            good = config.defaults()
+            config.save(good, path)
+            damaged = b'\xff{"broken":'
+            path.write_bytes(damaged)
+            recovered = config.defaults()
+            recovered["tabs"][0]["name"] = "Recovered"
+            config.save(recovered, path)
+            self.assertEqual(good, config.read(config.backup_path(path)))
+            self.assertEqual(recovered, config.read(path))
+            archives = list((path.parent / "backups").glob("settings-damaged-*.json"))
+            self.assertEqual(1, len(archives))
+            self.assertEqual(damaged, archives[0].read_bytes())
+
+    def test_existing_unchanged_settings_gain_backup_and_primary_replace_failure_is_atomic(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            data = config.defaults()
+            config.save(data, path, backup=False)
+            original = path.read_bytes()
+            config.save(data, path)
+            self.assertEqual(original, config.backup_path(path).read_bytes())
+            changed = config.defaults()
+            changed["tabs"][0]["name"] = "New name"
+            real_replace = config.os.replace
+
+            def fail_primary(source, target):
+                if target == path:
+                    raise PermissionError("primary locked")
+                real_replace(source, target)
+
+            with patch("bashdock.config.os.replace", side_effect=fail_primary):
+                with self.assertRaises(PermissionError):
+                    config.save(changed, path)
+            self.assertEqual(original, path.read_bytes())
+            self.assertEqual(original, config.backup_path(path).read_bytes())
+            self.assertFalse(list(path.parent.glob("settings-*.tmp")))
+
+    def test_backup_failure_aborts_save_without_touching_primary_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            config.save(config.defaults(), path)
+            original = path.read_bytes()
+            changed = config.defaults()
+            changed["tabs"][0]["name"] = "Changed"
+            real_write = config.atomic_write
+
+            def fail_backup(target, content):
+                if target == config.backup_path(path):
+                    raise PermissionError("backup locked")
+                real_write(target, content)
+
+            with patch("bashdock.config.atomic_write", side_effect=fail_backup):
+                with self.assertRaises(PermissionError):
+                    config.save(changed, path)
+            self.assertEqual(original, path.read_bytes())
+
+    def test_import_requires_existing_valid_file_and_export_does_not_create_backups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "export.json"
+            with self.assertRaises(FileNotFoundError):
+                config.read(path)
+            config.save(config.defaults(), path, backup=False)
             self.assertEqual([path], list(path.parent.iterdir()))
+            path.write_text('{"version": 999}', encoding="utf-8")
+            with self.assertRaises(ValueError):
+                config.read(path)
 
     def test_invalid_settings_do_not_get_overwritten_on_read(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -140,6 +140,18 @@ Buttons send text followed by Enter to the active terminal, just like typing. Us
 
 Settings are stored as JSON in `%APPDATA%\bashdock\settings.json`. Changes save atomically. Buttons contain executable commands; only use commands you trust. Shell output and command history are not saved by the app; Bash itself may maintain its normal history file.
 
+## Settings backup and recovery
+
+- **Settings → Export settings…** saves your current tabs, command buttons, folders, terminal preferences, quit-confirmation preference, Git Bash path, and window geometry to a JSON file you choose. This includes recent changes that have not yet autosaved. Exports contain plain-text commands and local paths; store and share them accordingly.
+- **Settings → Import settings…** validates an existing settings file before asking to replace your workspace. Confirmation closes the current shells and creates the imported tabs with fresh shell sessions. Only import files you trust. The import is saved before any shell is stopped; a save or backup failure leaves your existing shells open. Cancel changes nothing.
+- **Settings → Restore automatic backup…** restores the previous valid saved settings from `%APPDATA%\bashdock\settings.json.bak`, using the same confirmation as an import. This is one rotating backup, not a full history. Identical saves do not rotate it.
+
+Before an import or restore, BashDock also saves the current in-memory workspace to a separate `settings-before-import-*.json` file in `%APPDATA%\bashdock\backups`. These copies do not rotate; use **Import settings…** to restore one, and delete older copies yourself when no longer needed. This protects changes that had not yet autosaved.
+
+If settings cannot be read at startup, a recovery dialog offers the automatic backup (when present), import, or starting fresh. Cancelling uses temporary defaults with autosaving paused. Replacing damaged settings preserves their original bytes in `backups\settings-damaged-*.json` and keeps the valid automatic backup. If the backup is also invalid, recovery reports the error and leaves the files untouched; choose another export or start fresh. Saving explicit tab changes can also replace the damaged settings after preserving them.
+
+Backups restore configuration, not running commands, shell variables, terminal output, or scrollback. When moving an export to another computer, check the Git Bash executable and folder paths; missing folders fall back to the startup folder or your home folder.
+
 ## Verify
 
 ```powershell
