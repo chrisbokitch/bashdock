@@ -82,11 +82,26 @@ class WindowsTests(unittest.TestCase):
                             background="#223344", scrollback=500)
             terminal.apply_settings(settings)
             observed = []
+            # Return a string across the Qt/Python boundary rather than relying
+            # on conversion of a JavaScript array into a Python list.
+            script = """(() => {
+                try {
+                    return JSON.stringify([terminal.options.fontSize, terminal.options.cursorStyle,
+                        terminal.options.theme.background, terminal.options.scrollback]);
+                } catch (error) {
+                    return JSON.stringify({error: String(error)});
+                }
+            })()"""
+
+            def receive(value):
+                try:
+                    observed.append(json.loads(value))
+                except (TypeError, ValueError):
+                    observed.append({"invalid_result": repr(value)})
+
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
-                terminal.page().runJavaScript(
-                    "[terminal.options.fontSize, terminal.options.cursorStyle, "
-                    "terminal.options.theme.background, terminal.options.scrollback]", observed.append)
+                terminal.page().runJavaScript(script, receive)
                 until = time.monotonic() + 0.1
                 while time.monotonic() < until:
                     app.processEvents()
