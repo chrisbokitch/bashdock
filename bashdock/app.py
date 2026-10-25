@@ -436,7 +436,8 @@ class MainWindow(QMainWindow):
         self.tab_changed()
         self.setStyleSheet("""
             QMainWindow,QDialog,QWidget { background:#181e29;color:#dde4ef; }
-            QMenu::item { padding-left:16px; padding-right:16px; }
+            QMenu::item { padding:2px 16px; }
+            QMenu::separator { height:1px; background:#3c4b60; margin:4px 0; }
             QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
             QPushButton:hover { border-color:#70dcc2; }
             QPushButton:disabled { color:#77818f; }
