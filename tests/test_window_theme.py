@@ -2,7 +2,7 @@ import ctypes
 import unittest
 from unittest.mock import Mock, patch
 
-from gitbasher import window_theme
+from bashdock import window_theme
 
 
 class WindowThemeTests(unittest.TestCase):

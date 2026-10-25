@@ -9,7 +9,7 @@ from pathlib import Path
 
 def config_path():
     root = Path(os.environ.get("APPDATA", Path.home() / ".config"))
-    return root / "gitbasher" / "settings.json"
+    return root / "bashdock" / "settings.json"
 
 
 def default_tab(name="Git Bash"):
@@ -85,7 +85,14 @@ def migrate(data):
 
 
 def load(path=None):
-    path = path or config_path()
+    if path is None:
+        path = config_path()
+        legacy = path.parent.parent / "gitbasher" / "settings.json"
+        if not path.exists() and legacy.exists():
+            # Copy validated settings once; preserve the original for older installs.
+            data = migrate(json.loads(legacy.read_text(encoding="utf-8")))
+            save(data, path)
+            return data
     if not path.exists():
         return defaults()
     return migrate(json.loads(path.read_text(encoding="utf-8")))

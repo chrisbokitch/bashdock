@@ -17,7 +17,7 @@ from . import config
 from ._version import __version__
 from .window_theme import apply_titlebar
 
-APP_ICON = Path(__file__).parent / "assets" / "gitbasher.ico"
+APP_ICON = Path(__file__).parent / "assets" / "bashdock.ico"
 
 
 def create_terminal(parent):
@@ -32,7 +32,7 @@ class FooterBar(QStatusBar):
         self.setSizeGripEnabled(False)
         self.version_label = QLabel(f"v{__version__}")
         self.version_label.setObjectName("footerVersion")
-        self.version_label.setToolTip("GitBasher version")
+        self.version_label.setToolTip("BashDock version")
         self.message_label = QLabel()
         self.message_label.setTextFormat(Qt.TextFormat.PlainText)
         self.addWidget(self.version_label)
@@ -302,7 +302,7 @@ class MainWindow(QMainWindow):
     def __init__(self, terminal_factory=create_terminal):
         super().__init__()
         self.terminal_factory = terminal_factory
-        self.setWindowTitle("gitbasher — Git Bash")
+        self.setWindowTitle("BashDock — Git Bash")
         self.setWindowIcon(QIcon(str(APP_ICON)))
         self.resize(1120, 760)
         self.config_error = ""
@@ -589,7 +589,7 @@ class MainWindow(QMainWindow):
 
     def confirm_quit(self, running):
         dialog = QMessageBox(self)
-        dialog.setWindowTitle("Close gitbasher?")
+        dialog.setWindowTitle("Close BashDock?")
         dialog.setText(f"Close {running} shell session(s) and quit?")
         dialog.setInformativeText("Your tabs and folders will be remembered.")
         dialog.setIcon(QMessageBox.Icon.Question)
@@ -634,13 +634,13 @@ def main():
     initialize()
     if sys.platform == "win32":
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("chrisbokitch.gitbasher")
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("chrisbokitch.bashdock")
     app = QApplication(sys.argv)
-    app.setApplicationName("gitbasher")
+    app.setApplicationName("BashDock")
     app.setApplicationVersion(__version__)
     app.setWindowIcon(QIcon(str(APP_ICON)))
     if sys.platform != "win32":
-        QMessageBox.warning(None, "Windows required", "gitbasher currently supports Windows 10/11 with Git for Windows.")
+        QMessageBox.warning(None, "Windows required", "BashDock currently supports Windows 10/11 with Git for Windows.")
         return
     window = MainWindow()
     window.show()

@@ -8,8 +8,8 @@ import threading
 import time
 import unittest
 
-from gitbasher.config import find_bash
-from gitbasher.shell_integration import create_init_file
+from bashdock.config import find_bash
+from bashdock.shell_integration import create_init_file
 
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
@@ -18,7 +18,7 @@ class WindowsTests(unittest.TestCase):
         from winpty import PtyProcess, Backend
         bash = find_bash()
         self.assertTrue(bash, "Install Git for Windows before running smoke tests")
-        with tempfile.TemporaryDirectory(prefix="gitbasher space ") as folder:
+        with tempfile.TemporaryDirectory(prefix="bashdock space ") as folder:
             init_file = create_init_file()
             self.addCleanup(lambda: init_file.unlink(missing_ok=True))
             process = PtyProcess.spawn([bash, "--rcfile", init_file.as_posix(), "-i"], cwd=folder,
@@ -47,9 +47,9 @@ class WindowsTests(unittest.TestCase):
 
             try:
                 # Form markers from pieces so terminal echo cannot satisfy assertions.
-                process.write("export GITBASHER_SMOKE=kept; printf 'READY%s' 123\r")
+                process.write("export BASHDOCK_SMOKE=kept; printf 'READY%s' 123\r")
                 wait_for("READY123")
-                process.write("printf 'VALUE%s' \"$GITBASHER_SMOKE\"; [[ -d . ]] && printf 'DIR%s' OK\r")
+                process.write("printf 'VALUE%s' \"$BASHDOCK_SMOKE\"; [[ -d . ]] && printf 'DIR%s' OK\r")
                 wait_for("VALUEkept")
                 process.write("cd /; printf 'ROOT%s' \"$PWD\"\r")
                 wait_for("ROOT/")
@@ -63,7 +63,7 @@ class WindowsTests(unittest.TestCase):
 
     def test_local_terminal_loads_and_webchannel_is_ready(self):
         from PySide6.QtWidgets import QApplication
-        from gitbasher.terminal import Terminal
+        from bashdock.terminal import Terminal
         app = QApplication.instance() or QApplication([])
         terminal = Terminal()
         terminal.resize(900, 600)
@@ -82,7 +82,7 @@ class WindowsTests(unittest.TestCase):
 
     def test_terminal_reports_actual_working_directory_after_cd(self):
         from PySide6.QtWidgets import QApplication
-        from gitbasher.terminal import Terminal
+        from bashdock.terminal import Terminal
         app = QApplication.instance() or QApplication([])
         terminal = Terminal()
         terminal.resize(900, 600)
@@ -99,7 +99,7 @@ class WindowsTests(unittest.TestCase):
 
         try:
             wait_for(lambda: terminal.ready)
-            with tempfile.TemporaryDirectory(prefix="gitbasher cwd ") as folder:
+            with tempfile.TemporaryDirectory(prefix="bashdock cwd ") as folder:
                 terminal.start(find_bash(), folder)
                 wait_for(lambda: bool(directories))
                 self.assertEqual(os.path.normcase(os.path.normpath(folder)),
@@ -116,7 +116,7 @@ class WindowsTests(unittest.TestCase):
 
     def test_terminal_rows_fit_inside_view_after_resize(self):
         from PySide6.QtWidgets import QApplication
-        from gitbasher.terminal import Terminal
+        from bashdock.terminal import Terminal
         app = QApplication.instance() or QApplication([])
         terminal = Terminal()
         terminal.show()

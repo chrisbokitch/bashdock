@@ -1,8 +1,8 @@
 {
-  "name": "gitbasher",
-  "version": "0.4.11",
+  "name": "bashdock",
+  "version": "0.4.12",
   "private": true,
-  "description": "Development shortcuts for the gitbasher Python desktop app",
+  "description": "Development shortcuts for the bashdock Python desktop app",
   "engines": {
     "node": ">=20"
   },

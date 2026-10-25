@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const output = '# Generated from package.json by scripts/sync-version.cjs; do not edit directly.\n' +
                `__version__ = ${JSON.stringify(version)}\n`;
-const target = path.join(root, 'gitbasher', '_version.py');
+const target = path.join(root, 'bashdock', '_version.py');
 if (process.argv.includes('--check')) {
   const actual = fs.existsSync(target) ? fs.readFileSync(target, 'utf8').replace(/\r\n/g, '\n') : '';
   const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));

@@ -50,12 +50,12 @@ if (!existsSync(python)) {
 if (task === 'test') {
   run(python, ['-m', 'unittest', 'discover', '-s', 'tests', '-v']);
 } else if (task === 'preview') {
-  run(python, ['-m', 'gitbasher']);
+  run(python, ['-m', 'bashdock']);
 } else if (task === 'compile') {
   // Install the optional build tools before invoking PyInstaller in the same venv.
   run(python, ['-m', 'pip', 'install', '-e', '.[build]']);
-  run(python, ['-m', 'PyInstaller', '--clean', '--noconfirm', 'gitbasher.spec']);
-  const executable = path.join(root, 'dist', 'gitbasher', 'gitbasher.exe');
+  run(python, ['-m', 'PyInstaller', '--clean', '--noconfirm', 'bashdock.spec']);
+  const executable = path.join(root, 'dist', 'bashdock', 'bashdock.exe');
   if (!existsSync(executable)) {
     console.error(`Build completed without the expected executable: ${executable}`);
     process.exit(1);
@@ -64,5 +64,5 @@ if (task === 'test') {
   const report = path.join(root, 'build', 'packaged-shell-smoke.json');
   rmSync(report, { force: true });
   run(executable, ['--shell-smoke-test', report], { timeout: 60000, report });
-  console.log(`Built ${executable}\nKeep the entire dist/gitbasher folder together when copying the app.`);
+  console.log(`Built ${executable}\nKeep the entire dist/bashdock folder together when copying the app.`);
 }

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock
 
-from gitbasher import shell_backend, packaged_smoke, config
+from bashdock import shell_backend, packaged_smoke, config
 
 
 class BackendTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class BackendTests(unittest.TestCase):
                     self.assertEqual(["C:/Git/bin/bash.exe", "--rcfile", init.as_posix(), "-i"], args[0])
                     self.assertEqual(folder, kwargs["cwd"])
                     self.assertEqual((30, 100), kwargs["dimensions"])
-                    self.assertEqual(Path(folder).as_posix(), kwargs["env"]["GITBASHER_START_DIR"])
+                    self.assertEqual(Path(folder).as_posix(), kwargs["env"]["BASHDOCK_START_DIR"])
                 finally:
                     init.unlink()
 
@@ -57,7 +57,7 @@ class BackendTests(unittest.TestCase):
             init = Path(folder) / "init.bash"
             init.touch()
             process = Mock()
-            process.read.side_effect = ["echo of command", "GITBASHER_PACKAGED_", "SHELL_READY"]
+            process.read.side_effect = ["echo of command", "BASHDOCK_PACKAGED_", "SHELL_READY"]
             settings = config.defaults()
             settings["bash_path"] = "bash.exe"
             with patch.object(packaged_smoke.config, "load", return_value=settings), \

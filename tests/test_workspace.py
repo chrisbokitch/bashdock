@@ -12,8 +12,8 @@ if sys.platform != "win32":
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication, QWidget, QMessageBox
-from gitbasher import config
-from gitbasher.app import MainWindow, SettingsDialog
+from bashdock import config
+from bashdock.app import MainWindow, SettingsDialog
 
 
 class FakeBridge(QObject):
@@ -65,9 +65,9 @@ class WorkspaceTests(unittest.TestCase):
         data["tabs"][0]["startup_folder"] = self.temp.name
         data["tabs"][0]["current_folder"] = self.temp.name
         config.save(data, self.path)
-        self.paths = patch("gitbasher.config.config_path", return_value=self.path)
+        self.paths = patch("bashdock.config.config_path", return_value=self.path)
         self.paths.start()
-        self.answers = patch("gitbasher.app.QMessageBox.question", return_value=QMessageBox.StandardButton.Yes)
+        self.answers = patch("bashdock.app.QMessageBox.question", return_value=QMessageBox.StandardButton.Yes)
         self.answers.start()
         self.window = MainWindow(terminal_factory=FakeTerminal)
 
@@ -104,7 +104,7 @@ class WorkspaceTests(unittest.TestCase):
         first = self.window.current_tab()
         self.window.new_tab()
         second = self.window.current_tab()
-        with patch("gitbasher.app.QInputDialog.getText", return_value=("Build & test", True)):
+        with patch("bashdock.app.QInputDialog.getText", return_value=("Build & test", True)):
             self.window.rename_tab(1)
         remembered = Path(self.temp.name) / "Project with spaces"
         remembered.mkdir()
@@ -151,7 +151,7 @@ class WorkspaceTests(unittest.TestCase):
         self.window.new_tab()
         second = self.window.current_tab()
         edited = dict(second.data, bash_path=str(self.bash), name="Edited", buttons=[])
-        with patch("gitbasher.app.SettingsDialog") as dialog:
+        with patch("bashdock.app.SettingsDialog") as dialog:
             dialog.DialogCode.Accepted = 1
             dialog.return_value.exec.return_value = 1
             dialog.return_value.result_data = edited
@@ -163,11 +163,11 @@ class WorkspaceTests(unittest.TestCase):
     def test_cancelled_tab_close_keeps_both_shells_and_save_failure_preserves_file(self):
         self.window.new_tab()
         self.ready(self.window.current_tab())
-        with patch("gitbasher.app.QMessageBox.question", return_value=QMessageBox.StandardButton.No):
+        with patch("bashdock.app.QMessageBox.question", return_value=QMessageBox.StandardButton.No):
             self.window.close_tab(1)
         self.assertEqual(2, self.window.tabs.count())
         original = self.path.read_bytes()
-        with patch("gitbasher.config.save", side_effect=PermissionError("locked")):
+        with patch("bashdock.config.save", side_effect=PermissionError("locked")):
             self.assertFalse(self.window.persist())
         self.assertEqual(original, self.path.read_bytes())
 
@@ -230,15 +230,15 @@ class WorkspaceTests(unittest.TestCase):
         tab = self.window.current_tab()
         self.ready(tab)
         with patch.object(self.window, "confirm_quit", return_value=(True, True)), \
-                patch("gitbasher.config.save", side_effect=PermissionError("locked")), \
-                patch("gitbasher.app.QMessageBox.warning"):
+                patch("bashdock.config.save", side_effect=PermissionError("locked")), \
+                patch("bashdock.app.QMessageBox.warning"):
             self.assertFalse(self.window.close())
         self.assertTrue(self.window.data["confirm_on_exit"])
         self.assertTrue(self.window.confirm_exit_action.isChecked())
         self.assertEqual(0, tab.terminal.stops)
 
     def test_footer_keeps_version_visible_when_status_changes(self):
-        from gitbasher import __version__
+        from bashdock import __version__
         self.window.show()
         self.app.processEvents()
         footer = self.window.statusBar()

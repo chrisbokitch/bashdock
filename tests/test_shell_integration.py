@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from gitbasher.shell_integration import INIT_SCRIPT, create_init_file, valid_reported_directory
+from bashdock.shell_integration import INIT_SCRIPT, create_init_file, valid_reported_directory
 
 
 class ShellIntegrationTests(unittest.TestCase):
@@ -36,4 +36,4 @@ class ShellIntegrationTests(unittest.TestCase):
                 env=dict(os.environ, HOME=folder), capture_output=True, text=True, timeout=10)
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("USER_HOOK", result.stdout)
-            self.assertIn("\x1b]777;gitbasher-cwd;/\x07", result.stdout)
+            self.assertIn("\x1b]777;bashdock-cwd;/\x07", result.stdout)

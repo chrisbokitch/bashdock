@@ -10,7 +10,7 @@ terminal.open(document.getElementById('terminal'));
 new QWebChannel(qt.webChannelTransport, channel => {
   const bridge = channel.objects.bridge;
   terminal.parser.registerOscHandler(777, data => {
-    const prefix = 'gitbasher-cwd;';
+    const prefix = 'bashdock-cwd;';
     if (!data.startsWith(prefix)) return false;
     bridge.directory(data.slice(prefix.length));
     return true;

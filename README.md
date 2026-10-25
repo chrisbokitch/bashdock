@@ -1,6 +1,16 @@
-# gitbasher
+# BashDock
 
 A Python/Qt Windows desktop app with multiple Git Bash tabs and a custom command bar beneath each terminal.
+
+Previously called GitBasher. The GitHub repository is still named `chrisbokitch/gitbasher`; the application, Python package, and build output are now named BashDock.
+
+## Updating from GitBasher
+
+Close the app and pull the latest source before renaming your checkout to `C:\Development\bashdock`. Run `npm run setup` from the renamed folder to refresh the editable Python installation and create the `bashdock` launcher, then use `npm run preview`. If a moved virtual environment reports path errors, delete `.venv` and run `npm run setup` again to recreate it.
+
+On first launch, if BashDock has no settings yet, it imports and validates `%APPDATA%\gitbasher\settings.json`, saving a copy to `%APPDATA%\bashdock\settings.json`. Existing tabs, folders, command bars, selected tab, and preferences are preserved. The original file stays intact; subsequent launches use BashDock's settings.
+
+Local `copy.sh`/`copy.bat` helpers remain ignored. Update their source to `C:\Development\bashdock\dist\bashdock` and destination to `C:\Development\tools\bashdock`, and update any executable checks or shortcuts to `bashdock.exe`. Copy the complete build folder, including `_internal`. Existing deployed GitBasher builds are not removed automatically.
 
 ## Requirements
 
@@ -24,19 +34,19 @@ Run these from the project folder in Git Bash or PowerShell:
 Your existing `.venv` works with these commands. No activation or `npm install` is required: there are no JavaScript dependencies. For a fresh clone, run `npm run setup` once, then `npm run preview`.
 
 
-The executable build must run **on Windows**. Output is `dist/gitbasher/gitbasher.exe`. Keep the entire `dist/gitbasher` folder together when copying it; the `_internal` folder includes Python, Qt WebEngine, and other runtime files. Python and Node are not required to run the built app, but Git for Windows must still be installed. This creates a runnable app folder rather than an installer.
+The executable build must run **on Windows**. Output is `dist/bashdock/bashdock.exe`. Keep the entire `dist/bashdock` folder together when copying it; the `_internal` folder includes Python, Qt WebEngine, and other runtime files. Python and Node are not required to run the built app, but Git for Windows must still be installed. This creates a runnable app folder rather than an installer.
 
 Quit the built app before rebuilding it, so Windows can replace its files. Build output is ignored by Git. The Windows executable build still needs validation on Windows.
 
-The executable and app window use the GitBasher terminal-and-buttons icon. Its PNG artwork and multi-size Windows `.ico` are in `gitbasher/assets/`. Rebuild with `npm run compile` to embed the icon in the executable.
+The executable and app window use the BashDock terminal-and-buttons icon. Its PNG artwork and multi-size Windows `.ico` are in `bashdock/assets/`. Rebuild with `npm run compile` to embed the icon in the executable.
 
 `compile` explicitly bundles pywinpty's native DLLs and helper executables, then launches the **built executable** to check that Git Bash accepts a command and returns output. Compilation fails if that check fails; its report is at `build/packaged-shell-smoke.json`. The check briefly starts a shell and loads your usual Bash profile scripts. Close other copies of the built app before rebuilding.
 
-If a shell cannot start, the app shows the error. Startup and terminal-reader errors are also recorded in `%APPDATA%\gitbasher\gitbasher.log`, including when the executable runs without a console window.
+If a shell cannot start, the app shows the error. Startup and terminal-reader errors are also recorded in `%APPDATA%\bashdock\bashdock.log`, including when the executable runs without a console window.
 
 ## Versioning
 
-GitBasher uses `MAJOR.MINOR.PATCH`. While pre-1.0, patch releases cover fixes and UI polish; minor releases cover new features or substantial changes. We will choose the 1.0 milestone explicitly. Versions are deliberate release decisions, not automatic commit counters; bump the patch for a new shipped revision rather than silently changing an already distributed version.
+BashDock uses `MAJOR.MINOR.PATCH`. While pre-1.0, patch releases cover fixes and UI polish; minor releases cover new features or substantial changes. We will choose the 1.0 milestone explicitly. Versions are deliberate release decisions, not automatic commit counters; bump the patch for a new shipped revision rather than silently changing an already distributed version.
 
 `package.json` is the version source. Use npm's standard commands when deciding a new version:
 
@@ -45,22 +55,22 @@ npm version patch --no-git-tag-version  # e.g. 0.3.0 -> 0.3.1
 npm version minor --no-git-tag-version  # e.g. 0.3.1 -> 0.4.0
 ```
 
-These update `package.json`, `package-lock.json`, and the generated `gitbasher/_version.py`. Commit those files together. Python package metadata, the footer, and the compiled app use the generated module; they do not need Git or npm installed at runtime. Tests, preview, and compilation check that the version files agree. Rebuild the executable after changing a version. These commands do not create Git commits or tags.
+These update `package.json`, `package-lock.json`, and the generated `bashdock/_version.py`. Commit those files together. Python package metadata, the footer, and the compiled app use the generated module; they do not need Git or npm installed at runtime. Tests, preview, and compilation check that the version files agree. Rebuild the executable after changing a version. These commands do not create Git commits or tags.
 
 The darker blue footer always starts with the version, followed by status/error messages. An empty message leaves the version visible.
 
 ## Run from source
 
-Open PowerShell and clone the project into `C:\Development\gitbasher`:
+Open PowerShell and clone the project into `C:\Development\bashdock`:
 
 ```powershell
 New-Item -ItemType Directory -Force C:\Development | Out-Null
 Set-Location C:\Development
-git clone https://github.com/chrisbokitch/gitbasher.git
-Set-Location .\gitbasher
+git clone https://github.com/chrisbokitch/gitbasher.git bashdock
+Set-Location .\bashdock
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
-.\.venv\Scripts\gitbasher.exe
+.\.venv\Scripts\bashdock.exe
 ```
 
 The editable install picks up source edits without reinstalling. Virtual environment activation is optional; these commands use its executables directly and do not require changing PowerShell execution policy.
@@ -68,14 +78,14 @@ The editable install picks up source edits without reinstalling. Virtual environ
 To launch it again later:
 
 ```powershell
-Set-Location C:\Development\gitbasher
-.\.venv\Scripts\gitbasher.exe
+Set-Location C:\Development\bashdock
+.\.venv\Scripts\bashdock.exe
 ```
 
 To update your checkout and dependencies:
 
 ```powershell
-Set-Location C:\Development\gitbasher
+Set-Location C:\Development\bashdock
 git pull --ff-only
 .\.venv\Scripts\python.exe -m pip install -e .
 ```
@@ -122,7 +132,7 @@ Buttons send text followed by Enter to the active terminal, just like typing. Us
 - `clear` clears the visible terminal; terminal scrollback holds up to 10,000 lines.
 - Closing/restarting a shell ends the session. Stop long-running jobs first.
 
-Settings are stored as JSON in `%APPDATA%\gitbasher\settings.json`. Changes save atomically. Buttons contain executable commands; only use commands you trust. Shell output and command history are not saved by the app; Bash itself may maintain its normal history file.
+Settings are stored as JSON in `%APPDATA%\bashdock\settings.json`. Changes save atomically. Buttons contain executable commands; only use commands you trust. Shell output and command history are not saved by the app; Bash itself may maintain its normal history file.
 
 ## Verify
 
@@ -140,4 +150,4 @@ PySide6 supplies the native window and Qt WebEngine. Vendored xterm.js 5.5.0 and
 
 This is a source release with an executable build recipe. Configuration, migration, shell-hook, and Qt workspace tests were run in the authoring environment. Qt workspace tests use fake terminal processes to verify routing and restoration; Windows ConPTY, full terminal GUI smoke tests, and the packaged executable have **not** been run there. No prebuilt `.exe` is included.
 
-Third-party xterm.js/fit code is MIT licensed; see `gitbasher/assets/LICENSE`. PySide6/Qt and pywinpty retain their upstream licenses. Review those licenses before redistributing a packaged application.
+Third-party xterm.js/fit code is MIT licensed; see `bashdock/assets/LICENSE`. PySide6/Qt and pywinpty retain their upstream licenses. Review those licenses before redistributing a packaged application.

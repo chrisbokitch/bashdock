@@ -4,10 +4,37 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from gitbasher import config
+from bashdock import config
 
 
 class ConfigTests(unittest.TestCase):
+    def test_imports_gitbasher_workspace_once_and_keeps_original(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict("os.environ", {"APPDATA": directory}):
+            legacy = Path(directory) / "gitbasher/settings.json"
+            data = config.defaults()
+            data["tabs"].append(config.default_tab("Build"))
+            data["active_tab"] = 1
+            data["confirm_on_exit"] = False
+            config.save(data, legacy)
+            original = legacy.read_bytes()
+            self.assertEqual(Path(directory) / "bashdock/settings.json", config.config_path())
+            self.assertEqual(data, config.load())
+            self.assertEqual(original, legacy.read_bytes())
+            changed = config.defaults()
+            config.save(changed)
+            self.assertEqual(changed, config.load())
+
+    def test_invalid_gitbasher_workspace_does_not_create_new_settings(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict("os.environ", {"APPDATA": directory}):
+            legacy = Path(directory) / "gitbasher/settings.json"
+            legacy.parent.mkdir()
+            legacy.write_text('{"version": 999}', encoding="utf-8")
+            with self.assertRaises(ValueError):
+                config.load()
+            self.assertFalse(config.config_path().exists())
+
     def test_roundtrip_preserves_unicode_order_and_multiline_commands(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "nested/settings.json"
@@ -24,7 +51,7 @@ class ConfigTests(unittest.TestCase):
             original = path.read_bytes()
             changed = config.defaults()
             changed["tabs"][0]["buttons"] = []
-            with patch("gitbasher.config.os.replace", side_effect=PermissionError("locked")):
+            with patch("bashdock.config.os.replace", side_effect=PermissionError("locked")):
                 with self.assertRaises(PermissionError):
                     config.save(changed, path)
             self.assertEqual(original, path.read_bytes())

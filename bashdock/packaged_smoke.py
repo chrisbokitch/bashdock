@@ -18,12 +18,12 @@ def run(report_path, timeout=25):
             settings = config.load()
             bash = settings["bash_path"] or config.find_bash()
             if not bash:
-                raise RuntimeError("Git Bash was not found. Configure its executable in gitbasher first.")
+                raise RuntimeError("Git Bash was not found. Configure its executable in BashDock first.")
             process, init_file = spawn_shell(bash, str(Path.home()), (24, 80))
             # The complete marker never appears in terminal echo of the input command.
-            process.write("HISTFILE=/dev/null; printf 'GITBASHER_%s\\n' 'PACKAGED_SHELL_READY'\r")
+            process.write("HISTFILE=/dev/null; printf 'BASHDOCK_%s\\n' 'PACKAGED_SHELL_READY'\r")
             output = ""
-            while "GITBASHER_PACKAGED_SHELL_READY" not in output:
+            while "BASHDOCK_PACKAGED_SHELL_READY" not in output:
                 chunk = process.read(4096)
                 if not chunk:
                     raise RuntimeError("Shell closed before responding to the test command.")

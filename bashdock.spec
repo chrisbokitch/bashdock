@@ -16,7 +16,7 @@ a = Analysis(
     [str(root / "scripts" / "launch_app.py")],
     pathex=[str(root)],
     binaries=winpty_native,
-    datas=[(str(root / "gitbasher" / "assets"), "gitbasher/assets")],
+    datas=[(str(root / "bashdock" / "assets"), "bashdock/assets")],
     hiddenimports=["winpty._winpty", "winpty.ptyprocess", "winpty.enums"],
     hookspath=[],
     hooksconfig={},
@@ -30,11 +30,11 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="gitbasher",
-    icon=str(root / "gitbasher" / "assets" / "gitbasher.ico"),
+    name="bashdock",
+    icon=str(root / "bashdock" / "assets" / "bashdock.ico"),
     debug=False,
     strip=False,
     upx=False,
     console=False,
 )
-coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="gitbasher")
+coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="bashdock")

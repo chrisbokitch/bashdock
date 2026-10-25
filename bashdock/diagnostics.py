@@ -5,7 +5,7 @@ from .config import config_path
 
 
 def initialize():
-    path = config_path().with_name("gitbasher.log")
+    path = config_path().with_name("bashdock.log")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         handler = logging.FileHandler(path, encoding="utf-8")
@@ -18,6 +18,6 @@ def initialize():
                 sys.stderr = stream
             if sys.stdout is None:
                 sys.stdout = stream
-        logging.info("Starting gitbasher (packaged=%s)", bool(getattr(sys, "frozen", False)))
+        logging.info("Starting BashDock (packaged=%s)", bool(getattr(sys, "frozen", False)))
     except OSError:
         pass
