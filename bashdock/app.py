@@ -406,6 +406,10 @@ class MainWindow(QMainWindow):
         about_action = QAction("About BashDock…", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+        # Older PySide bindings can delete a submenu when a temporary action
+        # wrapper expires after QAction.menu() is called.
+        self.menu_actions = tuple(menu.menuAction() for menu in
+                                  (self.manage_menu, self.settings_menu, self.help_menu))
         for profile in self.data["tabs"]:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
