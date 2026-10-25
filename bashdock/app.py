@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar,
 )
 
-from . import config
+from . import config, terminal_preferences
 from ._version import __version__
 from .window_theme import install_titlebar_theme
 from .external_shell import open_external
@@ -62,12 +62,15 @@ class FooterBar(QStatusBar):
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, data, parent=None):
+    def __init__(self, data, parent=None, *, terminal_defaults=None):
         super().__init__(parent)
         self.setWindowTitle("Configure tab")
         self.resize(780, 520)
         self.result_data = None
         self.original = copy.deepcopy(data)
+        self.terminal_defaults = terminal_preferences.validated(
+            terminal_preferences.defaults() if terminal_defaults is None else terminal_defaults)
+        self.terminal_override = copy.deepcopy(data.get("terminal"))
         layout = QVBoxLayout(self)
         form = QFormLayout()
         self.name = QLineEdit(data["name"])
@@ -82,6 +85,14 @@ class SettingsDialog(QDialog):
             browse.clicked.connect(lambda checked=False, e=edit, f=is_folder: self.browse(e, f))
             row.addWidget(browse)
             form.addRow(label, row)
+        terminal_row = QHBoxLayout()
+        terminal_button = QPushButton("Terminal settings…")
+        terminal_button.clicked.connect(self.configure_terminal)
+        terminal_row.addWidget(terminal_button)
+        self.terminal_summary = QLabel()
+        self.update_terminal_summary()
+        terminal_row.addWidget(self.terminal_summary, 1)
+        form.addRow("Terminal", terminal_row)
         layout.addLayout(form)
         note = QLabel("Buttons send commands to the active terminal. Use them at an empty shell prompt.\n"
                       "Buttons belong to this tab. The Git Bash executable is shared by all tabs.\n"
@@ -110,6 +121,18 @@ class SettingsDialog(QDialog):
         buttons.accepted.connect(self.commit)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def update_terminal_summary(self):
+        self.terminal_summary.setText("Using terminal defaults" if self.terminal_override is None else "Custom settings for this tab")
+
+    def configure_terminal(self):
+        settings = terminal_preferences.effective({"terminal": self.terminal_override}, self.terminal_defaults)
+        dialog = TerminalSettingsDialog(settings, self, defaults=self.terminal_defaults,
+                                        inherit=self.terminal_override is None)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.terminal_override = None if dialog.use_defaults.isChecked() else dialog.values()
+            self.update_terminal_summary()
+        dialog.deleteLater()
 
     def browse(self, edit, folder):
         selected = (QFileDialog.getExistingDirectory(self, "Choose startup folder", edit.text())
@@ -145,6 +168,7 @@ class SettingsDialog(QDialog):
     def commit(self):
         data = {"name": self.name.text().strip(), "bash_path": self.bash.text().strip(),
                 "current_folder": self.original["current_folder"],
+                "terminal": copy.deepcopy(self.terminal_override),
                 "startup_folder": self.folder.text().strip(), "buttons": []}
         for row in range(self.table.rowCount()):
             data["buttons"].append({key: self.table.item(row, col).text()
@@ -402,7 +426,7 @@ class MainWindow(QMainWindow):
         configure_action = QAction("Configure current tab…", self)
         configure_action.triggered.connect(self.configure)
         settings.addAction(configure_action)
-        terminal_action = QAction("Terminal Settings…", self)
+        terminal_action = QAction("Terminal Defaults…", self)
         terminal_action.triggered.connect(self.configure_terminal)
         settings.addAction(terminal_action)
         settings.addSeparator()
@@ -667,7 +691,7 @@ class MainWindow(QMainWindow):
             if existing.data["id"] == profile["id"]:
                 return existing
         tab = ShellTab(profile, self, self.terminal_factory)
-        tab.terminal.apply_settings(self.data["terminal"])
+        tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
         tab.configure_requested.connect(lambda: self.configure(tab))
         tab.terminal.loaded.connect(lambda: self.start_shell(tab))
         tab.terminal.ended.connect(lambda text: self.on_ended(tab, text))
@@ -843,7 +867,9 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Settings were not saved", "Check the status bar for details.")
             return
         for index in range(self.tabs.count()):
-            self.tabs.widget(index).terminal.apply_settings(self.data["terminal"])
+            tab = self.tabs.widget(index)
+            if tab.data.get("terminal") is None:
+                tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
 
     def show_about(self):
         dialog = QDialog(self)
@@ -894,7 +920,8 @@ class MainWindow(QMainWindow):
             return
         original = copy.deepcopy(tab.data)
         original_bash = self.data["bash_path"]
-        dialog = SettingsDialog(dict(tab.data, bash_path=original_bash), self)
+        dialog = SettingsDialog(dict(tab.data, bash_path=original_bash), self,
+                                terminal_defaults=self.data["terminal"])
         if dialog.exec() == QDialog.DialogCode.Accepted:
             result = copy.deepcopy(dialog.result_data)
             result["id"] = original["id"]
@@ -909,6 +936,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Cannot save tab", "Changes were not saved. Check the status bar for details.")
                 return
             self.tabs.setTabText(self.tabs.indexOf(tab), tab.data["name"])
+            tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
             tab.build_buttons()
             if not tab.terminal.process and tab.terminal.ready:
                 self.start_shell(tab)

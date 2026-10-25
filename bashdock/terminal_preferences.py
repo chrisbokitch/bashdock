@@ -29,3 +29,9 @@ def validated(settings):
         if type(result[key]) is not bool:
             raise ValueError(f"Terminal {key} must be a boolean.")
     return result
+
+
+def effective(tab, app_defaults):
+    """A custom tab preset is independent of later changes to app defaults."""
+    override = tab.get("terminal")
+    return validated(app_defaults if override is None else override)

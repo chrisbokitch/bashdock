@@ -649,6 +649,99 @@ class WorkspaceTests(unittest.TestCase):
         self.window.new_tab()
         self.assertEqual(settings, self.window.current_tab().terminal.preferences)
 
+    def test_custom_terminal_settings_apply_to_one_tab_and_defaults_only_update_inheriting_tabs(self):
+        first = self.window.current_tab()
+        self.ready(first)
+        self.window.new_tab()
+        second = self.window.current_tab()
+        self.ready(second)
+        preset = dict(self.window.data["terminal"], background="#331122", font_size=21)
+        result = dict(first.data, bash_path=str(self.bash), terminal=preset)
+        with patch("bashdock.app.SettingsDialog") as dialog:
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.result_data = result
+            self.window.configure(first)
+        self.assertEqual(preset, first.terminal.preferences)
+        self.assertNotEqual(preset, second.terminal.preferences)
+        defaults = dict(self.window.data["terminal"], background="#112233", font_size=25)
+        with patch("bashdock.app.TerminalSettingsDialog") as dialog:
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.values.return_value = defaults
+            self.window.configure_terminal()
+        self.assertEqual(preset, first.terminal.preferences)
+        self.assertEqual(defaults, second.terminal.preferences)
+        self.assertEqual(0, first.terminal.stops)
+        self.assertEqual(0, second.terminal.stops)
+        self.window.new_tab()
+        self.assertEqual(defaults, self.window.current_tab().terminal.preferences)
+        result["terminal"] = None
+        with patch("bashdock.app.SettingsDialog") as dialog:
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.result_data = result
+            self.window.configure(first)
+        self.assertEqual(defaults, first.terminal.preferences)
+        self.assertIsNone(config.read(self.path)["tabs"][0]["terminal"])
+        self.assertEqual(0, first.terminal.stops)
+
+    def test_nested_terminal_editor_stages_override_until_configure_tab_is_saved(self):
+        from bashdock.terminal_settings import TerminalSettingsDialog
+
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = copy.deepcopy(tab.data)
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window,
+                                terminal_defaults=self.window.data["terminal"])
+
+        def choose_custom(dialog):
+            self.assertTrue(dialog.use_defaults.isChecked())
+            dialog.use_defaults.setChecked(False)
+            dialog.set_color("background", "#331122")
+            return 1
+
+        with patch.object(TerminalSettingsDialog, "exec", choose_custom):
+            editor.configure_terminal()
+        self.assertEqual("#331122", editor.terminal_override["background"])
+        self.assertEqual(original, tab.data)
+        self.assertEqual(self.window.data["terminal"], tab.terminal.preferences)
+        with patch("bashdock.app.SettingsDialog", return_value=editor), \
+                patch.object(editor, "exec", return_value=0):
+            self.window.configure(tab)
+        self.assertEqual(original, tab.data)
+        self.assertEqual(0, tab.terminal.stops)
+
+    def test_failed_custom_terminal_save_keeps_running_appearance_and_preferences(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = copy.deepcopy(tab.data)
+        preferences = copy.deepcopy(tab.terminal.preferences)
+        result = dict(tab.data, bash_path=str(self.bash), terminal=dict(preferences, background="#331122"))
+        with patch("bashdock.app.SettingsDialog") as dialog, \
+                patch("bashdock.config.save", side_effect=PermissionError("locked")), \
+                patch("bashdock.app.QMessageBox.warning"):
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.result_data = result
+            self.window.configure(tab)
+        self.assertEqual(original, tab.data)
+        self.assertEqual(preferences, tab.terminal.preferences)
+        self.assertEqual(0, tab.terminal.stops)
+
+    def test_custom_terminal_presets_survive_workspaces_exports_and_restoration(self):
+        tab = self.window.current_tab()
+        preset = dict(self.window.data["terminal"], background="#331122", font_size=21)
+        tab.data["terminal"] = preset
+        self.assertTrue(self.window.save_workspace("Server", [0]))
+        self.window.new_tab()
+        self.window.close_tab(0)
+        self.assertTrue(self.window.open_workspace(0))
+        self.assertEqual(preset, self.window.current_tab().terminal.preferences)
+        export = Path(self.temp.name) / "export.json"
+        with patch("bashdock.app.QFileDialog.getSaveFileName", return_value=(str(export), "")):
+            self.window.export_settings()
+        self.window.import_settings(path=export)
+        self.assertEqual(preset, self.window.current_tab().terminal.preferences)
+        self.assertEqual(preset, self.window.data["workspaces"][0]["tabs"][0]["terminal"])
+        self.assertEqual(preset, config.read(self.path)["tabs"][1]["terminal"])
+
     def test_terminal_preferences_cancel_or_save_failure_leave_active_settings_intact(self):
         original = copy.deepcopy(self.window.data["terminal"])
         with patch("bashdock.app.TerminalSettingsDialog") as dialog:

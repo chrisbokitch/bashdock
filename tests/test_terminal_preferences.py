@@ -5,6 +5,48 @@ from bashdock import config, terminal_preferences
 
 
 class TerminalPreferenceTests(unittest.TestCase):
+    def test_tab_inheritance_and_custom_preferences_validate_including_saved_workspaces(self):
+        defaults = dict(terminal_preferences.defaults(), font_size=22, background="#223344")
+        tab = config.default_tab()
+        self.assertEqual(defaults, terminal_preferences.effective(tab, defaults))
+        tab["terminal"] = None
+        self.assertEqual(defaults, terminal_preferences.effective(tab, defaults))
+        custom = dict(terminal_preferences.defaults(), background="#331122")
+        tab["terminal"] = custom
+        self.assertEqual(custom, terminal_preferences.effective(tab, defaults))
+        data = config.defaults()
+        data["workspaces"] = [{"name": "Server", "tabs": [tab], "active_tab": 0}]
+        config.validate(data)
+        tab["terminal"]["font_size"] = 1000
+        with self.assertRaises(ValueError):
+            config.validate(data)
+
+    def test_tab_editor_default_toggle_disables_controls_and_preserves_custom_draft(self):
+        from PySide6.QtWidgets import QApplication
+        from bashdock.terminal_settings import TerminalSettingsDialog
+        app = QApplication.instance() or QApplication([])
+        defaults = dict(terminal_preferences.defaults(), font_size=22, background="#223344")
+        dialog = TerminalSettingsDialog(defaults, defaults=defaults, inherit=True)
+        try:
+            self.assertTrue(dialog.use_defaults.isChecked())
+            self.assertFalse(dialog.controls.isEnabled())
+            dialog.use_defaults.setChecked(False)
+            dialog.size.setValue(28)
+            dialog.set_color("background", "#331122")
+            dialog.use_defaults.setChecked(True)
+            self.assertEqual(defaults, dialog.values())
+            dialog.use_defaults.setChecked(False)
+            self.assertTrue(dialog.controls.isEnabled())
+            self.assertEqual(28, dialog.values()["font_size"])
+            self.assertEqual("#331122", dialog.values()["background"])
+            dialog.restore_button.click()
+            self.assertTrue(dialog.use_defaults.isChecked())
+            dialog.reject()
+            self.assertEqual("#223344", defaults["background"])
+        finally:
+            dialog.deleteLater()
+            app.processEvents()
+
     def test_old_workspaces_gain_defaults_without_changing_tabs_or_input(self):
         data = config.defaults()
         del data["terminal"]

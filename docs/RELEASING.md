@@ -52,7 +52,8 @@ Download the ZIP attached to the draft and test that exact file on the clean Win
 - Save a subset of tabs as a workspace. Add it without closing existing shells, then replace current tabs after confirmation. Check tab order, active tab, folders, command bars, independent copies, update/rename/delete, and settings export/import. A saved SSH button must not connect automatically.
 - Exercise typing, arrows, completion, Ctrl+C, Unicode, and pagers such as `git log`/`less`.
 - Check selection, copy/paste, multiline confirmation, and optional mouse behaviour.
-- Change terminal settings, verify every tab updates, and verify settings survive reopening.
+- Change Terminal Defaults, verify inheriting tabs update, and verify settings survive reopening.
+- Give one tab custom terminal settings through Configure tab. Change Terminal Defaults and confirm only inheriting tabs update. Return the custom tab to defaults, verify neither operation restarts shells, and check cancel/save failure behavior and preset restoration through workspaces and settings export/import.
 - Export settings, change tab names/buttons, then import the export; confirm the restored workspace and the separate pre-import backup. Cancel an import and try an invalid file; existing shells must remain open.
 - In the disposable VM, close BashDock, damage `%APPDATA%\bashdock\settings.json`, and relaunch. Restore the automatic backup and confirm the damaged file is preserved in the `backups` folder. Also check cancelling recovery and starting fresh.
 - Open an external shell in the expected folder; confirm it survives closing BashDock.

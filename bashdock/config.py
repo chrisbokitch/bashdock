@@ -57,6 +57,8 @@ def validate_tab(tab):
         if not isinstance(tab.get(key), str) or not tab[key].strip():
             raise ValueError(f"Tab {key} must be a nonempty string.")
     validate_buttons(tab.get("buttons"))
+    if tab.get("terminal") is not None:
+        terminal_preferences.validated(tab["terminal"])
 
 
 def validate_tab_group(tabs):
