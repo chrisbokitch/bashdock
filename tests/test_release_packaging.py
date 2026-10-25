@@ -99,6 +99,7 @@ class ReleasePackagingTests(unittest.TestCase):
             git('init', '-q')
             git('config', 'user.name', 'Release test')
             git('config', 'user.email', 'release-test@example.invalid')
+            git('config', 'core.autocrlf', 'true')
             (root / '.gitignore').write_text('/copy.sh\n/release/\n')
             (root / 'app.py').write_text('print("committed")\n')
             (root / 'copy.sh').write_text('private local helper')

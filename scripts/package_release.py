@@ -23,7 +23,9 @@ def create_source_archive(root, output, version, commit):
                          'Local copy.sh/copy.bat remain ignored.')
     output.mkdir(parents=True, exist_ok=True)
     archive = output / f'bashdock-{version}-source.zip'
-    subprocess.run(['git', 'archive', '--format=zip', '--prefix=bashdock-source/',
+    # git archive otherwise applies the user's checkout line-ending settings.
+    subprocess.run(['git', '-c', 'core.autocrlf=false', '-c', 'core.eol=lf',
+                    'archive', '--format=zip', '--prefix=bashdock-source/',
                     '-o', str(archive.resolve()), commit], cwd=root, check=True)
     with zipfile.ZipFile(archive, 'a', compression=zipfile.ZIP_DEFLATED) as bundle:
         bundle.writestr('bashdock-source/SOURCE-COMMIT.txt', commit + '\n')
