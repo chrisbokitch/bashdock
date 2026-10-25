@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitbasher"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Git Bash with a configurable command button bar for Windows"
 requires-python = ">=3.11"
 dependencies = ["PySide6>=6.8,<7", "pywinpty>=3.0.5,<4; sys_platform == 'win32'"]
@@ -17,3 +17,6 @@ gitbasher = "gitbasher.app:main"
 
 [tool.setuptools.package-data]
 gitbasher = ["assets/*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "gitbasher._version.__version__"}

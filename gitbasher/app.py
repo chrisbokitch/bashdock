@@ -10,10 +10,11 @@ from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
-    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar,
 )
 
 from . import config
+from ._version import __version__
 
 APP_ICON = Path(__file__).parent / "assets" / "gitbasher.ico"
 
@@ -21,6 +22,37 @@ APP_ICON = Path(__file__).parent / "assets" / "gitbasher.ico"
 def create_terminal(parent):
     from .terminal import Terminal
     return Terminal(parent)
+
+
+class FooterBar(QStatusBar):
+    """Keep the version at the left even while status/error messages are displayed."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setSizeGripEnabled(False)
+        self.version_label = QLabel(f"v{__version__}")
+        self.version_label.setObjectName("footerVersion")
+        self.version_label.setToolTip("GitBasher version")
+        self.message_label = QLabel()
+        self.message_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.addWidget(self.version_label)
+        self.addWidget(self.message_label, 1)
+        self.clear_timer = QTimer(self)
+        self.clear_timer.setSingleShot(True)
+        self.clear_timer.timeout.connect(self.clearMessage)
+
+    def showMessage(self, text, timeout=0):
+        self.clear_timer.stop()
+        self.message_label.setText(text)
+        self.message_label.setToolTip(text)
+        self.messageChanged.emit(text)
+        if timeout > 0:
+            self.clear_timer.start(timeout)
+
+    def currentMessage(self):
+        return self.message_label.text()
+
+    def clearMessage(self):
+        self.showMessage("")
 
 
 class SettingsDialog(QDialog):
@@ -224,6 +256,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(0)
         layout.addWidget(self.tabs)
         self.setCentralWidget(body)
+        self.setStatusBar(FooterBar(self))
         menu = self.menuBar().addMenu("Session")
         for label, callback, shortcut in (
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
@@ -256,6 +289,10 @@ class MainWindow(QMainWindow):
             QPushButton:disabled { color:#77818f; }
             QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
             QLineEdit { padding:6px; }
+            QStatusBar { background:#111b2b;border-top:1px solid #27384d; }
+            QStatusBar::item { border:0; }
+            QStatusBar QLabel { background:transparent;padding:3px 6px; }
+            QLabel#footerVersion { color:#9baec4; }
             QTabWidget::pane { border:0;border-top:1px solid #3c4b60;top:-1px; }
             QTabWidget::tab-bar { left:3px; }
             QTabBar::tab {
@@ -508,6 +545,7 @@ def main():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("chrisbokitch.gitbasher")
     app = QApplication(sys.argv)
     app.setApplicationName("gitbasher")
+    app.setApplicationVersion(__version__)
     app.setWindowIcon(QIcon(str(APP_ICON)))
     if sys.platform != "win32":
         QMessageBox.warning(None, "Windows required", "gitbasher currently supports Windows 10/11 with Git for Windows.")

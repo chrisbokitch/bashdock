@@ -236,3 +236,16 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue(self.window.data["confirm_on_exit"])
         self.assertTrue(self.window.confirm_exit_action.isChecked())
         self.assertEqual(0, tab.terminal.stops)
+
+    def test_footer_keeps_version_visible_when_status_changes(self):
+        from gitbasher import __version__
+        self.window.show()
+        self.app.processEvents()
+        footer = self.window.statusBar()
+        self.window.show_status(self.window.current_tab(), "Test status message")
+        self.assertEqual("Test status message", footer.currentMessage())
+        self.assertEqual(f"v{__version__}", footer.version_label.text())
+        self.assertTrue(footer.version_label.isVisible())
+        footer.clearMessage()
+        self.assertEqual("", footer.currentMessage())
+        self.assertTrue(footer.version_label.isVisible())

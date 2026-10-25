@@ -34,6 +34,21 @@ The executable and app window use the GitBasher terminal-and-buttons icon. Its P
 
 If a shell cannot start, the app shows the error. Startup and terminal-reader errors are also recorded in `%APPDATA%\gitbasher\gitbasher.log`, including when the executable runs without a console window.
 
+## Versioning
+
+GitBasher uses `MAJOR.MINOR.PATCH`. While pre-1.0, patch releases cover fixes and UI polish; minor releases cover new features or substantial changes. We will choose the 1.0 milestone explicitly. Versions are deliberate release decisions, not automatic commit counters; bump the patch for a new shipped revision rather than silently changing an already distributed version.
+
+`package.json` is the version source. Use npm's standard commands when deciding a new version:
+
+```bash
+npm version patch --no-git-tag-version  # e.g. 0.3.0 -> 0.3.1
+npm version minor --no-git-tag-version  # e.g. 0.3.1 -> 0.4.0
+```
+
+These update `package.json`, `package-lock.json`, and the generated `gitbasher/_version.py`. Commit those files together. Python package metadata, the footer, and the compiled app use the generated module; they do not need Git or npm installed at runtime. Tests, preview, and compilation check that the version files agree. Rebuild the executable after changing a version. These commands do not create Git commits or tags.
+
+The darker blue footer always starts with the version, followed by status/error messages. An empty message leaves the version visible.
+
 ## Run from source
 
 Open PowerShell and clone the project into `C:\Development\gitbasher`:
