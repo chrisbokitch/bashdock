@@ -12,6 +12,8 @@ build environment and source archive checksums.
 | PySide6 and shiboken6 | 6.10.3 | LGPLv3 / GPL alternatives; open-source terms and third-party notices collected from matching PySide source |
 | Qt libraries and plugins | 6.10.3 | LGPLv3 / GPL alternatives and component-specific terms; matching Qt source license and attribution files |
 | Qt WebEngine / Chromium | Qt 6.10.3 | Qt open-source terms plus Chromium's many component licenses, including BSD, MIT, Apache, and LGPL; matching Qt source notices, README.chromium files, and attribution metadata |
+| Mesa llvmpipe software renderer / LLVM | Mesa 11.2.2 / LLVM 3.6.2 identified in pinned Qt wheel | MIT, Boost 1.0, and University of Illinois/NCSA terms; `licenses/Mesa-11.2.2-license.html`, `Boost-1.0.txt`, and `LLVM-3.6.2.txt` |
+| Microsoft Visual C++ runtime DLLs | Actual frozen-file inventory | Microsoft proprietary redistributable terms; see publisher requirements below |
 | CPython and bundled standard-library components | Actual build version | PSF and incorporated component licenses; `licenses/CPython/LICENSE.txt` |
 | pywinpty | 3.0.5 | MIT; wheel and source notices |
 | Rust libraries incorporated into pywinpty | Its source Cargo.lock | Per-crate MIT, Apache, BSD, Unicode, and other terms; full crate sources and collected notices |
@@ -64,3 +66,19 @@ Microsoft runtime files, when present, retain Microsoft's terms.
 - <https://github.com/microsoft/terminal>
 - <https://github.com/rprichard/winpty>
 - <https://pyinstaller.org/en/v6.16.0/license.html>
+
+
+## Microsoft runtime redistribution
+
+The pinned Qt Windows wheel includes Microsoft Visual C++ runtime DLLs, and
+CPython/PyInstaller may collect additional Microsoft runtime files. They are
+not licensed under BashDock's GPL or Qt's open-source licenses. Microsoft states
+that distribution of the runtime redistributable package and individual
+binaries is limited to licensed Visual Studio users and subject to its license
+terms. The publisher must confirm the necessary entitlement before public
+distribution; copying this notice does not grant that entitlement. See:
+<https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files>.
+
+The Mesa software renderer was identified from version strings in the actual
+pinned Windows DLL; its SHA-256 is recorded in `requirements/native-runtime.json`.
+Mesa and LLVM retain their own notices, including applicable Boost terms.

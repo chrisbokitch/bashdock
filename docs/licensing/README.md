@@ -61,3 +61,18 @@ plugins, Chromium, native helpers, and Microsoft runtime files.
 
 No public download should be announced until the generated license/source
 assets and exact Windows candidate pass the release checklist.
+
+## Publisher prerequisite: Microsoft runtime
+
+The pinned Windows Qt wheel contains MSVCP/VCRUNTIME DLLs. Before publishing a
+binary release, the publisher must confirm eligibility under Microsoft's Visual
+Studio / Visual C++ redistributable terms. This is not granted by GPLv3 or by
+adding notices. Microsoft's documentation limits redistribution of the package
+and individual binaries to licensed Visual Studio users:
+<https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files>.
+Record this confirmation in the release-testing issue. This owner-side license
+entitlement is not verified by CI and remains a public-release gate.
+
+The Qt wheel also contains Mesa llvmpipe (Mesa 11.2.2 / LLVM 3.6.2, identified in
+the actual DLL). Its standalone MIT/Boost/NCSA notices are included separately
+because the binary's Mesa/LLVM sources are not part of qt-everywhere.

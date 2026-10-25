@@ -13,5 +13,11 @@
     "74b5a0c975b3915001c93d5c5095e7a0a714042d",
     "98c8c795ebc2560af55e72beba3fa5fd31ceef64"
   ],
-  "gcc_runtime": "GCC 5.3.0 (MSYS2 Rev5) identification in legacy winpty DLL/agent"
+  "gcc_runtime": "GCC 5.3.0 (MSYS2 Rev5) identification in legacy winpty DLL/agent",
+  "qt_software_renderer": {
+    "file": "PySide6/opengl32sw.dll",
+    "sha256": "0100c5944e6516c6aa0a29cb8e5db0867926875a3cd1279853affe97d6f6bb95",
+    "mesa": "11.2.2",
+    "llvm": "3.6.2"
+  }
 }
