@@ -190,3 +190,7 @@ PySide6 supplies the native window and Qt WebEngine. Vendored xterm.js 5.5.0 and
 The repository contains source and an automated Windows build/release workflow. Portable Qt workspace tests use fake terminal processes; the Windows workflow also exercises real ConPTY and Qt WebEngine and tests the packaged shell. Hosted-runner results and clean Windows VM acceptance should be checked for each release candidate. Compiled executables are distributed as build artifacts or GitHub Release assets rather than committed to the source tree.
 
 Third-party xterm.js/fit code is MIT licensed; see `bashdock/assets/LICENSE`. PySide6/Qt and pywinpty retain their upstream licenses. Review those licenses before redistributing a packaged application.
+
+## Licensing proposals — not adopted
+
+The proposed [BashDock license](docs/licensing/LICENSE-DRAFT.md) and [policy and review notes](docs/licensing/POLICY-DRAFT.md) are drafts for review. They do not adopt a project license or grant the proposed permissions, and they do not establish dependency compliance. The project metadata and release packaging have not been switched to these proposed terms.
