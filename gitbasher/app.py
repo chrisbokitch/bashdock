@@ -260,8 +260,8 @@ class MainWindow(QMainWindow):
             }
             QTabBar::tab:!selected:hover { background:#2b394b;color:#dde4ef; }
             QTabBar::tab:selected {
-                background:#181e29;color:#70dcc2;
-                border-top:2px solid #70dcc2;border-bottom-color:#181e29;
+                background:#181e29;color:#dde4ef;
+                border-top:1px solid #53647c;border-bottom-color:#181e29;
                 margin-top:0;
             }
         """)
@@ -365,7 +365,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot start Git Bash", str(error))
             return
         tab.set_running(True)
-        self.show_status(tab, "Git Bash · Buttons type into this shell · Copy: Ctrl+Shift+C · Paste: Ctrl+Shift+V")
+        self.show_status(tab, "")
 
     def configure(self, tab=None):
         if not isinstance(tab, ShellTab):
