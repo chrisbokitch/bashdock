@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QIcon, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
@@ -270,6 +270,17 @@ class TabStrip(QTabBar):
 
     def tabLayoutChange(self):
         super().tabLayoutChange()
+        self.position_close_buttons()
+
+    def mouseDoubleClickEvent(self, event):
+        super().mouseDoubleClickEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Qt calls mousePressEvent after tabBarDoubleClicked returns. By
+            # then the modal rename dialog has already consumed the release.
+            # Finish that press so hovering cannot start dragging the tab.
+            release = QMouseEvent(QEvent.Type.MouseButtonRelease, event.position(), event.globalPosition(),
+                                  event.button(), Qt.MouseButton.NoButton, event.modifiers())
+            super().mouseReleaseEvent(release)
         self.position_close_buttons()
 
     def position_close_buttons(self, *args):

@@ -356,6 +356,40 @@ class WorkspaceTests(unittest.TestCase):
             self.window.tabs.setCurrentIndex(0)
             self.assertEqual(expected, positions())
 
+    def test_cancelled_tab_rename_does_not_leave_tab_dragging_on_hover(self):
+        from PySide6.QtCore import QPoint, Qt, QTimer
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QTabBar, QInputDialog
+        self.window.new_tab()
+        self.window.show()
+        for _ in range(4):
+            self.app.processEvents()
+        bar = self.window.tabs.tabBar()
+
+        def geometry():
+            return [(bar.tabRect(i).getRect(),
+                     bar.tabButton(i, QTabBar.ButtonPosition.RightSide).geometry().getRect())
+                    for i in range(bar.count())]
+
+        expected = geometry()
+        names = [self.window.tabs.tabText(i) for i in range(bar.count())]
+        cancelled = []
+
+        def cancel_dialog():
+            dialog = next(d for d in self.window.findChildren(QInputDialog) if d.isVisible())
+            cancelled.append(True)
+            dialog.reject()
+
+        QTimer.singleShot(25, cancel_dialog)
+        QTest.mouseDClick(bar, Qt.MouseButton.LeftButton,
+                         pos=QPoint(20, bar.tabRect(0).bottom() - 8))
+        self.assertEqual([True], cancelled)
+        for index in (0, 1, 0, 1):
+            QTest.mouseMove(bar, bar.tabRect(index).center())
+            self.app.processEvents()
+            self.assertEqual(expected, geometry())
+        self.assertEqual(names, [self.window.tabs.tabText(i) for i in range(bar.count())])
+
     def test_external_menu_uses_active_shell_and_remembered_directory_without_stopping_it(self):
         self.window.new_tab()
         tab = self.window.current_tab()
