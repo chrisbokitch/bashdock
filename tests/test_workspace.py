@@ -346,6 +346,10 @@ class WorkspaceTests(unittest.TestCase):
                         for i in range(bar.count())]
 
             expected = positions()
+            for index in range(bar.count()):
+                visible_tab = bar.tabRect(index).adjusted(0, bar.top_inset, 0, 0)
+                close = bar.tabButton(index, QTabBar.ButtonPosition.RightSide)
+                self.assertLessEqual(abs(close.geometry().center().y() - visible_tab.center().y()), 1)
             for index in (0, 1, 0, 1):
                 rect = bar.tabRect(index)
                 QTest.mouseClick(bar, Qt.MouseButton.LeftButton, pos=QPoint(rect.left() + 15, rect.bottom() - 8))
