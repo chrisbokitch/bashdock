@@ -11,7 +11,7 @@ from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
-    QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit,
+    QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit, QStyle,
     QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar,
 )
 
@@ -274,6 +274,18 @@ class TabStrip(QTabBar):
         self.inset_pending = False
         self.currentChanged.connect(self.position_close_buttons)
 
+    def corner_row_height(self):
+        parent = self.parentWidget()
+        if not isinstance(parent, QTabWidget):
+            return 0
+        corner = parent.cornerWidget(Qt.Corner.TopRightCorner)
+        if corner is None:
+            return 0
+        # QTabWidget subtracts this style metric from the tab-bar height when
+        # sizing corner widgets. Windows styles can reserve more than one pixel.
+        base_height = parent.style().pixelMetric(QStyle.PixelMetric.PM_TabBarBaseHeight, None, parent)
+        return corner.sizeHint().height() + max(0, base_height)
+
     def update_tab_inset(self):
         self.inset_pending = False
         parent = self.parentWidget()
@@ -282,7 +294,7 @@ class TabStrip(QTabBar):
             return
         compact_height = max(QTabBar.tabSizeHint(self, i).height() - self.top_inset
                              for i in range(self.count()))
-        inset = max(0, corner.sizeHint().height() + 1 - compact_height)
+        inset = max(0, self.corner_row_height() - compact_height)
         if inset != self.top_inset:
             self.top_inset = inset
             # Blank space belongs above compact tabs, so their bottoms still meet the shell.
@@ -324,21 +336,12 @@ class TabStrip(QTabBar):
 
     def tabSizeHint(self, index):
         size = super().tabSizeHint(index)
-        parent = self.parentWidget()
-        if isinstance(parent, QTabWidget):
-            corner = parent.cornerWidget(Qt.Corner.TopRightCorner)
-            if corner is not None:
-                size.setHeight(max(size.height(), corner.sizeHint().height() + 1))
+        size.setHeight(max(size.height(), self.corner_row_height()))
         return size
 
     def sizeHint(self):
         size = super().sizeHint()
-        parent = self.parentWidget()
-        if isinstance(parent, QTabWidget):
-            corner = parent.cornerWidget(Qt.Corner.TopRightCorner)
-            if corner is not None:
-                # QTabWidget reserves one pixel of the row for its pane boundary.
-                size.setHeight(max(size.height(), corner.sizeHint().height() + 1))
+        size.setHeight(max(size.height(), self.corner_row_height()))
         return size
 
     def minimumSizeHint(self):

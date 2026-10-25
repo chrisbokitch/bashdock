@@ -846,19 +846,39 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_new_tab_button_is_not_squeezed_by_corner_padding(self):
         from PySide6.QtCore import QPoint
-        from PySide6.QtWidgets import QPushButton
+        from PySide6.QtWidgets import QPushButton, QProxyStyle, QStyle, QStyleFactory
+
+        class TabBaseStyle(QProxyStyle):
+            def __init__(self, height):
+                super().__init__(QStyleFactory.create("Fusion"))
+                self.base_height = height
+
+            def pixelMetric(self, metric, option=None, widget=None):
+                if metric == QStyle.PixelMetric.PM_TabBarBaseHeight:
+                    return self.base_height
+                return super().pixelMetric(metric, option, widget)
+
         self.window.show()
-        for width in (1120, 600):
-            self.window.resize(width, 760)
-            for _ in range(4):
-                self.app.processEvents()
-            button = next(b for b in self.window.findChildren(QPushButton) if b.text() == "+ New tab")
-            self.assertGreaterEqual(button.height(), button.sizeHint().height())
-            self.assertEqual(3, button.parentWidget().height() - button.geometry().bottom() - 1)
-            bar = self.window.tabs.tabBar()
-            tab_bottom = bar.mapTo(self.window, QPoint(0, bar.tabRect(0).bottom() + 1)).y()
-            shell_top = self.window.current_tab().terminal.mapTo(self.window, QPoint(0, 0)).y()
-            self.assertEqual(3, shell_top - tab_bottom)
+        # Test the native style too, then exercise the metric variation that
+        # reproduces the one-pixel squeeze even on a non-Windows test machine.
+        styles = [None] + [TabBaseStyle(height) for height in (1, 2, 3)]
+        for style in styles:
+            if style is not None:
+                style.setParent(self.window.tabs)
+                self.window.tabs.setStyle(style)
+                self.window.tabs.tabBar().update_tab_inset()
+            for width in (1120, 600):
+                with self.subTest(base_height=None if style is None else style.base_height, width=width):
+                    self.window.resize(width, 760)
+                    for _ in range(4):
+                        self.app.processEvents()
+                    button = next(b for b in self.window.findChildren(QPushButton) if b.text() == "+ New tab")
+                    self.assertGreaterEqual(button.height(), button.sizeHint().height())
+                    self.assertEqual(3, button.parentWidget().height() - button.geometry().bottom() - 1)
+                    bar = self.window.tabs.tabBar()
+                    tab_bottom = bar.mapTo(self.window, QPoint(0, bar.tabRect(0).bottom() + 1)).y()
+                    shell_top = self.window.current_tab().terminal.mapTo(self.window, QPoint(0, 0)).y()
+                    self.assertEqual(3, shell_top - tab_bottom)
 
     def test_tab_close_icons_stay_in_place_when_switching_tabs(self):
         from PySide6.QtCore import QPoint, Qt
