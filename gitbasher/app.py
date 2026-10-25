@@ -237,6 +237,41 @@ class ShellTab(QWidget):
 
 class TabStrip(QTabBar):
     """Reserve enough top-row height for the corner control and its padding."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.top_inset = 0
+        self.inset_pending = False
+
+    def update_tab_inset(self):
+        self.inset_pending = False
+        parent = self.parentWidget()
+        corner = parent.cornerWidget(Qt.Corner.TopRightCorner) if isinstance(parent, QTabWidget) else None
+        if self.count() == 0 or corner is None:
+            return
+        compact_height = max(QTabBar.tabSizeHint(self, i).height() - self.top_inset
+                             for i in range(self.count()))
+        inset = max(0, corner.sizeHint().height() + 1 - compact_height)
+        if inset != self.top_inset:
+            self.top_inset = inset
+            # Blank space belongs above compact tabs, so their bottoms still meet the shell.
+            self.setStyleSheet(f"QTabBar::tab {{ margin-top:{inset}px; }}")
+            self.updateGeometry()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange) and not self.inset_pending:
+            self.inset_pending = True
+            QTimer.singleShot(0, self.update_tab_inset)
+
+    def tabLayoutChange(self):
+        super().tabLayoutChange()
+        inset = getattr(self, "top_inset", 0)
+        for index in range(self.count()):
+            close = self.tabButton(index, QTabBar.ButtonPosition.RightSide)
+            if close is not None:
+                rect = self.tabRect(index)
+                close.move(close.x(), rect.top() + (rect.height() + inset - close.height()) // 2)
+
     def tabSizeHint(self, index):
         size = super().tabSizeHint(index)
         parent = self.parentWidget()
@@ -347,20 +382,20 @@ class MainWindow(QMainWindow):
             QTabWidget::pane { border:0;border-top:1px solid #3c4b60;top:-1px; }
             QTabWidget::tab-bar { left:3px; }
             QTabBar::tab {
-                padding:4px 8px;background:#202a39;color:#aab6c8;
+                padding:6px 8px 3px;background:#202a39;color:#aab6c8;
                 border:1px solid #3c4b60;
                 border-top-left-radius:6px;border-top-right-radius:6px;
-                margin-right:3px;margin-top:2px;
+                margin-right:3px;margin-top:0;
             }
             QTabBar::tab:!selected:hover { background:#2b394b;color:#dde4ef; }
             QTabBar::tab:selected {
                 background:#181e29;color:#dde4ef;
                 border-top:1px solid #53647c;border-bottom-color:#181e29;
-                margin-top:0;
             }
             QToolButton#tabClose { border:0;padding:0;margin:0;border-radius:3px;background:transparent; }
             QToolButton#tabClose:hover { background:#3c4b60; }
         """)
+        self.tabs.tabBar().update_tab_inset()
         if self.config_error:
             QTimer.singleShot(0, self.show_config_error)
 
