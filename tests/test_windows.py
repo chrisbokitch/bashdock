@@ -14,6 +14,51 @@ from bashdock.shell_integration import create_init_file
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(unittest.TestCase):
+    def test_command_button_uses_plain_input_with_real_xterm_bracketed_paste_enabled(self):
+        from unittest.mock import Mock
+        from PySide6.QtWidgets import QApplication
+        from bashdock.terminal import Terminal
+
+        app = QApplication.instance() or QApplication([])
+        terminal = Terminal()
+        terminal.resize(900, 600)
+        terminal.show()
+
+        def wait_for(predicate):
+            deadline = time.monotonic() + 20
+            while not predicate() and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(predicate(), "Timed out waiting for real xterm input")
+
+        writes = []
+        try:
+            wait_for(lambda: terminal.ready)
+            terminal.process = Mock()
+            terminal.process.write.side_effect = writes.append
+            # Simulate output enabling paste mode, as Readline does at a prompt.
+            terminal.bridge.output.emit("\x1b[?2004h")
+            modes = []
+
+            def mode_ready():
+                terminal.page().runJavaScript("terminal.modes.bracketedPasteMode", modes.append)
+                return bool(modes and modes[-1] is True)
+
+            wait_for(mode_ready)
+            terminal.run_command("pwd")
+            wait_for(lambda: bool(writes))
+            self.assertEqual(["pwd\r"], writes)
+            terminal.run_command("printf 'first\\n'\nprintf 'second\\n'")
+            wait_for(lambda: len(writes) >= 2)
+            self.assertEqual("printf 'first\\n'\rprintf 'second\\n'\r", writes[1])
+            # Clipboard paste still uses xterm's active bracketed-paste behavior.
+            terminal.bridge.clipboardPaste.emit("clipboard text")
+            wait_for(lambda: len(writes) >= 3)
+            self.assertEqual("\x1b[200~clipboard text\x1b[201~", writes[2])
+        finally:
+            terminal.stop()
+            terminal.close()
+
     def test_persistent_shell_directory_environment_and_resize(self):
         from winpty import PtyProcess, Backend
         bash = find_bash()

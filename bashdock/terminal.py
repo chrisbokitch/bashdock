@@ -171,7 +171,7 @@ class Terminal(QWebEngineView):
                 self.problem.emit(str(error))
 
     def run_command(self, command):
-        # Terminal.paste uses bracketed-paste mode when enabled by the active program.
+        # The button-command signal sends plain input plus Enter, not a clipboard paste.
         if self.process:
             self.bridge.paste.emit(command)
             self.bridge.focus.emit()

@@ -19,7 +19,9 @@ new QWebChannel(qt.webChannelTransport, channel => {
   terminal.onData(data => bridge.input(data));
   terminal.onResize(size => bridge.resize(size.cols, size.rows));
   bridge.output.connect(data => terminal.write(data));
-  bridge.paste.connect(command => { terminal.paste(command); bridge.input('\r'); });
+  // Buttons represent typed commands, not clipboard pastes. Send the command
+  // and Enter together so stale bracketed-paste mode cannot add escape markers.
+  bridge.paste.connect(command => bridge.input(command.replace(/\r?\n/g, '\r') + '\r'));
   bridge.clipboardPaste.connect(text => terminal.paste(text));
   bridge.focus.connect(() => terminal.focus());
   terminal.attachCustomKeyEventHandler(event => {

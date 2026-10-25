@@ -10,7 +10,7 @@ function setup() {
     cursor_style: 'block', cursor_blink: true, foreground: '#dde4ef', background: '#10141c',
     cursor_color: '#70dcc2', selection_color: '#365e66', copy_on_select: false, right_click_paste: false};
   const bridge = {output: signal(), paste: signal(), clipboardPaste: signal(), focus: signal(),
-    settingsChanged: signal(), input() {}, resize() {}, directory() {}, ready() {},
+    settingsChanged: signal(), inputs: [], input(text) {this.inputs.push(text);}, resize() {}, directory() {}, ready() {},
     copies: [], copy(text) {this.copies.push(text);}, pastes: 0, requestPaste() {this.pastes++;},
     requestSettings() {this.settingsChanged.emit(JSON.stringify(initial));}};
   const host = {clientWidth: 800, clientHeight: 600, events: {}, addEventListener(name, fn) {this.events[name] = fn;}};
@@ -18,9 +18,13 @@ function setup() {
   const context = vm.createContext({
     Terminal: class {
       constructor(options) {terminal = this; this.options = options; this.cols = 80; this.rows = 24;
-        this.modes = {mouseTrackingMode: 'none'}; this.selection = '';}
-      loadAddon() {} open() {} write() {} paste() {} focus() {}
-      onData() {} onResize() {} attachCustomKeyEventHandler(fn) {this.key = fn;}
+        this.modes = {mouseTrackingMode: 'none', bracketedPasteMode: false}; this.selection = ''; this.pasteCalls = [];}
+      loadAddon() {} open() {} write() {} focus() {}
+      paste(text) {
+        this.pasteCalls.push(text);
+        this.data(this.modes.bracketedPasteMode ? `\x1b[200~${text}\x1b[201~` : text);
+      }
+      onData(fn) {this.data = fn;} onResize() {} attachCustomKeyEventHandler(fn) {this.key = fn;}
       onSelectionChange(fn) {this.selectionChanged = fn;}
       getSelection() {return this.selection;} hasSelection() {return this.selection.length > 0;}
       parser = {registerOscHandler() {}};
@@ -78,4 +82,27 @@ test('right-click paste respects mouse-aware programs and uses the confirmed nat
   assert.equal(s.bridge.pastes, 2);
   assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyV', type: 'keydown'}), false);
   assert.equal(s.bridge.pastes, 3);
+});
+
+test('first and repeated command buttons send plain commands and Enter in one write even with stale paste mode', () => {
+  for (const bracketedPasteMode of [false, true]) {
+    const s = setup();
+    s.terminal.modes.bracketedPasteMode = bracketedPasteMode;
+    s.bridge.paste.emit('pwd');
+    s.bridge.paste.emit("printf 'café\\n'\nprintf 'done\\n'");
+    s.bridge.paste.emit('git status\r\ngit diff');
+    assert.deepEqual(s.bridge.inputs, [
+      'pwd\r', "printf 'café\\n'\rprintf 'done\\n'\r", 'git status\rgit diff\r'
+    ]);
+    assert.deepEqual(s.terminal.pasteCalls, []);
+    assert.ok(s.bridge.inputs.every(text => !text.includes('\x1b')));
+  }
+});
+
+test('clipboard input still uses bracketed paste without adding Enter', () => {
+  const s = setup();
+  s.terminal.modes.bracketedPasteMode = true;
+  s.bridge.clipboardPaste.emit('clipboard text');
+  assert.deepEqual(s.terminal.pasteCalls, ['clipboard text']);
+  assert.deepEqual(s.bridge.inputs, ['\x1b[200~clipboard text\x1b[201~']);
 });
