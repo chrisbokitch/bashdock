@@ -139,6 +139,7 @@ class ShellTab(QWidget):
         self.terminal = terminal_factory(self)
         layout.addWidget(self.terminal, 1)
         footer = QHBoxLayout()
+        footer.setContentsMargins(3, 3, 3, 3)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -212,10 +213,14 @@ class MainWindow(QMainWindow):
         self.tabs.tabBar().tabMoved.connect(self.schedule_save)
         add = QPushButton("+ New tab")
         add.clicked.connect(self.new_tab)
-        self.tabs.setCornerWidget(add, Qt.Corner.TopRightCorner)
+        corner = QWidget()
+        corner_layout = QHBoxLayout(corner)
+        corner_layout.setContentsMargins(3, 0, 3, 0)
+        corner_layout.addWidget(add)
+        self.tabs.setCornerWidget(corner, Qt.Corner.TopRightCorner)
         body = QWidget()
         layout = QVBoxLayout(body)
-        layout.setContentsMargins(3, 0, 3, 0)
+        layout.setContentsMargins(3, 3, 3, 0)
         layout.setSpacing(0)
         layout.addWidget(self.tabs)
         self.setCentralWidget(body)
@@ -252,6 +257,7 @@ class MainWindow(QMainWindow):
             QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
             QLineEdit { padding:6px; }
             QTabWidget::pane { border:0;border-top:1px solid #3c4b60;top:-1px; }
+            QTabWidget::tab-bar { left:3px; }
             QTabBar::tab {
                 padding:4px 8px;background:#202a39;color:#aab6c8;
                 border:1px solid #3c4b60;
