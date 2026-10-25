@@ -4,8 +4,10 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.package_release import package
+from scripts import verify_release
 
 
 class ReleasePackagingTests(unittest.TestCase):
@@ -33,6 +35,27 @@ class ReleasePackagingTests(unittest.TestCase):
                 self.assertEqual(commit, details["commit"])
                 self.assertEqual("0.6.4", details["version"])
                 self.assertIn("Git for Windows", bundle.read("bashdock/README.txt").decode())
+            (root / "package.json").write_text('{"version": "0.6.4"}')
+            # An older local archive must not prevent verification of this version.
+            (root / "release/bashdock-0.6.3-windows-x64.zip").touch()
+
+            def smoke(args, **options):
+                executable = Path(args[0])
+                self.assertEqual(b"executable fixture", executable.read_bytes())
+                self.assertTrue((executable.parent / "_internal/nested/runtime.dll").is_file())
+                self.assertIn(" ", options["env"]["APPDATA"])
+                result = Path(args[2])
+                result.parent.mkdir(parents=True, exist_ok=True)
+                result.write_text('{"ok": true}')
+
+            with patch.object(verify_release, "ROOT", root), \
+                    patch.object(verify_release.subprocess, "run", side_effect=smoke) as launch:
+                verify_release.main()
+                launch.assert_called_once()
+                archive.write_bytes(b"corrupted download")
+                with self.assertRaisesRegex(ValueError, "checksum"):
+                    verify_release.main()
+                self.assertEqual(1, launch.call_count)
 
     def test_failed_smoke_test_or_incomplete_runtime_does_not_produce_a_release(self):
         with tempfile.TemporaryDirectory() as temp:

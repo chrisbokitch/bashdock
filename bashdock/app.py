@@ -366,7 +366,10 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.tabs)
         self.setCentralWidget(body)
         self.setStatusBar(FooterBar(self))
-        menu = self.menuBar().addMenu("Manage")
+        # Keep Python wrappers alive as well as Qt ownership. Some supported
+        # PySide versions otherwise destroy menus when temporary wrappers expire.
+        self.manage_menu = self.menuBar().addMenu("Manage")
+        menu = self.manage_menu
         for label, callback, shortcut in (
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
             ("Rename tab…", lambda: self.rename_tab(self.tabs.currentIndex()), ""),
@@ -384,7 +387,8 @@ class MainWindow(QMainWindow):
             if shortcut:
                 action.setShortcut(shortcut)
             menu.addAction(action)
-        settings = self.menuBar().addMenu("Settings")
+        self.settings_menu = self.menuBar().addMenu("Settings")
+        settings = self.settings_menu
         configure_action = QAction("Configure current tab…", self)
         configure_action.triggered.connect(self.configure)
         settings.addAction(configure_action)
@@ -397,7 +401,8 @@ class MainWindow(QMainWindow):
         self.confirm_exit_action.setChecked(self.data["confirm_on_exit"])
         self.confirm_exit_action.toggled.connect(self.set_confirm_on_exit)
         settings.addAction(self.confirm_exit_action)
-        help_menu = self.menuBar().addMenu("Help")
+        self.help_menu = self.menuBar().addMenu("Help")
+        help_menu = self.help_menu
         about_action = QAction("About BashDock…", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)

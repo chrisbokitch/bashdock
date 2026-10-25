@@ -10,10 +10,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def main():
-    archives = list((ROOT / "release").glob("bashdock-*-windows-x64.zip"))
-    if len(archives) != 1:
-        raise ValueError("Expected exactly one release ZIP in release/.")
-    archive = archives[0]
+    version = json.loads((ROOT / "package.json").read_text())["version"]
+    archive = ROOT / "release" / f"bashdock-{version}-windows-x64.zip"
     expected, filename = archive.with_suffix(".sha256").read_text().strip().split("  ", 1)
     with archive.open("rb") as stream:
         actual = hashlib.file_digest(stream, "sha256").hexdigest()
