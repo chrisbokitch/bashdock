@@ -152,3 +152,25 @@ entitlement is not verified by CI and remains a public-release gate.
 The Qt wheel also contains Mesa llvmpipe (Mesa 11.2.2 / LLVM 3.6.2, identified in
 the actual DLL). Its standalone MIT/Boost/NCSA notices are included separately
 because the binary's Mesa/LLVM sources are not part of qt-everywhere.
+
+## Packaging prerequisites and runtime mismatch recovery
+
+`npm run package` checks the Git checkout and runtime versions before starting
+compilation. Dirty-checkout errors list the affected paths; keep local helpers
+ignored rather than committing them. The checks run again during packaging.
+
+Setup pins PySide6/Qt and pywinpty to the versions in the reviewed source
+manifest. If an older development environment has different versions, run:
+
+```bash
+npm run setup
+npm test
+npm run package
+```
+
+This updates the existing virtual environment in place. There is no need to
+delete settings, tabs, source caches, or `.venv`. Runtime version errors show
+installed and expected values. Official CI still uses Python 3.12 x64 and the
+complete hash-locked build environment described above. Update the runtime pins,
+Windows lock, matching source archives, and native notices together when
+intentionally updating dependencies.

@@ -125,3 +125,24 @@ class ReleasePackagingTests(unittest.TestCase):
             report.write_text('{"ok": true}')
             with self.assertRaisesRegex(ValueError, 'licensing file'):
                 package(root, root / 'release', report, '0.10.2', 'a' * 40, {})
+
+    def test_preflight_checks_checkout_and_dependencies_before_any_release_output(self):
+        from scripts import package_release
+        import os
+        with patch.object(package_release.sys, 'argv', ['package_release.py', '--check']), \
+                patch.object(package_release.sys, 'platform', 'win32'), \
+                patch.object(package_release.platform, 'machine', return_value='AMD64'), \
+                patch.dict(os.environ, {'BASHDOCK_RELEASE_TAG': ''}), \
+                patch.object(package_release, 'check_source_tree', return_value='a' * 40) as checkout, \
+                patch.object(package_release, 'validate_environment') as environment, \
+                patch.object(package_release, 'create_source_archive', side_effect=AssertionError('no output')):
+            package_release.main()
+            checkout.assert_called_once()
+            environment.assert_called_once()
+            checkout.reset_mock()
+            checkout.side_effect = ValueError('untracked local backup.sh')
+            environment.reset_mock()
+            with self.assertRaises(SystemExit) as failure:
+                package_release.main()
+            self.assertEqual(2, failure.exception.code)
+            environment.assert_not_called()

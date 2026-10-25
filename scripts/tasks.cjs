@@ -23,12 +23,12 @@ function run(executable, args, options = {}) {
   }
 }
 
-if (!['setup', 'test', 'preview', 'compile', 'package'].includes(task)) {
+if (!['setup', 'test', 'preview', 'compile', 'package', 'package-check'].includes(task)) {
   console.error('Use npm run setup, npm test, npm run preview, npm run compile, or npm run package.');
   process.exit(1);
 }
 
-if (['preview', 'compile', 'package'].includes(task) && !windows) {
+if (['preview', 'compile', 'package', 'package-check'].includes(task) && !windows) {
   console.error(`${task} requires Windows. Build Windows executables on Windows.`);
   process.exit(1);
 }
@@ -72,4 +72,6 @@ if (task === 'test') {
   console.log(`Built ${executable}\nKeep the entire dist/bashdock folder together when copying the app.`);
 } else if (task === 'package') {
   run(python, ['scripts/package_release.py']);
+} else if (task === 'package-check') {
+  run(python, ['scripts/package_release.py', '--check']);
 }

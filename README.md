@@ -202,8 +202,11 @@ Third-party components retain their own licenses. See
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). **Help → About BashDock → License
 and notices…** displays the project license and dependency overview offline.
 
-`npm run package` requires a clean, committed checkout so its source archive
-matches the executable. In addition to the portable ZIP, checksum, and build
+`npm run package` checks for a clean, committed checkout and matching runtime
+versions **before compiling**, so the source archive matches the executable.
+Runtime dependencies are pinned to the reviewed release sources; after pulling
+a dependency change, run `npm run setup` to update your existing `.venv`.
+A mismatch reports the installed and required versions and the repair command. In addition to the portable ZIP, checksum, and build
 information, it produces the matching application source ZIP and dependency
 source archives. Its first run downloads approximately 1.3 GB of Qt sources plus
 smaller source packages; verified downloads are cached under `build/source-cache/`.

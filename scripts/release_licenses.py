@@ -153,17 +153,41 @@ def collect_environment_notices(destination, distributions=None, python_license=
     return records
 
 
-def prepare(runtime, output, version, commit):
-    manifest = json.loads((ROOT / 'requirements/release-sources.json').read_text())
+def validate_environment(root=None, *, qt_version=None, distribution_version=None):
+    """Check installed runtimes without writing files or downloading sources."""
+    root = root or ROOT
+    manifest = json.loads((root / 'requirements/release-sources.json').read_text())
     versions = {e['name']: e['version'] for e in manifest}
-    from PySide6.QtCore import qVersion
-    if qVersion() != versions['Qt']:
-        raise ValueError('Qt runtime and release source versions do not match.')
+    if qt_version is None:
+        try:
+            from PySide6.QtCore import qVersion
+            qt_version = qVersion()
+        except ImportError:
+            qt_version = 'not installed'
+    distribution_version = distribution_version or importlib.metadata.version
+    mismatches = []
+    if qt_version != versions['Qt']:
+        mismatches.append(f"Qt runtime: installed {qt_version}; required {versions['Qt']}")
     for name, expected in [('PySide6', versions['PySide6']), ('PySide6_Essentials', versions['PySide6']),
                            ('PySide6_Addons', versions['PySide6']), ('shiboken6', versions['PySide6']),
                            ('pywinpty', versions['pywinpty'])]:
-        if importlib.metadata.version(name) != expected:
-            raise ValueError(f'Release notices/sources require {name} {expected}; use the locked build environment.')
+        try:
+            installed = distribution_version(name)
+        except importlib.metadata.PackageNotFoundError:
+            installed = 'not installed'
+        if installed != expected:
+            mismatches.append(f'{name}: installed {installed}; required {expected}')
+    if mismatches:
+        raise ValueError('Release runtime versions do not match the reviewed sources:\n  '
+                         + '\n  '.join(mismatches)
+                         + '\nRun npm run setup to install the matching runtime versions, '
+                           'then rerun npm run package.\n'
+                           'Official CI release builds use requirements/windows-build.lock with Python 3.12 x64.')
+    return manifest
+
+
+def prepare(runtime, output, version, commit):
+    manifest = validate_environment()
     native = json.loads((ROOT / 'requirements/native-runtime.json').read_text())
     for filename, expected in native['files'].items():
         path = runtime / '_internal/winpty' / filename

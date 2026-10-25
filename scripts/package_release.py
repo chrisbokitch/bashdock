@@ -13,14 +13,25 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+if __package__:
+    from .release_licenses import validate_environment, prepare, digest
+else:
+    from release_licenses import validate_environment, prepare, digest
 
-def create_source_archive(root, output, version, commit):
+
+def check_source_tree(root, commit=None):
     actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
     status = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'],
                                      cwd=root, text=True).strip()
-    if actual != commit or status:
+    if (commit is not None and actual != commit) or status:
         raise ValueError('Commit all project changes before packaging so binaries and source match. '
-                         'Local copy.sh/copy.bat remain ignored.')
+                         'Local copy.sh/copy.bat remain ignored.\n'
+                         + (status or 'The requested source commit is not HEAD.'))
+    return actual
+
+
+def create_source_archive(root, output, version, commit):
+    check_source_tree(root, commit)
     output.mkdir(parents=True, exist_ok=True)
     archive = output / f'bashdock-{version}-source.zip'
     # git archive otherwise applies the user's checkout line-ending settings.
@@ -96,6 +107,7 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "release")
     parser.add_argument("--report", type=Path, default=ROOT / "build/packaged-shell-smoke.json")
     parser.add_argument("--commit")
+    parser.add_argument("--check", action="store_true", help="Check packaging prerequisites without building or writing release files.")
     args = parser.parse_args()
     if sys.platform != "win32" or platform.machine().lower() not in ("amd64", "x86_64"):
         parser.error("Release packaging requires Windows x64.")
@@ -103,7 +115,14 @@ def main():
     tag = os.environ.get("BASHDOCK_RELEASE_TAG", "")
     if tag and tag != "v" + version:
         parser.error(f"Tag {tag} does not match application version v{version}.")
-    commit = args.commit or subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+    try:
+        commit = check_source_tree(ROOT, args.commit)
+        validate_environment(ROOT)
+    except ValueError as error:
+        parser.exit(2, f'Cannot package BashDock: {error}\n')
+    if args.check:
+        print('Packaging prerequisites passed: clean source checkout and matching runtime versions.')
+        return
     lock = ROOT / "requirements/windows-build.lock"
     metadata = {"python": sys.version, "platform": platform.platform(), "architecture": platform.machine(),
                 "git": subprocess.check_output(["git", "--version"], text=True).strip(),
@@ -114,7 +133,6 @@ def main():
                                     f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
     # A private repository is not a source offer: distribute explicit source assets.
     source_archive = create_source_archive(ROOT, args.output, version, commit)
-    from release_licenses import prepare, digest
     sources = [source_archive, *prepare(args.source, args.output, version, commit)]
     metadata['license'] = 'GPL-3.0-only'
     metadata['source_assets'] = [dict(filename=p.name, sha256=digest(p)) for p in sources]

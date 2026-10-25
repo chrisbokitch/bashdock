@@ -63,3 +63,31 @@ class ReleaseLicenseTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
                     download(entry, cache)
             self.assertFalse(path.with_suffix('.xz.partial').exists())
+
+    def test_runtime_check_reports_actual_expected_and_repair_without_writing_files(self):
+        from scripts.release_licenses import validate_environment
+        from importlib.metadata import PackageNotFoundError
+
+        def installed(name):
+            if name == 'pywinpty':
+                raise PackageNotFoundError(name)
+            return '6.12.0'
+
+        with patch('scripts.release_licenses.download', side_effect=AssertionError('no download')):
+            with self.assertRaises(ValueError) as failure:
+                validate_environment(qt_version='6.12.0', distribution_version=installed)
+        message = str(failure.exception)
+        self.assertIn('Qt runtime: installed 6.12.0; required 6.10.3', message)
+        self.assertIn('pywinpty: installed not installed; required 3.0.5', message)
+        self.assertIn('npm run setup', message)
+        manifest = validate_environment(qt_version='6.10.3', distribution_version=lambda name:
+                                        '3.0.5' if name == 'pywinpty' else '6.10.3')
+        self.assertEqual('6.10.3', next(e['version'] for e in manifest if e['name'] == 'Qt'))
+
+    def test_setup_runtime_pins_match_the_reviewed_release_sources(self):
+        import tomllib
+        project = tomllib.loads((ROOT / 'pyproject.toml').read_text())['project']
+        manifest = {item['name']: item['version'] for item in
+                    json.loads((ROOT / 'requirements/release-sources.json').read_text())}
+        self.assertIn('PySide6==' + manifest['PySide6'], project['dependencies'])
+        self.assertIn('pywinpty==' + manifest['pywinpty'] + "; sys_platform == 'win32'", project['dependencies'])
