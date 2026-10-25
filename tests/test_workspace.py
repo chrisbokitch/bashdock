@@ -672,7 +672,7 @@ class WorkspaceTests(unittest.TestCase):
         menus = {action.text(): action.menu() for action in self.window.menuBar().actions()}
         self.assertEqual(["Manage", "Settings", "Help"], list(menus))
         manage = menus["Manage"].actions()
-        self.assertEqual(["New tab", "Rename tab…", "Close tab", "Workspaces…", "", "Open external shell",
+        self.assertEqual(["New tab", "Rename tab…", "Close tab", "Workspaces", "", "Open external shell",
                           "Restart shell…", "Interrupt (Ctrl+C)"], [a.text() for a in manage])
         self.assertTrue(manage[4].isSeparator())
         self.assertEqual("Ctrl+Shift+T", manage[0].shortcut().toString())
@@ -692,6 +692,40 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(any(not label.pixmap().isNull() for label in labels))
             link = next(label for label in labels if 'href="https://github.com/chrisbokitch/bashdock"' in label.text())
             self.assertTrue(link.openExternalLinks())
+
+    def test_workspaces_submenu_configures_and_opens_current_saved_entries_without_duplicates(self):
+        submenu = next(a.menu() for a in self.window.manage_menu.actions() if a.text() == "Workspaces")
+        self.assertEqual(["Configure…"], [a.text() for a in submenu.actions()])
+        with patch("bashdock.app.WorkspacesDialog") as dialog:
+            submenu.actions()[0].trigger()
+            dialog.return_value.exec.assert_called_once()
+        first = self.window.current_tab()
+        self.ready(first)
+        self.assertTrue(self.window.save_workspace("App & Website", [0]))
+        self.window.new_tab()
+        second = self.window.current_tab()
+        self.ready(second)
+        self.assertTrue(self.window.save_workspace("CIDR", [1]))
+        submenu.aboutToShow.emit()
+        self.assertEqual(["Configure…", "", "App && Website", "CIDR"], [a.text() for a in submenu.actions()])
+        self.assertTrue(submenu.actions()[1].isSeparator())
+        submenu.actions()[2].trigger()
+        self.assertIs(first, self.window.current_tab())
+        submenu.actions()[3].trigger()
+        self.assertIs(second, self.window.current_tab())
+        self.window.close_tab(0)
+        submenu.actions()[2].trigger()
+        self.assertEqual(first.data["id"], self.window.current_tab().data["id"])
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertEqual(0, second.terminal.stops)
+        entries = copy.deepcopy(self.window.data["workspaces"])
+        entries[0]["name"] = "Renamed"
+        self.assertTrue(self.window.store_workspaces(entries))
+        submenu.aboutToShow.emit()
+        self.assertEqual("Renamed", submenu.actions()[2].text())
+        self.assertTrue(self.window.store_workspaces([]))
+        submenu.aboutToShow.emit()
+        self.assertEqual(["Configure…"], [a.text() for a in submenu.actions()])
 
     def test_save_failure_during_opt_out_keeps_shell_and_original_preference(self):
         tab = self.window.current_tab()

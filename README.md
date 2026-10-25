@@ -115,7 +115,7 @@ The **Manage** menu groups tab management and shell actions. **Settings → Conf
 
 ## Saved workspaces
 
-Use **Manage → Workspaces…** to keep named groups of tabs for different projects.
+Use **Manage → Workspaces → Configure…** to keep named groups of tabs for different projects. Saved workspaces also appear directly below Configure in that submenu; clicking one adds its missing tabs without closing existing shells. The list refreshes when the submenu opens, including after saving, renaming, deleting, or importing workspaces. With no saved workspaces, only Configure is shown.
 
 - **Save selected tabs…** lets you name a workspace and check the current tabs to include. Tabs retain their visible order, names, startup/current folders, and command bars. The active tab is remembered when included; otherwise the first selected tab becomes active.
 - **Open — add tabs** adds only saved tabs that are not already open and selects the workspace's saved active tab, whether existing or newly added. Existing tabs keep their running shells, names, edits, positions, and folders. Reopening the same workspace, or overlapping workspaces, does not create duplicate tabs.

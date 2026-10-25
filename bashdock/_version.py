@@ -1,2 +1,2 @@
 # Generated from package.json by scripts/sync-version.cjs; do not edit directly.
-__version__ = "0.9.1"
+__version__ = "0.9.2"

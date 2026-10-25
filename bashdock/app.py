@@ -378,12 +378,17 @@ class MainWindow(QMainWindow):
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
             ("Rename tab…", lambda: self.rename_tab(self.tabs.currentIndex()), ""),
             ("Close tab", lambda: self.close_tab(self.tabs.currentIndex()), "Ctrl+Shift+W"),
-            ("Workspaces…", self.manage_workspaces, ""),
+            ("Workspaces", self.manage_workspaces, ""),
             ("", None, ""),
             ("Open external shell", self.open_external, ""),
             ("Restart shell…", self.restart, ""),
             ("Interrupt (Ctrl+C)", self.interrupt, ""),
         ):
+            if label == "Workspaces":
+                self.workspaces_menu = menu.addMenu(label)
+                self.workspaces_menu.aboutToShow.connect(self.refresh_workspaces_menu)
+                self.refresh_workspaces_menu()
+                continue
             if callback is None:
                 menu.addSeparator()
                 continue
@@ -423,7 +428,7 @@ class MainWindow(QMainWindow):
         # Older PySide bindings can delete a submenu when a temporary action
         # wrapper expires after QAction.menu() is called.
         self.menu_actions = tuple(menu.menuAction() for menu in
-                                  (self.manage_menu, self.settings_menu, self.help_menu))
+                                  (self.manage_menu, self.settings_menu, self.help_menu, self.workspaces_menu))
         for profile in self.data["tabs"]:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
@@ -569,6 +574,19 @@ class MainWindow(QMainWindow):
         dialog = WorkspacesDialog(self)
         dialog.exec()
         dialog.deleteLater()
+
+    def refresh_workspaces_menu(self):
+        self.workspaces_menu.clear()
+        configure = QAction("Configure…", self.workspaces_menu)
+        configure.triggered.connect(self.manage_workspaces)
+        self.workspaces_menu.addAction(configure)
+        workspaces = self.data.get("workspaces", [])
+        if workspaces:
+            self.workspaces_menu.addSeparator()
+            for index, workspace in enumerate(workspaces):
+                action = QAction(workspace["name"].replace("&", "&&"), self.workspaces_menu)
+                action.triggered.connect(lambda checked=False, index=index: self.open_workspace(index))
+                self.workspaces_menu.addAction(action)
 
     def store_workspaces(self, workspaces):
         try:
