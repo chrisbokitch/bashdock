@@ -76,6 +76,25 @@ class WindowsTests(unittest.TestCase):
             self.assertTrue(terminal.ready, "Local xterm assets/WebChannel did not initialize")
             self.assertGreater(terminal.dimensions[0], 2)
             self.assertGreater(terminal.dimensions[1], 2)
+            # Verify the real WebChannel/xterm path, including live updates.
+            from bashdock import terminal_preferences
+            settings = dict(terminal_preferences.defaults(), font_size=21, cursor_style="bar",
+                            background="#223344", scrollback=500)
+            terminal.apply_settings(settings)
+            observed = []
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                terminal.page().runJavaScript(
+                    "[terminal.options.fontSize, terminal.options.cursorStyle, "
+                    "terminal.options.theme.background, terminal.options.scrollback]", observed.append)
+                until = time.monotonic() + 0.1
+                while time.monotonic() < until:
+                    app.processEvents()
+                    time.sleep(0.005)
+                if observed and observed[-1] == [21, "bar", "#223344", 500]:
+                    break
+            self.assertTrue(observed)
+            self.assertEqual([21, "bar", "#223344", 500], observed[-1])
         finally:
             terminal.stop()
             terminal.close()

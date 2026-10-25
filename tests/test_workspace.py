@@ -39,6 +39,9 @@ class FakeTerminal(QWidget):
         self.starts.append((bash, folder))
         self.process = object()
 
+    def apply_settings(self, settings):
+        self.preferences = copy.deepcopy(settings)
+
     def run_command(self, command):
         self.commands.append(command)
 
@@ -225,6 +228,42 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse(config.load(self.path)["confirm_on_exit"])
         self.window.confirm_exit_action.setChecked(True)
         self.assertTrue(config.load(self.path)["confirm_on_exit"])
+
+    def test_terminal_preferences_save_apply_to_all_tabs_and_new_tabs_without_restart(self):
+        self.window.new_tab()
+        for index in range(self.window.tabs.count()):
+            self.ready(self.window.tabs.widget(index))
+        settings = copy.deepcopy(self.window.data["terminal"])
+        settings.update(font_size=20, background="#223344", copy_on_select=True)
+        with patch("bashdock.app.TerminalSettingsDialog") as dialog:
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.values.return_value = settings
+            self.window.configure_terminal()
+        self.assertEqual(settings, config.load(self.path)["terminal"])
+        for index in range(self.window.tabs.count()):
+            tab = self.window.tabs.widget(index)
+            self.assertEqual(settings, tab.terminal.preferences)
+            self.assertEqual(0, tab.terminal.stops)
+            self.assertEqual(1, len(tab.terminal.starts))
+        self.window.new_tab()
+        self.assertEqual(settings, self.window.current_tab().terminal.preferences)
+
+    def test_terminal_preferences_cancel_or_save_failure_leave_active_settings_intact(self):
+        original = copy.deepcopy(self.window.data["terminal"])
+        with patch("bashdock.app.TerminalSettingsDialog") as dialog:
+            dialog.return_value.exec.return_value = 0
+            self.window.configure_terminal()
+            dialog.return_value.values.assert_not_called()
+        with patch("bashdock.app.TerminalSettingsDialog") as dialog, \
+                patch("bashdock.config.save", side_effect=PermissionError("locked")), \
+                patch("bashdock.app.QMessageBox.warning"):
+            dialog.return_value.exec.return_value = 1
+            changed = dict(original, font_size=22)
+            dialog.return_value.values.return_value = changed
+            self.window.configure_terminal()
+        self.assertEqual(original, self.window.data["terminal"])
+        self.assertEqual(original, self.window.current_tab().terminal.preferences)
+        self.assertEqual(original, config.load(self.path)["terminal"])
 
     def test_menus_group_actions_and_about_shows_current_version_and_repository(self):
         from PySide6.QtWidgets import QDialog, QLabel

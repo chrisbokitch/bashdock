@@ -17,6 +17,7 @@ from . import config
 from ._version import __version__
 from .window_theme import apply_titlebar
 from .external_shell import open_external
+from .terminal_settings import TerminalSettingsDialog
 
 APP_ICON = Path(__file__).parent / "assets" / "bashdock.ico"
 
@@ -368,6 +369,9 @@ class MainWindow(QMainWindow):
         configure_action = QAction("Configure current tab…", self)
         configure_action.triggered.connect(self.configure)
         settings.addAction(configure_action)
+        terminal_action = QAction("Terminal Settings…", self)
+        terminal_action.triggered.connect(self.configure_terminal)
+        settings.addAction(terminal_action)
         settings.addSeparator()
         self.confirm_exit_action = QAction("Confirm before quitting", self)
         self.confirm_exit_action.setCheckable(True)
@@ -423,6 +427,7 @@ class MainWindow(QMainWindow):
 
     def add_tab(self, profile):
         tab = ShellTab(profile, self, self.terminal_factory)
+        tab.terminal.apply_settings(self.data["terminal"])
         tab.configure_requested.connect(lambda: self.configure(tab))
         tab.terminal.loaded.connect(lambda: self.start_shell(tab))
         tab.terminal.ended.connect(lambda text: self.on_ended(tab, text))
@@ -487,6 +492,7 @@ class MainWindow(QMainWindow):
     def snapshot(self):
         return {"version": 2, "bash_path": self.data["bash_path"],
                 "confirm_on_exit": self.data["confirm_on_exit"],
+                "terminal": copy.deepcopy(self.data["terminal"]),
                 "active_tab": self.tabs.currentIndex(),
                 "tabs": [copy.deepcopy(self.tabs.widget(i).data) for i in range(self.tabs.count())]}
 
@@ -528,6 +534,21 @@ class MainWindow(QMainWindow):
             return
         tab.set_running(True)
         self.show_status(tab, "")
+
+    def configure_terminal(self):
+        dialog = TerminalSettingsDialog(self.data["terminal"], self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            dialog.deleteLater()
+            return
+        previous = self.data["terminal"]
+        self.data["terminal"] = dialog.values()
+        dialog.deleteLater()
+        if not self.persist():
+            self.data["terminal"] = previous
+            QMessageBox.warning(self, "Settings were not saved", "Check the status bar for details.")
+            return
+        for index in range(self.tabs.count()):
+            self.tabs.widget(index).terminal.apply_settings(self.data["terminal"])
 
     def show_about(self):
         dialog = QDialog(self)

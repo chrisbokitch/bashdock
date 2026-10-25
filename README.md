@@ -110,6 +110,8 @@ The app-close confirmation includes **Don't show this again**. Check it and choo
 
 The **Manage** menu groups tab management and shell actions. **Settings → Configure current tab…** opens the same editor as the bottom command bar, including the shared Git Bash executable setting. **Help → About BashDock…** shows the app icon, current version, description, and a link to the GitHub repository.
 
+**Settings → Terminal Settings…** controls the font family and size (8–48 pixels), text/background/cursor/selection colours, cursor shape and blinking, scrollback (0–100,000 lines), automatic copying of selected text, and right-click paste. Save applies to all open tabs without restarting shells, and persists for future tabs and launches. Cancel leaves settings unchanged; Restore Defaults resets the dialog controls until you save. Reducing scrollback discards older lines. Copy-on-selection and right-click paste start disabled; Ctrl+Shift+C/V remain available, and multiline paste still requires confirmation. Mouse-aware terminal programs retain their right-click behaviour unless you hold Shift to paste. These settings affect BashDock's embedded terminals, not external Git Bash windows.
+
 ## Command buttons
 
 Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command. Double-click a cell to edit. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.

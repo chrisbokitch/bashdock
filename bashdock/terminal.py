@@ -2,6 +2,7 @@
 import queue
 import threading
 import logging
+import json
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, QUrl, Signal, Slot
@@ -11,6 +12,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMessageBox
 from .shell_integration import valid_reported_directory
 from .shell_backend import spawn_shell
+from . import terminal_preferences
 
 
 class LocalPage(QWebEnginePage):
@@ -23,10 +25,15 @@ class Bridge(QObject):
     paste = Signal(str)
     clipboardPaste = Signal(str)
     focus = Signal()
+    settingsChanged = Signal(str)
 
     def __init__(self, terminal):
         super().__init__(terminal)
         self.terminal = terminal
+
+    @Slot()
+    def requestSettings(self):
+        self.settingsChanged.emit(json.dumps(self.terminal.preferences))
 
     @Slot(int, int)
     def ready(self, cols, rows):
@@ -85,6 +92,7 @@ class Terminal(QWebEngineView):
         self.stopping = threading.Event()
         self.reader = None
         self.init_file = None
+        self.preferences = terminal_preferences.defaults()
         self.setPage(LocalPage(self))
         self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False)
         self.channel = QWebChannel(self.page())
@@ -96,6 +104,10 @@ class Terminal(QWebEngineView):
         self.timer.setInterval(16)
         self.timer.timeout.connect(self.drain)
         self.timer.start()
+
+    def apply_settings(self, settings):
+        self.preferences = terminal_preferences.validated(settings)
+        self.bridge.settingsChanged.emit(json.dumps(self.preferences))
 
     def start(self, bash_path, folder):
         if self.process:

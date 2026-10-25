@@ -49,6 +49,7 @@ if (!existsSync(python)) {
 
 if (task === 'test') {
   run(python, ['-m', 'unittest', 'discover', '-s', 'tests', '-v']);
+  run(process.execPath, ['--test', 'tests/terminal-settings.test.cjs']);
 } else if (task === 'preview') {
   run(python, ['-m', 'bashdock']);
 } else if (task === 'compile') {
