@@ -3,3 +3,14 @@ Download the Windows x64 ZIP, extract the complete `bashdock` folder, and run `b
 The `.sha256` file verifies the ZIP. Build information records the source commit and dependency versions.
 
 Before publishing this draft, complete the clean Windows VM acceptance checklist in `docs/RELEASING.md`. These executables are currently unsigned.
+
+
+BashDock is licensed under GNU GPL version 3 only. Third-party components keep
+their own licenses; see `LICENSE`, `COPYRIGHT`, `THIRD-PARTY-NOTICES.md`, and
+`licenses/` in the app folder. `SOURCE.txt` identifies matching source archives.
+
+The application source ZIP and Qt, PySide, pywinpty, and Rust dependency source
+archives are attached separately beside the executable ZIP. You do not need
+these archives to run the app. `bashdock-VERSION-SHA256SUMS.txt` (with the release
+version in its filename) checks all release assets. Preserve source access and
+notices when redistributing.

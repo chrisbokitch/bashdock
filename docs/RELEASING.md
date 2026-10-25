@@ -9,7 +9,7 @@ Every push to `main`, pull request to `main`, and manual **Actions → Windows b
 3. Install the exact Windows wheels in `requirements/windows-build.lock`, checking SHA-256 hashes. Install the local project without re-resolving dependencies or using an isolated build environment.
 4. Run Python tests, real Windows ConPTY/WebEngine integration tests, and JavaScript tests. The isolated Bash prompt-hook test also runs with Git for Windows.
 5. Compile with PyInstaller and run the built executable's shell smoke test.
-6. ZIP the complete application, including `_internal`, and record its source commit, Python, OS, Git, dependency versions, and lock-file hash.
+6. Assemble project/dependency licenses and attribution files from the exact source releases and installed packages. Download and hash-check dependency sources, create a clean committed application source ZIP, and mirror dependency source archives as separate release assets. ZIP the application with `_internal`, license/source information, and frozen-file hashes; record build provenance.
 7. Verify the ZIP checksum, extract into a path containing spaces, and run the extracted executable with fresh app settings.
 8. Upload `bashdock-windows-x64` and build diagnostics to that workflow run. Artifacts are retained for 14 days.
 
@@ -60,7 +60,7 @@ Download the ZIP attached to the draft and test that exact file on the clean Win
 - Resize/maximize and inspect at 100%, 125%, and 150% scaling.
 - Check quit confirmation and the saved opt-out setting; confirm embedded shells stop on exit.
 
-Record the tag, source commit, ZIP SHA-256, Windows version, scaling, and results in a release-testing issue. After acceptance, review the draft notes and click **Publish release**. The executables are unsigned; signing is a separate release improvement. Project licensing and dependency notices still need their own review before the public open-source launch.
+Record the tag, source commit, ZIP SHA-256, Windows version, scaling, and results in a release-testing issue. After acceptance, review the draft notes and click **Publish release**. The executables are unsigned; signing is a separate release improvement. GPLv3 is adopted. Before publishing, verify that all source assets and notices described below are attached and accessible to every binary recipient.
 
 ## Verify a downloaded ZIP in Git Bash
 
@@ -90,3 +90,50 @@ BASHDOCK_LOCKED_BUILD=1 npm run package
 ## Updating dependencies
 
 Update the lock deliberately, using CPython 3.12 on Windows x64. Resolve all runtime/build dependencies and include the SHA-256 of each selected wheel. Retain `--require-hashes` and `--only-binary=:all:` installation in CI. Validate the complete Windows workflow and VM checklist after updates; do not copy hashes from an unrelated platform or Python ABI.
+
+## License and source release checks
+
+The project is GPL-3.0-only. `npm run package` refuses an uncommitted checkout:
+commit changes before packaging so `git archive HEAD` describes the binary's
+application source. Local ignored deployment helpers and settings are excluded.
+The source ZIP includes the exact commit ID, build scripts, workflow, lock file,
+original assets, license, and documentation. Build and release from that revision.
+
+Each release must include:
+
+- The Windows application ZIP, its `.sha256`, and build-info JSON.
+- `bashdock-VERSION-source.zip` from the matching source commit.
+- Matching Qt and PySide source `.tar.xz` archives, pywinpty source `.tar.gz`,
+  and the ZIP of Rust crate sources pinned by pywinpty's Cargo.lock.
+- `bashdock-VERSION-SHA256SUMS.txt` covering all these assets.
+
+The first package run downloads about 1.3 GB of Qt sources plus smaller sources;
+verified copies are reused from `build/source-cache/`. Separate source assets
+keep the app download small and work with a private repository. Do not publish
+only the executable ZIP or rely on a private commit URL for source access.
+
+Inspect `licenses/manifest.json`, `licenses/runtime-files.json`, full license
+texts/notices, and `SOURCE.txt` in the **actual Windows ZIP**. Source-derived
+notice names are shortened for Windows path compatibility; `.index.json` files
+map them to their original paths. Source collections deliberately include some
+optional components and build tools. Recheck new dependencies and native DLLs
+when updating the lock or Python version. See `docs/licensing/README.md`.
+
+Run `scripts/verify_release.py` with all assets present: it checks required
+license/source files, source-asset hashes, and the extracted executable. Before
+publishing a draft, download all its assets and run `sha256sum -c
+bashdock-VERSION-SHA256SUMS.txt`; confirm source downloads work with the same
+access as the executable. For public launch, check anonymously, not only as the
+repository owner. Retain released source assets alongside the binaries.
+
+The app's About dialog exposes GPLv3 and the dependency overview without a
+network connection. Test this in the VM. Third-party rights, including LGPL
+modification/replacement rights, must remain intact; libraries are dynamically
+loaded and builds do not enforce signing or activation.
+
+Repository visibility is independent of the license. Keep it private during
+preparation if desired. Before making it public, review history, personal data,
+secrets, and Actions logs/artifacts. Under repository **Settings → General →
+Danger Zone → Change repository visibility**, select public and follow GitHub's
+confirmation steps. Making the repository public does not publish a draft
+release automatically; review and publish the release separately.

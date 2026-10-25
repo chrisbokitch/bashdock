@@ -1,0 +1,17 @@
+{
+  "pywinpty": "3.0.5",
+  "platform": "Windows x64",
+  "files": {
+    "OpenConsole.exe": "47828c3fe080212f69dfdb39ab3673170fcc7445924c76fe003cefd18247dd5d",
+    "conpty.dll": "c46dcd04f52b97f6a8cf53e8f547c85a821660bed18de2b3344afcd4a8389ad6",
+    "winpty-agent.exe": "44467a83d86b6127bc7b876e8b2fb33fa75fde09d9b9ff27c7f8ef84ba969b29",
+    "winpty.dll": "5177f321aac2fa85436dd6ec6bfc6d41459d25f5b533aa03349ef513461b4c79"
+  },
+  "conpty_nuget": "Microsoft.Windows.Console.ConPTY 1.24.260512001",
+  "conpty_nuget_sha256": "f889a9272a8b257dc6d5be7525626fdb0f7ca6b5ce7e13093fc4bc979d24f484",
+  "microsoft_notice_commits": [
+    "74b5a0c975b3915001c93d5c5095e7a0a714042d",
+    "98c8c795ebc2560af55e72beba3fa5fd31ceef64"
+  ],
+  "gcc_runtime": "GCC 5.3.0 (MSYS2 Rev5) identification in legacy winpty DLL/agent"
+}

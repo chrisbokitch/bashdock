@@ -21,6 +21,22 @@ def main():
     with tempfile.TemporaryDirectory(prefix="BashDock release test ") as folder:
         root = Path(folder)
         with zipfile.ZipFile(archive) as bundle:
+            required = ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt',
+                        'licenses/manifest.json', 'licenses/runtime-files.json')
+            for name in required:
+                if 'bashdock/' + name not in bundle.namelist():
+                    raise ValueError(f'Release license/source information is missing: {name}')
+            details = json.loads(bundle.read('bashdock/BUILD-INFO.json'))
+            for source in details.get('source_assets', []):
+                filename = source['filename']
+                if Path(filename).name != filename:
+                    raise ValueError('Invalid source asset filename.')
+                path = archive.parent / filename
+                if not path.is_file():
+                    raise ValueError(f'Missing release source asset: {filename}')
+                with path.open('rb') as stream:
+                    if hashlib.file_digest(stream, 'sha256').hexdigest() != source['sha256']:
+                        raise ValueError(f'Source asset checksum does not match: {filename}')
             bundle.extractall(root)
         executable = root / "bashdock/bashdock.exe"
         report = ROOT / "build/archive-shell-smoke.json"

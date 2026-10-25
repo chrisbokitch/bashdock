@@ -11,7 +11,7 @@ from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
-    QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit,
     QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar,
 )
 
@@ -889,16 +889,41 @@ class MainWindow(QMainWindow):
                              "and custom command buttons.")
         description.setWordWrap(True)
         details.addWidget(description)
+        licensing = QLabel("Copyright © 2026 Chris Bokitch<br>GNU GPL version 3")
+        details.addWidget(licensing)
         repository = QLabel('<a href="https://github.com/chrisbokitch/bashdock" '
                             'style="color:#9baec4">BashDock on GitHub</a>')
         repository.setOpenExternalLinks(True)
         details.addWidget(repository)
+        license_button = QPushButton("License and notices…")
+        license_button.clicked.connect(lambda: self.show_licenses(dialog))
+        details.addWidget(license_button, 0, Qt.AlignmentFlag.AlignLeft)
         content.addLayout(details, 1)
         layout.addLayout(content)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
         dialog.resize(440, dialog.sizeHint().height())
+        dialog.exec()
+        dialog.deleteLater()
+
+    def show_licenses(self, parent=None):
+        dialog = QDialog(parent or self)
+        dialog.setWindowTitle("BashDock — License and notices")
+        layout = QVBoxLayout(dialog)
+        tabs = QTabWidget()
+        assets = Path(__file__).parent / "assets"
+        for label, filename in (("GPLv3", "GPL-3.0.txt"),
+                                ("Third-party software", "THIRD-PARTY-NOTICES.md")):
+            text = QPlainTextEdit()
+            text.setReadOnly(True)
+            text.setPlainText((assets / filename).read_text(encoding="utf-8"))
+            tabs.addTab(text, label)
+        layout.addWidget(tabs)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.resize(720, 520)
         dialog.exec()
         dialog.deleteLater()
 

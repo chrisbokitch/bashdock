@@ -3,10 +3,11 @@ import json
 import tempfile
 import unittest
 import zipfile
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.package_release import package
+from scripts.package_release import package, create_source_archive
 from scripts import verify_release
 
 
@@ -21,9 +22,18 @@ class ReleasePackagingTests(unittest.TestCase):
             (source / "_internal/.hidden").write_bytes(b"hidden runtime fixture")
             report = root / "smoke.json"
             report.write_text('{"ok": true}')
+            (source / "licenses").mkdir()
+            for filename in ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt'):
+                (source / filename).write_text('license fixture')
+            (source / 'licenses/manifest.json').write_text('{}')
+            source_asset = root / 'release/source-fixture.zip'
+            source_asset.parent.mkdir()
+            source_asset.write_bytes(b'source fixture')
             commit = "a" * 40
             archive, checksum, info = package(source, root / "release", report, "0.6.4", commit,
-                                               {"dependencies": {"PySide6": "6.10.3"}})
+                                               {"dependencies": {"PySide6": "6.10.3"}, "source_assets": [
+                                                   {"filename": source_asset.name,
+                                                    "sha256": hashlib.sha256(source_asset.read_bytes()).hexdigest()}]})
             expected = hashlib.sha256(archive.read_bytes()).hexdigest() + "  " + archive.name + "\n"
             self.assertEqual(expected, checksum.read_text())
             with zipfile.ZipFile(archive) as bundle:
@@ -52,6 +62,14 @@ class ReleasePackagingTests(unittest.TestCase):
                     patch.object(verify_release.subprocess, "run", side_effect=smoke) as launch:
                 verify_release.main()
                 launch.assert_called_once()
+                source_asset.write_bytes(b'corrupted source')
+                with self.assertRaisesRegex(ValueError, 'Source asset checksum'):
+                    verify_release.main()
+                self.assertEqual(1, launch.call_count)
+                source_asset.unlink()
+                with self.assertRaisesRegex(ValueError, 'Missing release source'):
+                    verify_release.main()
+                self.assertEqual(1, launch.call_count)
                 archive.write_bytes(b"corrupted download")
                 with self.assertRaisesRegex(ValueError, "checksum"):
                     verify_release.main()
@@ -72,3 +90,36 @@ class ReleasePackagingTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     package(source, output, report, "0.6.4", "a" * 40, {})
                 self.assertFalse(output.exists())
+
+    def test_source_archive_matches_committed_revision_and_excludes_local_helpers(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=root, text=True).strip()
+            git('init', '-q')
+            git('config', 'user.name', 'Release test')
+            git('config', 'user.email', 'release-test@example.invalid')
+            (root / '.gitignore').write_text('/copy.sh\n/release/\n')
+            (root / 'app.py').write_text('print("committed")\n')
+            (root / 'copy.sh').write_text('private local helper')
+            git('add', '.')
+            git('commit', '-qm', 'fixture')
+            commit = git('rev-parse', 'HEAD')
+            archive = create_source_archive(root, root / 'release', '0.10.2', commit)
+            with zipfile.ZipFile(archive) as bundle:
+                self.assertEqual('print("committed")\n', bundle.read('bashdock-source/app.py').decode())
+                self.assertEqual(commit, bundle.read('bashdock-source/SOURCE-COMMIT.txt').decode().strip())
+                self.assertFalse(any('copy.sh' in n for n in bundle.namelist()))
+            (root / 'app.py').write_text('uncommitted change')
+            with self.assertRaisesRegex(ValueError, 'Commit all project changes'):
+                create_source_archive(root, root / 'release', '0.10.2', commit)
+
+    def test_missing_license_information_blocks_release(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'bashdock.exe').touch()
+            (root / '_internal').mkdir()
+            report = root / 'smoke.json'
+            report.write_text('{"ok": true}')
+            with self.assertRaisesRegex(ValueError, 'licensing file'):
+                package(root, root / 'release', report, '0.10.2', 'a' * 40, {})

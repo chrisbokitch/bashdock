@@ -944,3 +944,21 @@ class WorkspaceTests(unittest.TestCase):
             external.trigger()
         warning.assert_called_once()
         self.assertIn("launch failed", self.window.statusBar().currentMessage())
+
+    def test_about_license_dialog_contains_complete_offline_license_and_notices(self):
+        from PySide6.QtWidgets import QDialog, QPlainTextEdit, QTabWidget
+
+        def inspect(dialog):
+            self.assertIn('License and notices', dialog.windowTitle())
+            tabs = dialog.findChild(QTabWidget)
+            self.assertEqual(2, tabs.count())
+            license_text = tabs.widget(0)
+            self.assertIsInstance(license_text, QPlainTextEdit)
+            self.assertTrue(license_text.isReadOnly())
+            self.assertIn('GNU GENERAL PUBLIC LICENSE', license_text.toPlainText())
+            self.assertGreater(len(license_text.toPlainText()), 30000)
+            self.assertIn('Qt WebEngine / Chromium', tabs.widget(1).toPlainText())
+            return 0
+
+        with patch.object(QDialog, 'exec', inspect):
+            self.window.show_licenses()

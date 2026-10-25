@@ -189,8 +189,29 @@ PySide6 supplies the native window and Qt WebEngine. Vendored xterm.js 5.5.0 and
 
 The repository contains source and an automated Windows build/release workflow. Portable Qt workspace tests use fake terminal processes; the Windows workflow also exercises real ConPTY and Qt WebEngine and tests the packaged shell. Hosted-runner results and clean Windows VM acceptance should be checked for each release candidate. Compiled executables are distributed as build artifacts or GitHub Release assets rather than committed to the source tree.
 
-Third-party xterm.js/fit code is MIT licensed; see `bashdock/assets/LICENSE`. PySide6/Qt and pywinpty retain their upstream licenses. Review those licenses before redistributing a packaged application.
+## License
 
-## Licensing proposals — not adopted
+BashDock is free and open-source software under the **GNU General Public License,
+version 3 only** (`GPL-3.0-only`). See [LICENSE](LICENSE), [COPYRIGHT](COPYRIGHT),
+and the [licensing notes](docs/licensing/README.md). Personal and workplace use,
+modification, and commercial redistribution are allowed under GPLv3. Distributed
+covered derivatives must preserve GPL rights and provide corresponding source.
+Using BashDock to develop an unrelated project does not make that project GPL.
 
-The proposed [BashDock license](docs/licensing/LICENSE-DRAFT.md) and [policy and review notes](docs/licensing/POLICY-DRAFT.md) are drafts for review. They do not adopt a project license or grant the proposed permissions, and they do not establish dependency compliance. The project metadata and release packaging have not been switched to these proposed terms.
+Third-party components retain their own licenses. See
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). **Help → About BashDock → License
+and notices…** displays the project license and dependency overview offline.
+
+`npm run package` requires a clean, committed checkout so its source archive
+matches the executable. In addition to the portable ZIP, checksum, and build
+information, it produces the matching application source ZIP and dependency
+source archives. Its first run downloads approximately 1.3 GB of Qt sources plus
+smaller source packages; verified downloads are cached under `build/source-cache/`.
+The application ZIP remains separate from these source downloads. Release builds
+must use the versions in `requirements/windows-build.lock`; update source hashes
+and notices deliberately when changing dependencies. See the release guide.
+
+If sharing a build outside GitHub, provide its matching source assets and
+checksums from the same download location. A link to a private repository is
+insufficient. No repository visibility change is required for private testing
+when recipients receive the source assets too.

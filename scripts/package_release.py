@@ -14,6 +14,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def create_source_archive(root, output, version, commit):
+    actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    status = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'],
+                                     cwd=root, text=True).strip()
+    if actual != commit or status:
+        raise ValueError('Commit all project changes before packaging so binaries and source match. '
+                         'Local copy.sh/copy.bat remain ignored.')
+    output.mkdir(parents=True, exist_ok=True)
+    archive = output / f'bashdock-{version}-source.zip'
+    subprocess.run(['git', 'archive', '--format=zip', '--prefix=bashdock-source/',
+                    '-o', str(archive.resolve()), commit], cwd=root, check=True)
+    with zipfile.ZipFile(archive, 'a', compression=zipfile.ZIP_DEFLATED) as bundle:
+        bundle.writestr('bashdock-source/SOURCE-COMMIT.txt', commit + '\n')
+    return archive
+
+
 def package(source, output, report_path, version, commit, metadata):
     if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?", version):
         raise ValueError("Invalid release version.")
@@ -23,6 +39,21 @@ def package(source, output, report_path, version, commit, metadata):
         raise ValueError("Build output must contain bashdock.exe and the _internal directory.")
     if json.loads(report_path.read_text(encoding="utf-8")).get("ok") is not True:
         raise ValueError("The packaged shell smoke test must pass before packaging.")
+    for name in ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt', 'licenses/manifest.json'):
+        if not (source / name).is_file():
+            raise ValueError(f'Required release licensing file is missing: {name}')
+    # Include an inventory of actual frozen files, not only Python distribution metadata.
+    inventory = []
+    for path in sorted(p for p in source.rglob('*') if p.is_file()):
+        if path.is_symlink():
+            raise ValueError('Release folders must not contain symbolic links.')
+        if path.relative_to(source).as_posix() == 'licenses/runtime-files.json':
+            continue
+        with path.open('rb') as stream:
+            sha = hashlib.file_digest(stream, 'sha256').hexdigest()
+        inventory.append(dict(path=path.relative_to(source).as_posix(), sha256=sha))
+    (source / 'licenses/runtime-files.json').write_text(
+        json.dumps(inventory, indent=2) + '\n', encoding='utf-8')
     files = sorted(p for p in source.rglob("*") if p.is_file())
     if any(p.is_symlink() for p in source.rglob("*")):
         raise ValueError("Release folders must not contain symbolic links.")
@@ -44,6 +75,9 @@ def package(source, output, report_path, version, commit, metadata):
             "Keep _internal beside the executable. Python and Node are not required.\n"
             "Close BashDock before replacing an existing installation.\n"
             "Settings are stored in %APPDATA%\\bashdock\\settings.json.\n\n"
+            "Licensed under GNU GPL version 3 only; see LICENSE and COPYRIGHT.\n"
+            "See SOURCE.txt for the matching application and dependency source archives.\n"
+            "Third-party notices and license texts are in licenses/.\n\n"
             "Source and issues: https://github.com/chrisbokitch/bashdock\n")
     info_path = output / f"{stem}-build-info.json"
     info_path.write_text(details, encoding="utf-8")
@@ -76,7 +110,16 @@ def main():
     if os.environ.get("GITHUB_RUN_ID"):
         metadata["workflow_run"] = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
                                     f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
-    for path in package(args.source, args.output, args.report, version, commit, metadata):
+    # A private repository is not a source offer: distribute explicit source assets.
+    source_archive = create_source_archive(ROOT, args.output, version, commit)
+    from release_licenses import prepare, digest
+    sources = [source_archive, *prepare(args.source, args.output, version, commit)]
+    metadata['license'] = 'GPL-3.0-only'
+    metadata['source_assets'] = [dict(filename=p.name, sha256=digest(p)) for p in sources]
+    packaged = package(args.source, args.output, args.report, version, commit, metadata)
+    sums = args.output / f'bashdock-{version}-SHA256SUMS.txt'
+    sums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in [*packaged, *sources]), encoding='utf-8')
+    for path in [*packaged, *sources, sums]:
         print(path)
 
 

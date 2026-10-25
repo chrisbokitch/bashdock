@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Qt",
+    "version": "6.10.3",
+    "filename": "qt-everywhere-src-6.10.3.tar.xz",
+    "url": "https://download.qt.io/archive/qt/6.10/6.10.3/single/qt-everywhere-src-6.10.3.tar.xz",
+    "sha256": "cbc81e726b0ff3c0cdb0219bf74545e91cec013c4a8503c20f93f83d73dff5d2"
+  },
+  {
+    "name": "PySide6",
+    "version": "6.10.3",
+    "filename": "pyside-setup-everywhere-src-6.10.3.tar.xz",
+    "url": "https://download.qt.io/official_releases/QtForPython/pyside6/PySide6-6.10.3-src/pyside-setup-everywhere-src-6.10.3.tar.xz",
+    "sha256": "2c7462fe0cecb5b8ac0a3d92014b8d0b88bd4d9f8646709dab5286d9416f45bc"
+  },
+  {
+    "name": "pywinpty",
+    "version": "3.0.5",
+    "filename": "pywinpty-3.0.5.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/a9/ef/2d27f30c59a67be7025b2d7858c8c2d282b74d66544b2384730b82de74fd/pywinpty-3.0.5.tar.gz",
+    "sha256": "61db0db063de9865adbea66db294628f8577f608d9764a4c7d3384eeacc4e81b"
+  }
+]
