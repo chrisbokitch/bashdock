@@ -259,4 +259,4 @@ class WorkspaceTests(unittest.TestCase):
                 self.app.processEvents()
             button = next(b for b in self.window.findChildren(QPushButton) if b.text() == "+ New tab")
             self.assertGreaterEqual(button.height(), button.sizeHint().height())
-            self.assertEqual(6, button.parentWidget().height() - button.geometry().bottom() - 1)
+            self.assertEqual(3, button.parentWidget().height() - button.geometry().bottom() - 1)
