@@ -4,7 +4,7 @@ import logging
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal, QSize
+from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
@@ -158,6 +158,28 @@ class SettingsDialog(QDialog):
         self.accept()
 
 
+class CommandScrollArea(QScrollArea):
+    """Fit the button height, reserving scrollbar space only when needed."""
+    def fit_height(self):
+        if self.widget() is None:
+            return
+        size = self.widget().minimumSizeHint()
+        height = max(1, size.height())
+        if size.width() > self.viewport().width():
+            height += self.horizontalScrollBar().sizeHint().height()
+        if self.height() != height:
+            self.setFixedHeight(height)
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Resize):
+            self.fit_height()
+        return super().eventFilter(watched, event)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.fit_height()
+
+
 class ShellTab(QWidget):
     """Each tab owns a shell, its button bar, and its saved profile."""
     configure_requested = Signal()
@@ -168,19 +190,20 @@ class ShellTab(QWidget):
         self.status = "Loading terminal…"
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 4, 0, 0)
+        layout.setSpacing(0)
         self.terminal = terminal_factory(self)
         layout.addWidget(self.terminal, 1)
         footer = QHBoxLayout()
-        footer.setContentsMargins(3, 3, 3, 3)
-        scroll = QScrollArea()
+        footer.setContentsMargins(3, 6, 3, 6)
+        scroll = CommandScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setFixedHeight(64)
         self.bar = QWidget()
         self.bar_layout = QHBoxLayout(self.bar)
         self.bar_layout.setContentsMargins(0, 0, 0, 0)
         scroll.setWidget(self.bar)
+        self.bar.installEventFilter(scroll)
         footer.addWidget(scroll, 1)
         configure = QPushButton("Configure tab…")
         configure.clicked.connect(self.configure_requested.emit)

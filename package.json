@@ -1,9 +1,11 @@
 {
   "name": "gitbasher",
-  "version": "0.3.0",
+  "version": "0.4.2",
   "private": true,
   "description": "Development shortcuts for the gitbasher Python desktop app",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "version": "node scripts/sync-version.cjs",
     "pretest": "node scripts/sync-version.cjs --check",
