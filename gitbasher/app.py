@@ -235,6 +235,24 @@ class ShellTab(QWidget):
             button.setEnabled(running)
 
 
+class TabStrip(QTabBar):
+    """Reserve enough top-row height for the corner control and its padding."""
+    def sizeHint(self):
+        size = super().sizeHint()
+        parent = self.parentWidget()
+        if isinstance(parent, QTabWidget):
+            corner = parent.cornerWidget(Qt.Corner.TopRightCorner)
+            if corner is not None:
+                # QTabWidget reserves one pixel of the row for its pane boundary.
+                size.setHeight(max(size.height(), corner.sizeHint().height() + 1))
+        return size
+
+    def minimumSizeHint(self):
+        size = super().minimumSizeHint()
+        size.setHeight(max(size.height(), self.sizeHint().height()))
+        return size
+
+
 class MainWindow(QMainWindow):
     def __init__(self, terminal_factory=create_terminal):
         super().__init__()
@@ -257,6 +275,7 @@ class MainWindow(QMainWindow):
         self.save_timer.setInterval(350)
         self.save_timer.timeout.connect(self.persist)
         self.tabs = QTabWidget()
+        self.tabs.setTabBar(TabStrip(self.tabs))
         self.tabs.setTabsClosable(True)
         self.tabs.setMovable(True)
         self.tabs.setDocumentMode(True)

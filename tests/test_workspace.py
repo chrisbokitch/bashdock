@@ -249,3 +249,14 @@ class WorkspaceTests(unittest.TestCase):
         footer.clearMessage()
         self.assertEqual("", footer.currentMessage())
         self.assertTrue(footer.version_label.isVisible())
+
+    def test_new_tab_button_is_not_squeezed_by_corner_padding(self):
+        from PySide6.QtWidgets import QPushButton
+        self.window.show()
+        for width in (1120, 600):
+            self.window.resize(width, 760)
+            for _ in range(4):
+                self.app.processEvents()
+            button = next(b for b in self.window.findChildren(QPushButton) if b.text() == "+ New tab")
+            self.assertGreaterEqual(button.height(), button.sizeHint().height())
+            self.assertEqual(6, button.parentWidget().height() - button.geometry().bottom() - 1)
