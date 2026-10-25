@@ -1,6 +1,6 @@
 {
   "name": "bashdock",
-  "version": "0.4.12",
+  "version": "0.4.13",
   "private": true,
   "description": "Development shortcuts for the bashdock Python desktop app",
   "engines": {
