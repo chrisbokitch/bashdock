@@ -189,7 +189,7 @@ class ShellTab(QWidget):
         self.data = copy.deepcopy(data)
         self.status = "Loading terminal…"
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 4, 0, 0)
+        layout.setContentsMargins(0, 3, 0, 0)
         layout.setSpacing(0)
         self.terminal = terminal_factory(self)
         layout.addWidget(self.terminal, 1)
@@ -237,6 +237,15 @@ class ShellTab(QWidget):
 
 class TabStrip(QTabBar):
     """Reserve enough top-row height for the corner control and its padding."""
+    def tabSizeHint(self, index):
+        size = super().tabSizeHint(index)
+        parent = self.parentWidget()
+        if isinstance(parent, QTabWidget):
+            corner = parent.cornerWidget(Qt.Corner.TopRightCorner)
+            if corner is not None:
+                size.setHeight(max(size.height(), corner.sizeHint().height() + 1))
+        return size
+
     def sizeHint(self):
         size = super().sizeHint()
         parent = self.parentWidget()
