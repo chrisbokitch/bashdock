@@ -113,6 +113,19 @@ The **Manage** menu groups tab management and shell actions. **Settings → Conf
 
 **Settings → Terminal Settings…** controls the font family and size (8–48 pixels), text/background/cursor/selection colours, cursor shape and blinking, scrollback (0–100,000 lines), automatic copying of selected text, and right-click paste. Save applies to all open tabs without restarting shells, and persists for future tabs and launches. Cancel leaves settings unchanged; Restore Defaults resets the dialog controls until you save. Reducing scrollback discards older lines. Copy-on-selection and right-click paste start disabled; Ctrl+Shift+C/V remain available, and multiline paste still requires confirmation. Mouse-aware terminal programs retain their right-click behaviour unless you hold Shift to paste. These settings affect BashDock's embedded terminals, not external Git Bash windows.
 
+## Saved workspaces
+
+Use **Manage → Workspaces…** to keep named groups of tabs for different projects.
+
+- **Save selected tabs…** lets you name a workspace and check the current tabs to include. Tabs retain their visible order, names, startup/current folders, and command bars. The active tab is remembered when included; otherwise the first selected tab becomes active.
+- **Open — add tabs** adds fresh copies alongside your current tabs and selects the workspace's saved active tab. Existing shell sessions keep running. Opening the same workspace again adds another independent set of tabs.
+- **Replace current tabs…** asks before closing current shells, backs up the current workspace, and opens the saved tabs. If the settings cannot be saved, existing shells stay open. Pre-replacement copies are stored as `backups/settings-before-workspace-*.json` under the settings folder.
+- **Update from current tabs…** replaces a saved workspace with a new selection of current tabs after confirmation. **Rename…** and **Delete…** manage the saved entry; neither closes your open tabs. Workspace names must be unique.
+
+Saved workspaces are reusable templates: editing an open tab does not update its saved workspace automatically. Use **Update from current tabs…** to capture those edits. Terminal appearance, the Git Bash executable, window geometry, and quit-confirmation settings remain app-wide.
+
+Workspaces start fresh shell sessions. They preserve command buttons such as an SSH **Connect** button, but do not run those commands or reconnect SSH automatically. They are included in settings exports, imports, and automatic backups. Existing settings files start with an empty workspace library.
+
 ## Command buttons
 
 Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command. Double-click a cell to edit. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.

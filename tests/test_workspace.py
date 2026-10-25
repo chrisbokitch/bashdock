@@ -88,6 +88,116 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def test_save_subset_preserves_order_active_tab_and_independent_command_bars(self):
+        for name in ("Website", "Droplet", "CIDR Manager"):
+            self.window.new_tab()
+            self.window.current_tab().data["name"] = name
+        self.window.tabs.widget(0).data["name"] = "App"
+        self.window.tabs.widget(2).data["buttons"] = [{"label": "Connect", "command": "ssh root@example.test"}]
+        self.window.tabs.setCurrentIndex(2)
+        self.assertTrue(self.window.save_workspace("BashDock Development", [2, 0, 1]))
+        saved = self.window.data["workspaces"][0]
+        self.assertEqual(["App", "Website", "Droplet"], [t["name"] for t in saved["tabs"]])
+        self.assertEqual(2, saved["active_tab"])
+        self.window.tabs.widget(2).data["buttons"][0]["command"] = "changed"
+        self.assertEqual("ssh root@example.test", saved["tabs"][2]["buttons"][0]["command"])
+        self.window.tabs.setCurrentIndex(3)
+        self.assertTrue(self.window.save_workspace("CIDR", [0, 1]))
+        self.assertEqual(0, self.window.data["workspaces"][1]["active_tab"])
+        self.assertEqual(self.window.data["workspaces"], config.read(self.path)["workspaces"])
+
+    def test_open_saved_workspace_adds_fresh_tabs_without_stopping_existing_shell(self):
+        first = self.window.current_tab()
+        first.data["buttons"] = [{"label": "Connect", "command": "ssh root@example.test"}]
+        self.ready(first)
+        self.assertTrue(self.window.save_workspace("Droplet", [0]))
+        self.window.data["terminal"]["font_size"] = 23
+        self.assertTrue(self.window.open_workspace(0))
+        opened = self.window.current_tab()
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertEqual(0, first.terminal.stops)
+        self.assertEqual(23, opened.terminal.preferences["font_size"])
+        self.ready(opened)
+        self.assertEqual(1, len(opened.terminal.starts))
+        self.assertEqual([], opened.terminal.commands)
+        opened.data["buttons"][0]["label"] = "Changed"
+        self.assertEqual("Connect", self.window.data["workspaces"][0]["tabs"][0]["buttons"][0]["label"])
+
+    def test_replace_saved_workspace_confirms_preserves_global_settings_and_archives_current_tabs(self):
+        self.assertTrue(self.window.save_workspace("Project", [0]))
+        self.window.new_tab()
+        self.window.current_tab().data["name"] = "Unsaved other project"
+        old = self.window.current_tab()
+        self.ready(old)
+        with patch("bashdock.app.QMessageBox.question", return_value=QMessageBox.StandardButton.No):
+            self.assertFalse(self.window.open_workspace(0, replace=True))
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertEqual(0, old.terminal.stops)
+        self.window.data["terminal"]["font_size"] = 24
+        self.window.data["confirm_on_exit"] = False
+        self.assertTrue(self.window.open_workspace(0, replace=True))
+        self.assertEqual(1, self.window.tabs.count())
+        self.assertEqual(1, old.terminal.stops)
+        self.assertEqual(24, self.window.data["terminal"]["font_size"])
+        self.assertFalse(self.window.data["confirm_on_exit"])
+        self.assertEqual("Project", self.window.data["workspaces"][0]["name"])
+        archives = list((self.path.parent / "backups").glob("settings-before-workspace-*.json"))
+        self.assertEqual(1, len(archives))
+        self.assertEqual("Unsaved other project", config.read(archives[0])["tabs"][1]["name"])
+
+    def test_workspace_errors_keep_saved_library_and_running_tabs(self):
+        self.assertTrue(self.window.save_workspace("Project", [0]))
+        first = self.window.current_tab()
+        self.ready(first)
+        saved = copy.deepcopy(self.window.data["workspaces"])
+        with patch("bashdock.app.QMessageBox.warning"):
+            self.assertFalse(self.window.save_workspace(" project ", [0]))
+            self.assertFalse(self.window.save_workspace("Empty", []))
+            with patch("bashdock.config.save", side_effect=PermissionError("locked")):
+                self.assertFalse(self.window.save_workspace("New project", [0]))
+                self.assertFalse(self.window.open_workspace(0))
+                self.assertFalse(self.window.open_workspace(0, replace=True))
+        self.assertEqual(saved, self.window.data["workspaces"])
+        self.assertEqual(1, self.window.tabs.count())
+        self.assertEqual(0, first.terminal.stops)
+
+    def test_workspace_manager_updates_renames_and_deletes_without_closing_tabs(self):
+        from bashdock.workspaces import WorkspacesDialog, SaveWorkspaceDialog
+        from PySide6.QtCore import Qt
+
+        self.assertTrue(self.window.save_workspace("Project", [0]))
+        self.window.new_tab()
+        self.window.current_tab().data["name"] = "Second tab"
+        dialog = WorkspacesDialog(self.window)
+        picker = SaveWorkspaceDialog(self.window.snapshot()["tabs"], dialog, "Project", updating=True)
+        picker.tabs.item(0).setCheckState(Qt.CheckState.Unchecked)
+        self.assertEqual([1], picker.selected_indexes())
+        with patch("bashdock.workspaces.SaveWorkspaceDialog", return_value=picker), \
+                patch.object(picker, "exec", return_value=1):
+            dialog.update_selected()
+        self.assertEqual("Second tab", self.window.data["workspaces"][0]["tabs"][0]["name"])
+        with patch("bashdock.workspaces.QInputDialog.getText", return_value=("Renamed", True)):
+            dialog.rename_selected()
+        self.assertEqual("Renamed", dialog.list.currentItem().text())
+        dialog.delete_selected()
+        self.assertEqual([], self.window.data["workspaces"])
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertFalse(dialog.open_button.isEnabled())
+        dialog.deleteLater()
+
+    def test_saved_workspaces_survive_export_import_and_recovery(self):
+        self.assertTrue(self.window.save_workspace("Project", [0]))
+        saved = copy.deepcopy(self.window.data["workspaces"])
+        export = Path(self.temp.name) / "export.json"
+        with patch("bashdock.app.QFileDialog.getSaveFileName", return_value=(str(export), "")):
+            self.window.export_settings()
+        self.assertTrue(self.window.store_workspaces([]))
+        self.window.import_settings(path=export)
+        self.assertEqual(saved, self.window.data["workspaces"])
+        self.assertTrue(self.window.store_workspaces([]))
+        self.window.restore_backup()
+        self.assertEqual(saved, self.window.data["workspaces"])
+
     def test_export_includes_unsaved_workspace_without_changing_live_sessions(self):
         tab = self.window.current_tab()
         self.ready(tab)
@@ -503,9 +613,9 @@ class WorkspaceTests(unittest.TestCase):
         menus = {action.text(): action.menu() for action in self.window.menuBar().actions()}
         self.assertEqual(["Manage", "Settings", "Help"], list(menus))
         manage = menus["Manage"].actions()
-        self.assertEqual(["New tab", "Rename tab…", "Close tab", "", "Open external shell",
+        self.assertEqual(["New tab", "Rename tab…", "Close tab", "Workspaces…", "", "Open external shell",
                           "Restart shell…", "Interrupt (Ctrl+C)"], [a.text() for a in manage])
-        self.assertTrue(manage[3].isSeparator())
+        self.assertTrue(manage[4].isSeparator())
         self.assertEqual("Ctrl+Shift+T", manage[0].shortcut().toString())
         self.assertEqual("Ctrl+Shift+W", manage[2].shortcut().toString())
         self.assertIn(self.window.confirm_exit_action, menus["Settings"].actions())

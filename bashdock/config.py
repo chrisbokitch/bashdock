@@ -27,7 +27,7 @@ def default_tab(name="Git Bash"):
 
 def defaults():
     return {"version": 2, "bash_path": "", "tabs": [default_tab()], "active_tab": 0,
-            "confirm_on_exit": True, "terminal": terminal_preferences.defaults()}
+            "confirm_on_exit": True, "terminal": terminal_preferences.defaults(), "workspaces": []}
 
 
 def validate_buttons(buttons):
@@ -52,6 +52,29 @@ def validate_tab(tab):
     validate_buttons(tab.get("buttons"))
 
 
+def validate_workspaces(workspaces):
+    if not isinstance(workspaces, list):
+        raise ValueError("Saved workspaces must be a list.")
+    names = set()
+    for workspace in workspaces:
+        if not isinstance(workspace, dict):
+            raise ValueError("Each saved workspace must be an object.")
+        name = workspace.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Each workspace needs a name.")
+        if name.strip().casefold() in names:
+            raise ValueError("Workspace names must be unique.")
+        names.add(name.strip().casefold())
+        tabs = workspace.get("tabs")
+        if not isinstance(tabs, list) or not tabs:
+            raise ValueError("Each workspace needs at least one tab.")
+        for tab in tabs:
+            validate_tab(tab)
+        active = workspace.get("active_tab")
+        if type(active) is not int or not 0 <= active < len(tabs):
+            raise ValueError("The workspace's active tab must be one of its saved tabs.")
+
+
 def validate(data):
     if not isinstance(data, dict):
         raise ValueError("Settings must be a JSON object.")
@@ -62,6 +85,7 @@ def validate(data):
     if type(data.get("confirm_on_exit", True)) is not bool:
         raise ValueError("confirm_on_exit must be a boolean.")
     terminal_preferences.validated(data.get("terminal", {}))
+    validate_workspaces(data.get("workspaces", []))
     if not isinstance(data.get("tabs"), list) or not data["tabs"]:
         raise ValueError("At least one tab is required.")
     for tab in data["tabs"]:
@@ -82,10 +106,11 @@ def migrate(data):
                    buttons=copy.deepcopy(data["buttons"]))
         return validate({"version": 2, "bash_path": data["bash_path"], "tabs": [tab],
                          "active_tab": 0, "confirm_on_exit": True,
-                         "terminal": terminal_preferences.defaults()})
+                         "terminal": terminal_preferences.defaults(), "workspaces": []})
     if isinstance(data, dict) and data.get("version") == 2:
         data = dict(data)
         data.setdefault("confirm_on_exit", True)
+        data.setdefault("workspaces", [])
         data["terminal"] = terminal_preferences.validated(data.get("terminal", {}))
     return validate(data)
 
@@ -120,9 +145,9 @@ def archive_path(label, path=None):
     return path.parent / "backups" / f"settings-{label}-{stamp}-{uuid4().hex[:8]}.json"
 
 
-def archive_workspace(data):
+def archive_workspace(data, label="before-import"):
     """Keep a separate, non-rotating copy before replacing an open workspace."""
-    path = archive_path("before-import")
+    path = archive_path(label)
     save(data, path, backup=False)
     return path
 

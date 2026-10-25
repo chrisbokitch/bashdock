@@ -19,6 +19,7 @@ from ._version import __version__
 from .window_theme import install_titlebar_theme
 from .external_shell import open_external
 from .terminal_settings import TerminalSettingsDialog
+from .workspaces import WorkspacesDialog
 
 APP_ICON = Path(__file__).parent / "assets" / "bashdock.ico"
 
@@ -376,6 +377,7 @@ class MainWindow(QMainWindow):
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
             ("Rename tab…", lambda: self.rename_tab(self.tabs.currentIndex()), ""),
             ("Close tab", lambda: self.close_tab(self.tabs.currentIndex()), "Ctrl+Shift+W"),
+            ("Workspaces…", self.manage_workspaces, ""),
             ("", None, ""),
             ("Open external shell", self.open_external, ""),
             ("Restart shell…", self.restart, ""),
@@ -518,19 +520,21 @@ class MainWindow(QMainWindow):
     def restore_backup(self):
         self.import_settings(path=config.backup_path())
 
-    def replace_workspace(self, data, description):
+    def replace_workspace(self, data, description, *, backup_label="before-import"):
         running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))
+        contents = "tabs and settings" if backup_label == "before-import" else "tabs"
         if QMessageBox.question(self, "Replace workspace?",
-                f"{description}?\n\nThis will replace your tabs and settings with {len(data['tabs'])} tab(s) "
+                f"{description}?\n\nThis will replace your {contents} with {len(data['tabs'])} tab(s) "
                 f"and close {running} running shell session(s). "
-                "Your current workspace will be backed up first. Only import settings files you trust.",
+                "Your current workspace will be backed up first."
+                + (" Only import settings files you trust." if backup_label == "before-import" else ""),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return False
         self.save_timer.stop()
         try:
             if self.allow_save:
-                config.archive_workspace(self.snapshot())
+                config.archive_workspace(self.snapshot(), backup_label)
             # Commit to disk before touching any live shells. Saving also preserves damaged files.
             config.save(data)
         except (OSError, ValueError) as error:
@@ -559,6 +563,73 @@ class MainWindow(QMainWindow):
 
     def current_tab(self):
         return self.tabs.currentWidget()
+
+    def manage_workspaces(self):
+        dialog = WorkspacesDialog(self)
+        dialog.exec()
+        dialog.deleteLater()
+
+    def store_workspaces(self, workspaces):
+        try:
+            config.validate_workspaces(workspaces)
+        except ValueError as error:
+            QMessageBox.warning(self, "Cannot save workspace", str(error))
+            return False
+        previous = self.data.get("workspaces", [])
+        self.data["workspaces"] = copy.deepcopy(workspaces)
+        if not self.persist():
+            self.data["workspaces"] = previous
+            QMessageBox.warning(self, "Cannot save workspace", "Changes were not saved. Check the status bar for details.")
+            return False
+        return True
+
+    def save_workspace(self, name, selected, replace=None):
+        snapshot = self.snapshot()
+        # Selected indexes always follow the visible tab order.
+        selected = sorted(set(selected))
+        if not selected or any(type(i) is not int or not 0 <= i < len(snapshot["tabs"]) for i in selected):
+            QMessageBox.warning(self, "Cannot save workspace", "Select at least one current tab.")
+            return False
+        workspace = {"name": name.strip(), "tabs": [snapshot["tabs"][i] for i in selected],
+                     "active_tab": selected.index(snapshot["active_tab"]) if snapshot["active_tab"] in selected else 0}
+        workspaces = copy.deepcopy(self.data.get("workspaces", []))
+        if replace is None:
+            workspaces.append(workspace)
+        else:
+            workspaces[replace] = workspace
+        return self.store_workspaces(workspaces)
+
+    def open_workspace(self, index, replace=False):
+        workspace = copy.deepcopy(self.data["workspaces"][index])
+        data = self.snapshot()
+        if replace:
+            data.update(tabs=workspace["tabs"], active_tab=workspace["active_tab"])
+            opened = self.replace_workspace(data, f"Open saved workspace '{workspace['name']}'",
+                                            backup_label="before-workspace")
+            if opened:
+                self.statusBar().showMessage(f"Opened workspace: {workspace['name']}")
+            return opened
+        offset = self.tabs.count()
+        data["tabs"].extend(workspace["tabs"])
+        data["active_tab"] = offset + workspace["active_tab"]
+        if not self.allow_save:
+            QMessageBox.warning(self, "Cannot open workspace", "Recover your settings before opening a saved workspace.")
+            return False
+        self.save_timer.stop()
+        try:
+            config.save(data)
+        except (OSError, ValueError) as error:
+            self.schedule_save()
+            QMessageBox.warning(self, "Cannot open workspace", str(error))
+            return False
+        self.restoring = True
+        for profile in workspace["tabs"]:
+            self.add_tab(profile)
+        self.tabs.setCurrentIndex(data["active_tab"])
+        self.restoring = False
+        self.tab_changed()
+        self.statusBar().showMessage(f"Added workspace tabs: {workspace['name']}")
+        return True
 
     def add_tab(self, profile):
         tab = ShellTab(profile, self, self.terminal_factory)
@@ -629,6 +700,7 @@ class MainWindow(QMainWindow):
                 "window_geometry": bytes(self.saveGeometry().toBase64()).decode("ascii"),
                 "confirm_on_exit": self.data["confirm_on_exit"],
                 "terminal": copy.deepcopy(self.data["terminal"]),
+                "workspaces": copy.deepcopy(self.data.get("workspaces", [])),
                 "active_tab": self.tabs.currentIndex(),
                 "tabs": [copy.deepcopy(self.tabs.widget(i).data) for i in range(self.tabs.count())]}
 

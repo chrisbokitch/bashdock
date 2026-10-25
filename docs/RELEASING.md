@@ -49,6 +49,7 @@ Download the ZIP attached to the draft and test that exact file on the clean Win
 - Install Git for Windows, then launch from a standard user account without Python or Node installed.
 - Create, rename, cancel rename, reorder, switch, and close tabs; verify close icons stay in place.
 - Give tabs different commands and folders, then close/reopen and check restoration.
+- Save a subset of tabs as a workspace. Add it without closing existing shells, then replace current tabs after confirmation. Check tab order, active tab, folders, command bars, independent copies, update/rename/delete, and settings export/import. A saved SSH button must not connect automatically.
 - Exercise typing, arrows, completion, Ctrl+C, Unicode, and pagers such as `git log`/`less`.
 - Check selection, copy/paste, multiline confirmation, and optional mouse behaviour.
 - Change terminal settings, verify every tab updates, and verify settings survive reopening.

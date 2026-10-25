@@ -8,6 +8,29 @@ from bashdock import config
 
 
 class ConfigTests(unittest.TestCase):
+    def test_saved_workspaces_roundtrip_and_older_settings_gain_empty_library(self):
+        data = config.defaults()
+        data["workspaces"] = [{"name": "BashDock Development", "tabs": [config.default_tab("App"),
+                                  config.default_tab("Droplet")], "active_tab": 1}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            config.save(data, path)
+            self.assertEqual(data, config.read(path))
+        old = config.defaults()
+        del old["workspaces"]
+        self.assertEqual([], config.migrate(old)["workspaces"])
+        self.assertNotIn("workspaces", old)
+
+    def test_invalid_saved_workspaces_are_rejected(self):
+        valid = {"name": "Project", "tabs": [config.default_tab()], "active_tab": 0}
+        for entries in (None, {}, [None], [dict(valid, name=" ")], [dict(valid, tabs=[])],
+                        [dict(valid, active_tab=True)], [dict(valid, active_tab=1)],
+                        [valid, dict(valid, name=" project ")], [dict(valid, tabs=[{}])]):
+            data = config.defaults()
+            data["workspaces"] = entries
+            with self.assertRaises(ValueError):
+                config.validate(data)
+
     def test_imports_gitbasher_workspace_once_and_keeps_original(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.dict("os.environ", {"APPDATA": directory}):
