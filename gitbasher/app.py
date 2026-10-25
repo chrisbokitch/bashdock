@@ -270,7 +270,13 @@ class MainWindow(QMainWindow):
                 border-top:1px solid #53647c;border-bottom-color:#181e29;
                 margin-top:0;
             }
-        """)
+            QTabBar::close-button {
+                image:url("__TAB_CLOSE_ICON__");
+                width:16px;height:16px;margin-left:4px;margin-right:6px;
+                border-radius:3px;
+            }
+            QTabBar::close-button:hover { background:#3c4b60; }
+        """.replace("__TAB_CLOSE_ICON__", (APP_ICON.parent / "tab-close.svg").as_posix()))
         if self.config_error:
             QTimer.singleShot(0, self.show_config_error)
 
