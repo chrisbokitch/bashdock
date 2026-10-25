@@ -270,7 +270,7 @@ class TabStrip(QTabBar):
             close = self.tabButton(index, QTabBar.ButtonPosition.RightSide)
             if close is not None:
                 rect = self.tabRect(index)
-                close.move(close.x(), rect.top() + (rect.height() + inset - close.height()) // 2)
+                close.move(close.x(), rect.top() + (rect.height() + inset - close.height()) // 2 + 3)
 
     def tabSizeHint(self, index):
         size = super().tabSizeHint(index)
