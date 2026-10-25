@@ -7,6 +7,8 @@ html,body{height:100%;margin:0;background:#10141c;overflow:hidden}
 /* Keep spacing outside xterm's measured host so FitAddon sees usable space. */
 #terminal-frame{position:absolute;inset:12px;overflow:hidden}
 #terminal{width:100%;height:100%;padding:0}
+/* Keep the viewport/scrollbar full height even when whole text rows leave a remainder. */
+#terminal > .xterm{height:100%}
 /* Qt WebEngine renders xterm's scrollbar independently of the native Qt theme. */
 .xterm .xterm-viewport::-webkit-scrollbar{width:12px;height:12px;background:#111b2b}
 .xterm .xterm-viewport::-webkit-scrollbar-track{background:#111b2b;border-radius:6px}

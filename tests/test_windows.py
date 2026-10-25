@@ -140,7 +140,8 @@ class WindowsTests(unittest.TestCase):
             geometry = """JSON.stringify((() => {
                 const r = document.querySelector('.xterm-screen').getBoundingClientRect();
                 const proposed = fit.proposeDimensions();
-                return {bottom:r.bottom,right:r.right,height:innerHeight,width:innerWidth,
+                const viewport = document.querySelector('.xterm-viewport').getBoundingClientRect();
+                return {bottom:r.bottom,right:r.right,viewportBottom:viewport.bottom,height:innerHeight,width:innerWidth,
                     fitted:terminal.rows === proposed.rows && terminal.cols === proposed.cols};
             })())"""
             for width, height in ((900, 600), (713, 419), (1040, 701)):
@@ -156,6 +157,8 @@ class WindowsTests(unittest.TestCase):
                     time.sleep(0.01)
                 self.assertLessEqual(bounds["bottom"], bounds["height"] - 12 + 1, bounds)
                 self.assertLessEqual(bounds["right"], bounds["width"] - 12 + 1, bounds)
+                self.assertAlmostEqual(bounds["viewportBottom"], bounds["height"] - 12, delta=1,
+                                       msg="Scrollbar bottom inset must match the terminal frame")
         finally:
             terminal.stop()
             terminal.close()
