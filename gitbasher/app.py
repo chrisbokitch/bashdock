@@ -4,13 +4,13 @@ import logging
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QTimer, Qt, Signal, QSize
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
-    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar,
 )
 
 from . import config
@@ -270,13 +270,9 @@ class MainWindow(QMainWindow):
                 border-top:1px solid #53647c;border-bottom-color:#181e29;
                 margin-top:0;
             }
-            QTabBar::close-button {
-                image:url("__TAB_CLOSE_ICON__");
-                width:16px;height:16px;margin-left:4px;margin-right:6px;
-                border-radius:3px;
-            }
-            QTabBar::close-button:hover { background:#3c4b60; }
-        """.replace("__TAB_CLOSE_ICON__", (APP_ICON.parent / "tab-close.svg").as_posix()))
+            QToolButton#tabClose { border:0;padding:0;margin:0;border-radius:3px;background:transparent; }
+            QToolButton#tabClose:hover { background:#3c4b60; }
+        """)
         if self.config_error:
             QTimer.singleShot(0, self.show_config_error)
 
@@ -294,7 +290,22 @@ class MainWindow(QMainWindow):
         tab.terminal.ended.connect(lambda text: self.on_ended(tab, text))
         tab.terminal.problem.connect(lambda text: self.show_status(tab, text))
         tab.terminal.directory_changed.connect(lambda path: self.directory_changed(tab, path))
-        self.tabs.addTab(tab, profile["name"])
+        index = self.tabs.addTab(tab, profile["name"])
+        # Native tab close controls clamp the image size on some Windows styles.
+        close = QToolButton()
+        close.setObjectName("tabClose")
+        close.setIcon(QIcon(str(APP_ICON.parent / "tab-close.svg")))
+        close.setIconSize(QSize(32, 32))
+        close.setFixedSize(32, 32)
+        close.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        close.setToolTip("Close tab")
+        close.setAccessibleName("Close tab")
+        close.clicked.connect(lambda: self.close_tab(self.tabs.indexOf(tab)))
+        inset = QWidget()
+        inset_layout = QHBoxLayout(inset)
+        inset_layout.setContentsMargins(4, 0, 6, 0)
+        inset_layout.addWidget(close)
+        self.tabs.tabBar().setTabButton(index, QTabBar.ButtonPosition.RightSide, inset)
         return tab
 
     def new_tab(self):
