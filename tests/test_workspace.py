@@ -88,6 +88,44 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def test_missing_git_explains_setup_and_restart_detects_new_installation(self):
+        tab = self.window.current_tab()
+        self.window.data["bash_path"] = "C:/Removed Git/bin/bash.exe"
+        with patch("bashdock.app.config.find_bash", return_value=""), \
+                patch.object(self.window, "show_git_setup") as setup:
+            self.ready(tab)
+        setup.assert_called_once()
+        self.assertEqual([], tab.terminal.starts)
+        self.assertIn("Install Git for Windows", self.window.statusBar().currentMessage())
+        self.assertIn("Manage → Restart shell", self.window.statusBar().currentMessage())
+        with patch("bashdock.app.config.find_bash", return_value=str(self.bash)), \
+                patch.object(self.window, "show_git_setup") as setup:
+            self.window.restart()
+        setup.assert_not_called()
+        self.assertEqual([(str(self.bash), self.temp.name)], tab.terminal.starts)
+        self.assertEqual(str(self.bash), self.window.data["bash_path"])
+        self.assertEqual("", self.window.statusBar().currentMessage())
+
+    def test_git_setup_offers_download_and_current_menu_instructions(self):
+        from PySide6.QtCore import QTimer
+
+        observed = []
+
+        def download():
+            dialog = self.app.activeModalWidget()
+            observed.append((dialog.windowTitle(), dialog.text(), dialog.informativeText()))
+            button = next(b for b in dialog.buttons() if b.text() == "Download Git for Windows")
+            button.click()
+
+        with patch("bashdock.app.QDesktopServices.openUrl") as open_url:
+            QTimer.singleShot(0, download)
+            self.window.show_git_setup()
+        open_url.assert_called_once()
+        self.assertEqual("https://gitforwindows.org/", open_url.call_args.args[0].toString())
+        self.assertIn("Git for Windows required", observed[0][0])
+        self.assertIn("Manage → Restart shell", observed[0][2])
+        self.assertIn("Settings → Configure current tab", observed[0][2])
+
     def test_buttons_route_to_their_own_shell_and_bar_is_below_terminal(self):
         first = self.window.current_tab()
         self.ready(first)

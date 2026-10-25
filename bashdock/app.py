@@ -4,8 +4,8 @@ import logging
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent
-from PySide6.QtGui import QAction, QIcon, QMouseEvent
+from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl
+from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
@@ -541,9 +541,16 @@ class MainWindow(QMainWindow):
     def start_shell(self, tab):
         if self.tabs.indexOf(tab) < 0 or self.closing:
             return
+        if not Path(self.data["bash_path"]).is_file():
+            # Retry discovery so installing Git does not require restarting BashDock.
+            self.data["bash_path"] = config.find_bash()
+            if not self.data["bash_path"]:
+                self.show_status(tab, "Git Bash not found. Install Git for Windows, then use Manage → Restart shell.")
+                tab.set_running(False)
+                self.show_git_setup()
+                return
+            self.schedule_save()
         try:
-            if not Path(self.data["bash_path"]).is_file():
-                raise ValueError("Git Bash was not found. Choose Git/bin/bash.exe in Configure tab.")
             folder = tab.data["current_folder"]
             if not Path(folder).is_dir():
                 folder = tab.data["startup_folder"]
@@ -562,6 +569,23 @@ class MainWindow(QMainWindow):
             return
         tab.set_running(True)
         self.show_status(tab, "")
+
+    def show_git_setup(self):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Git for Windows required")
+        dialog.setIcon(QMessageBox.Icon.Information)
+        dialog.setText("BashDock needs Git Bash, which is included with Git for Windows.")
+        dialog.setInformativeText(
+            "1. Download and install Git for Windows using the default options.\n"
+            "2. Return to BashDock and choose Manage → Restart shell.\n\n"
+            "Already installed? Open Settings → Configure current tab… and select "
+            "bash.exe from your Git installation (usually C:\\Program Files\\Git\\bin\\bash.exe).")
+        download = dialog.addButton("Download Git for Windows", QMessageBox.ButtonRole.ActionRole)
+        dialog.addButton(QMessageBox.StandardButton.Close)
+        dialog.exec()
+        if dialog.clickedButton() == download:
+            QDesktopServices.openUrl(QUrl("https://gitforwindows.org/"))
+        dialog.deleteLater()
 
     def configure_terminal(self):
         dialog = TerminalSettingsDialog(self.data["terminal"], self)
