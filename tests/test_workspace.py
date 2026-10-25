@@ -329,6 +329,33 @@ class WorkspaceTests(unittest.TestCase):
             shell_top = self.window.current_tab().terminal.mapTo(self.window, QPoint(0, 0)).y()
             self.assertEqual(3, shell_top - tab_bottom)
 
+    def test_tab_close_icons_stay_in_place_when_switching_tabs(self):
+        from PySide6.QtCore import QPoint, Qt
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QTabBar
+        self.window.new_tab()
+        self.window.show()
+        for width in (1120, 600):
+            self.window.resize(width, 760)
+            for _ in range(4):
+                self.app.processEvents()
+            bar = self.window.tabs.tabBar()
+
+            def positions():
+                return [bar.tabButton(i, QTabBar.ButtonPosition.RightSide).pos() - bar.tabRect(i).topLeft()
+                        for i in range(bar.count())]
+
+            expected = positions()
+            for index in (0, 1, 0, 1):
+                rect = bar.tabRect(index)
+                QTest.mouseClick(bar, Qt.MouseButton.LeftButton, pos=QPoint(rect.left() + 15, rect.bottom() - 8))
+                self.assertEqual(index, self.window.tabs.currentIndex())
+                self.assertEqual(expected, positions())
+                self.app.processEvents()
+                self.assertEqual(expected, positions())
+            self.window.tabs.setCurrentIndex(0)
+            self.assertEqual(expected, positions())
+
     def test_external_menu_uses_active_shell_and_remembered_directory_without_stopping_it(self):
         self.window.new_tab()
         tab = self.window.current_tab()

@@ -245,6 +245,7 @@ class TabStrip(QTabBar):
         super().__init__(parent)
         self.top_inset = 0
         self.inset_pending = False
+        self.currentChanged.connect(self.position_close_buttons)
 
     def update_tab_inset(self):
         self.inset_pending = False
@@ -269,6 +270,11 @@ class TabStrip(QTabBar):
 
     def tabLayoutChange(self):
         super().tabLayoutChange()
+        self.position_close_buttons()
+
+    def position_close_buttons(self, *args):
+        # Qt also lays out tab buttons when selection changes, without calling
+        # tabLayoutChange. Reapply the same offset after either operation.
         inset = getattr(self, "top_inset", 0)
         for index in range(self.count()):
             close = self.tabButton(index, QTabBar.ButtonPosition.RightSide)
