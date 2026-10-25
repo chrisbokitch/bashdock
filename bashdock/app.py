@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from . import config
 from ._version import __version__
 from .window_theme import apply_titlebar
+from .external_shell import open_external
 
 APP_ICON = Path(__file__).parent / "assets" / "bashdock.ico"
 
@@ -188,6 +189,7 @@ class ShellTab(QWidget):
     def __init__(self, data, parent=None, terminal_factory=create_terminal):
         super().__init__(parent)
         self.data = copy.deepcopy(data)
+        self.shell_bash_path = ""
         self.status = "Loading terminal…"
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 3, 0, 0)
@@ -336,6 +338,10 @@ class MainWindow(QMainWindow):
         corner_layout = QHBoxLayout(corner)
         corner_layout.setContentsMargins(3, 0, 3, 3)
         corner_layout.addWidget(add)
+        self.external_button = QPushButton("Open External")
+        self.external_button.setToolTip("Open a new Git Bash window in this tab's current directory")
+        self.external_button.clicked.connect(self.open_external)
+        corner_layout.addWidget(self.external_button)
         self.tabs.setCornerWidget(corner, Qt.Corner.TopRightCorner)
         body = QWidget()
         layout = QVBoxLayout(body)
@@ -347,6 +353,7 @@ class MainWindow(QMainWindow):
         menu = self.menuBar().addMenu("Session")
         for label, callback, shortcut in (
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
+            ("Open external shell", self.open_external, ""),
             ("Rename tab…", lambda: self.rename_tab(self.tabs.currentIndex()), ""),
             ("Close tab", lambda: self.close_tab(self.tabs.currentIndex()), "Ctrl+Shift+W"),
             ("Restart shell…", self.restart, ""),
@@ -505,6 +512,7 @@ class MainWindow(QMainWindow):
                 tab.data["current_folder"] = folder
                 self.schedule_save()
             tab.terminal.start(self.data["bash_path"], folder)
+            tab.shell_bash_path = self.data["bash_path"]
         except Exception as error:
             logging.exception("Could not start Git Bash")
             self.show_status(tab, f"Cannot start shell: {error}")
@@ -513,6 +521,17 @@ class MainWindow(QMainWindow):
             return
         tab.set_running(True)
         self.show_status(tab, "")
+
+    def open_external(self):
+        tab = self.current_tab()
+        if not tab:
+            return
+        bash_path = tab.shell_bash_path if tab.terminal.process else self.data["bash_path"]
+        try:
+            open_external(bash_path, tab.data["current_folder"])
+        except (OSError, ValueError, RuntimeError) as error:
+            self.statusBar().showMessage(f"Could not open external shell: {error}")
+            QMessageBox.warning(self, "Cannot open external shell", str(error))
 
     def configure(self, tab=None):
         if not isinstance(tab, ShellTab):
