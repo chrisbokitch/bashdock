@@ -9,7 +9,6 @@
     "test": "node scripts/tasks.cjs test",
     "go": "git pull --ff-only && npm test",
     "preview": "node scripts/tasks.cjs preview",
-    "compile": "node scripts/tasks.cjs compile",
-    "copy": "node scripts/copy.cjs"
+    "compile": "node scripts/tasks.cjs compile"
   }
 }

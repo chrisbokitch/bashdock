@@ -6,3 +6,6 @@ build/
 dist/
 node_modules/
 npm-debug.log*
+
+# Optional local deployment helper
+/copy.bat
