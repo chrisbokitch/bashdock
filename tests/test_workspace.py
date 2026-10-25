@@ -247,7 +247,7 @@ class WorkspaceTests(unittest.TestCase):
             labels = dialog.findChildren(QLabel)
             self.assertTrue(any(f"Version {__version__}" in label.text() for label in labels))
             self.assertTrue(any(not label.pixmap().isNull() for label in labels))
-            link = next(label for label in labels if 'href="https://github.com/chrisbokitch/gitbasher"' in label.text())
+            link = next(label for label in labels if 'href="https://github.com/chrisbokitch/bashdock"' in label.text())
             self.assertTrue(link.openExternalLinks())
 
     def test_save_failure_during_opt_out_keeps_shell_and_original_preference(self):

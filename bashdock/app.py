@@ -547,7 +547,7 @@ class MainWindow(QMainWindow):
                              "and custom command buttons.")
         description.setWordWrap(True)
         details.addWidget(description)
-        repository = QLabel('<a href="https://github.com/chrisbokitch/gitbasher" '
+        repository = QLabel('<a href="https://github.com/chrisbokitch/bashdock" '
                             'style="color:#9baec4">BashDock on GitHub</a>')
         repository.setOpenExternalLinks(True)
         details.addWidget(repository)

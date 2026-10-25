@@ -2,7 +2,7 @@
 
 A Python/Qt Windows desktop app with multiple Git Bash tabs and a custom command bar beneath each terminal.
 
-Previously called GitBasher. The GitHub repository is still named `chrisbokitch/gitbasher`; the application, Python package, and build output are now named BashDock.
+Previously called GitBasher. The application, GitHub repository, Python package, and build output now use the BashDock name.
 
 ## Updating from GitBasher
 
@@ -66,7 +66,7 @@ Open PowerShell and clone the project into `C:\Development\bashdock`:
 ```powershell
 New-Item -ItemType Directory -Force C:\Development | Out-Null
 Set-Location C:\Development
-git clone https://github.com/chrisbokitch/gitbasher.git bashdock
+git clone https://github.com/chrisbokitch/bashdock.git bashdock
 Set-Location .\bashdock
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e .
