@@ -95,7 +95,7 @@ Git Bash is detected in common installation locations. If detection fails, open 
 ## Tabs and remembered workspace
 
 - Use **+ New tab** or **Ctrl+Shift+T** for an independent Git Bash shell.
-- Use **Open External**, to the right of **+ New tab**, to open a separate Git Bash window from the active tab's Git installation in its last reported current directory. This starts a fresh shell; it does not transfer running programs, unsaved environment changes, or scrollback. The external window stays open when BashDock closes. For deployment, open it first, close BashDock, then run `./copy.sh` there. If `git-bash.exe` is unavailable beside that installation, the configured Bash opens in a new Windows console instead.
+- Use **Manage → Open external shell** to open a separate Git Bash window from the active tab's Git installation in its last reported current directory. This starts a fresh shell; it does not transfer running programs, unsaved environment changes, or scrollback. The external window stays open when BashDock closes. For deployment, open it first, close BashDock, then run `./copy.sh` there. If `git-bash.exe` is unavailable beside that installation, the configured Bash opens in a new Windows console instead.
 - Double-click a tab to rename it, or use **Manage → Rename tab**.
 - Drag tabs to reorder them. Use the tab's close button or **Ctrl+Shift+W** to close it.
 - Each tab has its own configurable command bar at the **bottom**, immediately below its terminal.

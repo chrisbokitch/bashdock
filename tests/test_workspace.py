@@ -289,24 +289,23 @@ class WorkspaceTests(unittest.TestCase):
             tab_bottom = bar.mapTo(self.window, QPoint(0, bar.tabRect(0).bottom() + 1)).y()
             shell_top = self.window.current_tab().terminal.mapTo(self.window, QPoint(0, 0)).y()
             self.assertEqual(3, shell_top - tab_bottom)
-            external = self.window.external_button
-            self.assertGreater(external.x(), button.geometry().right())
-            self.assertGreaterEqual(external.height(), external.sizeHint().height())
 
-    def test_external_button_uses_active_shell_and_remembered_directory_without_stopping_it(self):
+    def test_external_menu_uses_active_shell_and_remembered_directory_without_stopping_it(self):
         self.window.new_tab()
         tab = self.window.current_tab()
         self.ready(tab)
         tab.data["current_folder"] = self.temp.name + "/Project with spaces"
         # Changing the shared setting must not change the running tab's shell.
         self.window.data["bash_path"] = "C:/Other Git/bin/bash.exe"
+        manage = next(a.menu() for a in self.window.menuBar().actions() if a.text() == "Manage")
+        external = next(a for a in manage.actions() if a.text() == "Open external shell")
         with patch("bashdock.app.open_external") as launch:
-            self.window.external_button.click()
+            external.trigger()
         launch.assert_called_once_with(str(self.bash), tab.data["current_folder"])
         self.assertEqual(0, tab.terminal.stops)
         self.assertIsNotNone(tab.terminal.process)
         with patch("bashdock.app.open_external", side_effect=OSError("launch failed")), \
                 patch("bashdock.app.QMessageBox.warning") as warning:
-            self.window.external_button.click()
+            external.trigger()
         warning.assert_called_once()
         self.assertIn("launch failed", self.window.statusBar().currentMessage())
