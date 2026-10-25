@@ -6,6 +6,9 @@ import unittest
 from pathlib import Path
 
 from bashdock.shell_integration import INIT_SCRIPT, create_init_file, valid_reported_directory
+from bashdock.config import find_bash
+
+BASH = find_bash() if os.name == "nt" else shutil.which("bash")
 
 
 class ShellIntegrationTests(unittest.TestCase):
@@ -23,17 +26,19 @@ class ShellIntegrationTests(unittest.TestCase):
         finally:
             path.unlink()
 
-    @unittest.skipUnless(os.name == "posix" and shutil.which("bash"), "Requires POSIX Bash for isolated hook test")
+    @unittest.skipUnless(BASH, "Requires Bash (Git for Windows on Windows)")
     def test_hook_preserves_user_prompt_commands_and_reports_new_directory(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
+            (root / "child").mkdir()
             (root / ".bash_profile").write_text("PROMPT_COMMAND=('printf USER_HOOK')\n")
             rc = root / "init.bash"
             # Don't load the host's system profile in an isolated test.
             rc.write_text(INIT_SCRIPT.replace("source /etc/profile", ":"))
-            result = subprocess.run(["bash", "--noprofile", "--rcfile", str(rc), "-ic",
-                'cd /; for hook in "${PROMPT_COMMAND[@]}"; do eval "$hook"; done'],
-                env=dict(os.environ, HOME=folder), capture_output=True, text=True, timeout=10)
+            result = subprocess.run([BASH, "--noprofile", "--rcfile", rc.as_posix(), "-ic",
+                'cd -- "$HOME/child"; for hook in "${PROMPT_COMMAND[@]}"; do eval "$hook"; done'],
+                env=dict(os.environ, HOME=root.as_posix()), capture_output=True, text=True,
+                encoding="utf-8", timeout=10)
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("USER_HOOK", result.stdout)
-            self.assertIn("\x1b]777;bashdock-cwd;/\x07", result.stdout)
+            self.assertIn(f"\x1b]777;bashdock-cwd;{(root / 'child').as_posix()}\x07", result.stdout)

@@ -4,6 +4,7 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+release/
 node_modules/
 npm-debug.log*
 

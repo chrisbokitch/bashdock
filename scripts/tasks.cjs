@@ -23,12 +23,12 @@ function run(executable, args, options = {}) {
   }
 }
 
-if (!['setup', 'test', 'preview', 'compile'].includes(task)) {
-  console.error('Use npm run setup, npm test, npm run preview, or npm run compile.');
+if (!['setup', 'test', 'preview', 'compile', 'package'].includes(task)) {
+  console.error('Use npm run setup, npm test, npm run preview, npm run compile, or npm run package.');
   process.exit(1);
 }
 
-if ((task === 'preview' || task === 'compile') && !windows) {
+if (['preview', 'compile', 'package'].includes(task) && !windows) {
   console.error(`${task} requires Windows. Build Windows executables on Windows.`);
   process.exit(1);
 }
@@ -54,7 +54,11 @@ if (task === 'test') {
   run(python, ['-m', 'bashdock']);
 } else if (task === 'compile') {
   // Install the optional build tools before invoking PyInstaller in the same venv.
-  run(python, ['-m', 'pip', 'install', '-e', '.[build]']);
+  if (process.env.BASHDOCK_LOCKED_BUILD === '1') {
+    run(python, ['-m', 'pip', 'check']);
+  } else {
+    run(python, ['-m', 'pip', 'install', '-e', '.[build]']);
+  }
   run(python, ['-m', 'PyInstaller', '--clean', '--noconfirm', 'bashdock.spec']);
   const executable = path.join(root, 'dist', 'bashdock', 'bashdock.exe');
   if (!existsSync(executable)) {
@@ -66,4 +70,6 @@ if (task === 'test') {
   rmSync(report, { force: true });
   run(executable, ['--shell-smoke-test', report], { timeout: 60000, report });
   console.log(`Built ${executable}\nKeep the entire dist/bashdock folder together when copying the app.`);
+} else if (task === 'package') {
+  run(python, ['scripts/package_release.py']);
 }

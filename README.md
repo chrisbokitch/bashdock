@@ -29,6 +29,7 @@ Run these from the project folder in Git Bash or PowerShell:
 | `npm run go` | Run `git pull --ff-only`, then the test suite. A failed pull stops the command. |
 | `npm run preview` | Launch the desktop app from source using `.venv`. Close and relaunch to pick up edits. |
 | `npm run compile` | Install optional build tools and package the Windows app with PyInstaller. |
+| `npm run package` | Compile and smoke-test the app, then create a portable ZIP, SHA-256 checksum, and build information in `release/`. |
 | `npm run setup` | Create `.venv` if missing and install/update the Python project and dependencies. |
 
 Your existing `.venv` works with these commands. No activation or `npm install` is required: there are no JavaScript dependencies. For a fresh clone, run `npm run setup` once, then `npm run preview`.
@@ -149,10 +150,14 @@ The Windows tests exercise a real ConPTY Git Bash session (persistent variables,
 
 Manual Windows acceptance checks: create and rename two tabs, give them different buttons and folders, then close and reopen the app. Confirm the active tab, tab order, folders (`pwd`), and buttons restore. Test a command in one tab while another is busy, `git log`/`less`, arrows, Tab, Ctrl+C, Unicode, selection/copy/paste, resizing, shell exit, and restart.
 
+## Automated Windows builds and releases
+
+Pushes and pull requests to `main` run Windows tests and a locked Windows x64 package build in GitHub Actions. Download candidates from the successful run’s artifacts. Matching version tags create a draft GitHub Release after tests, compilation, and extracted-ZIP verification pass; publishing follows clean Windows VM acceptance. See [the release guide](docs/RELEASING.md) for exact steps, dependency updates, and the checklist.
+
 ## Architecture and status
 
 PySide6 supplies the native window and Qt WebEngine. Vendored xterm.js 5.5.0 and fit addon 0.10.0 render terminal output. QWebChannel connects the local terminal page to Python; pywinpty starts Git Bash using Windows ConPTY. No localhost server, browser tab, runtime CDN, or separate terminal window is used.
 
-This is a source release with an executable build recipe. Configuration, migration, shell-hook, and Qt workspace tests were run in the authoring environment. Qt workspace tests use fake terminal processes to verify routing and restoration; Windows ConPTY, full terminal GUI smoke tests, and the packaged executable have **not** been run there. No prebuilt `.exe` is included.
+The repository contains source and an automated Windows build/release workflow. Portable Qt workspace tests use fake terminal processes; the Windows workflow also exercises real ConPTY and Qt WebEngine and tests the packaged shell. Hosted-runner results and clean Windows VM acceptance should be checked for each release candidate. Compiled executables are distributed as build artifacts or GitHub Release assets rather than committed to the source tree.
 
 Third-party xterm.js/fit code is MIT licensed; see `bashdock/assets/LICENSE`. PySide6/Qt and pywinpty retain their upstream licenses. Review those licenses before redistributing a packaged application.
