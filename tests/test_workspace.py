@@ -111,11 +111,15 @@ class WorkspaceTests(unittest.TestCase):
         first.data["buttons"] = [{"label": "Connect", "command": "ssh root@example.test"}]
         self.ready(first)
         self.assertTrue(self.window.save_workspace("Droplet", [0]))
+        self.window.new_tab()
+        existing = self.window.current_tab()
+        self.ready(existing)
+        self.window.close_tab(0)
         self.window.data["terminal"]["font_size"] = 23
         self.assertTrue(self.window.open_workspace(0))
         opened = self.window.current_tab()
         self.assertEqual(2, self.window.tabs.count())
-        self.assertEqual(0, first.terminal.stops)
+        self.assertEqual(0, existing.terminal.stops)
         self.assertEqual(23, opened.terminal.preferences["font_size"])
         self.ready(opened)
         self.assertEqual(1, len(opened.terminal.starts))
@@ -147,6 +151,8 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_workspace_errors_keep_saved_library_and_running_tabs(self):
         self.assertTrue(self.window.save_workspace("Project", [0]))
+        self.window.new_tab()
+        self.window.close_tab(0)
         first = self.window.current_tab()
         self.ready(first)
         saved = copy.deepcopy(self.window.data["workspaces"])
@@ -160,6 +166,56 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(saved, self.window.data["workspaces"])
         self.assertEqual(1, self.window.tabs.count())
         self.assertEqual(0, first.terminal.stops)
+
+    def test_reopening_overlapping_workspaces_only_adds_missing_ids_and_focuses_existing_active_tab(self):
+        first = self.window.current_tab()
+        self.ready(first)
+        first_id = first.data["id"]
+        self.window.new_tab()
+        second = self.window.current_tab()
+        second_id = second.data["id"]
+        self.window.tabs.setCurrentIndex(0)
+        self.assertTrue(self.window.save_workspace("Shared project", [0, 1]))
+        self.window.close_tab(1)
+        with patch("bashdock.app.QInputDialog.getText", return_value=("Renamed live tab", True)):
+            self.window.rename_tab(0)
+        first.data["buttons"][0]["command"] = "live edit"
+        self.assertTrue(self.window.open_workspace(0))
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertIs(first, self.window.current_tab())
+        self.assertEqual(first_id, first.data["id"])
+        self.assertEqual(second_id, self.window.tabs.widget(1).data["id"])
+        self.assertEqual("Renamed live tab", first.data["name"])
+        self.assertEqual("live edit", first.data["buttons"][0]["command"])
+        self.assertEqual(0, first.terminal.stops)
+        self.assertTrue(self.window.save_workspace("Overlapping project", [0, 1]))
+        self.assertTrue(self.window.open_workspace(1))
+        self.assertTrue(self.window.open_workspace(0))
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertEqual(1, len(first.terminal.starts))
+        self.assertEqual(0, first.terminal.stops)
+        self.assertEqual([], first.terminal.commands)
+
+    def test_same_name_tabs_have_distinct_ids_and_configure_preserves_identity(self):
+        first = self.window.current_tab()
+        identity = first.data["id"]
+        self.window.new_tab()
+        second = self.window.current_tab()
+        second.data["name"] = first.data["name"]
+        self.assertNotEqual(identity, second.data["id"])
+        self.assertTrue(self.window.save_workspace("Both tabs", [0, 1]))
+        self.window.tabs.setCurrentIndex(0)
+        values = copy.deepcopy(first.data)
+        del values["id"]
+        values.update(name="Configured name", bash_path=str(self.bash))
+        with patch("bashdock.app.SettingsDialog") as dialog:
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.result_data = values
+            self.window.configure()
+        self.assertEqual(identity, first.data["id"])
+        self.assertTrue(self.window.open_workspace(0))
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertEqual(identity, config.read(self.path)["tabs"][0]["id"])
 
     def test_workspace_manager_updates_renames_and_deletes_without_closing_tabs(self):
         from bashdock.workspaces import WorkspacesDialog, SaveWorkspaceDialog
@@ -329,7 +385,10 @@ class WorkspaceTests(unittest.TestCase):
         QTimer.singleShot(0, choose_fresh)
         self.app.processEvents()
         self.assertTrue(self.window.allow_save)
-        self.assertEqual(config.defaults(), config.read(self.path))
+        restored = config.read(self.path)
+        expected = config.defaults()
+        expected["tabs"][0]["id"] = restored["tabs"][0]["id"]
+        self.assertEqual(expected, restored)
         archives = list((self.path.parent / "backups").glob("settings-damaged-*.json"))
         self.assertEqual([damaged], [p.read_bytes() for p in archives])
         self.assertTrue(self.window.persist())

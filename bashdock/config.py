@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 from datetime import datetime, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 from pathlib import Path
 from . import terminal_preferences
 
@@ -16,7 +16,7 @@ def config_path():
 
 
 def default_tab(name="Git Bash"):
-    return {"name": name, "startup_folder": str(Path.home()),
+    return {"id": str(uuid4()), "name": name, "startup_folder": str(Path.home()),
             "current_folder": str(Path.home()), "buttons": [
         {"label": "Status", "command": "git status --short --branch"},
         {"label": "Diff", "command": "git diff"},
@@ -46,10 +46,59 @@ def validate_buttons(buttons):
 def validate_tab(tab):
     if not isinstance(tab, dict):
         raise ValueError("Each tab must be an object.")
+    if "id" in tab:
+        try:
+            if not isinstance(tab["id"], str):
+                raise ValueError()
+            UUID(tab["id"])
+        except (ValueError, AttributeError):
+            raise ValueError("Tab IDs must be valid UUIDs.") from None
     for key in ("name", "startup_folder", "current_folder"):
         if not isinstance(tab.get(key), str) or not tab[key].strip():
             raise ValueError(f"Tab {key} must be a nonempty string.")
     validate_buttons(tab.get("buttons"))
+
+
+def validate_tab_group(tabs):
+    ids = set()
+    for tab in tabs:
+        validate_tab(tab)
+        if "id" in tab:
+            identity = str(UUID(tab["id"]))
+            if identity in ids:
+                raise ValueError("The same tab cannot appear twice in one tab group.")
+            ids.add(identity)
+
+
+def assign_tab_ids(data):
+    """Migrate old profiles, linking identical saved/open profiles when possible."""
+    groups = [data["tabs"]] + [workspace["tabs"] for workspace in data["workspaces"]]
+    identities = {}
+
+    def signature(tab):
+        return json.dumps({k: v for k, v in tab.items() if k != "id"}, sort_keys=True)
+
+    # Prefer explicit identities, including those in saved workspaces.
+    for tabs in groups:
+        for tab in tabs:
+            if "id" in tab:
+                tab["id"] = str(UUID(tab["id"]))
+                candidates = identities.setdefault(signature(tab), [])
+                if tab["id"] not in candidates:
+                    candidates.append(tab["id"])
+    for tabs in groups:
+        used = {tab["id"] for tab in tabs if "id" in tab}
+        for tab in tabs:
+            if "id" not in tab:
+                candidates = identities.setdefault(signature(tab), [])
+                # An old profile matching multiple identities is ambiguous; do
+                # not guess which running shell it was meant to refer to.
+                identity = candidates[0] if len(candidates) == 1 and candidates[0] not in used else None
+                tab["id"] = identity or str(uuid4())
+                if tab["id"] not in candidates:
+                    candidates.append(tab["id"])
+                used.add(tab["id"])
+    return data
 
 
 def validate_workspaces(workspaces):
@@ -68,8 +117,7 @@ def validate_workspaces(workspaces):
         tabs = workspace.get("tabs")
         if not isinstance(tabs, list) or not tabs:
             raise ValueError("Each workspace needs at least one tab.")
-        for tab in tabs:
-            validate_tab(tab)
+        validate_tab_group(tabs)
         active = workspace.get("active_tab")
         if type(active) is not int or not 0 <= active < len(tabs):
             raise ValueError("The workspace's active tab must be one of its saved tabs.")
@@ -88,8 +136,7 @@ def validate(data):
     validate_workspaces(data.get("workspaces", []))
     if not isinstance(data.get("tabs"), list) or not data["tabs"]:
         raise ValueError("At least one tab is required.")
-    for tab in data["tabs"]:
-        validate_tab(tab)
+    validate_tab_group(data["tabs"])
     active = data.get("active_tab")
     if type(active) is not int or not 0 <= active < len(data["tabs"]):
         raise ValueError("active_tab must identify an existing tab.")
@@ -108,10 +155,12 @@ def migrate(data):
                          "active_tab": 0, "confirm_on_exit": True,
                          "terminal": terminal_preferences.defaults(), "workspaces": []})
     if isinstance(data, dict) and data.get("version") == 2:
-        data = dict(data)
+        data = copy.deepcopy(data)
         data.setdefault("confirm_on_exit", True)
         data.setdefault("workspaces", [])
         data["terminal"] = terminal_preferences.validated(data.get("terminal", {}))
+        validate(data)
+        return validate(assign_tab_ids(data))
     return validate(data)
 
 

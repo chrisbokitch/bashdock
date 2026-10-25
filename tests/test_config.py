@@ -8,6 +8,50 @@ from bashdock import config
 
 
 class ConfigTests(unittest.TestCase):
+    def test_tab_ids_are_unique_uuids_and_legacy_saved_profiles_share_live_identity(self):
+        from uuid import UUID
+        import copy
+
+        first, second = config.default_tab(), config.default_tab()
+        self.assertNotEqual(first["id"], second["id"])
+        self.assertEqual(4, UUID(first["id"]).version)
+        old = config.defaults()
+        old["tabs"] = [copy.deepcopy(first)]
+        for tab in old["tabs"]:
+            del tab["id"]
+        old["workspaces"] = [{"name": "Legacy project", "tabs": [copy.deepcopy(old["tabs"][0])], "active_tab": 0}]
+        migrated = config.migrate(old)
+        ids = [tab["id"] for tab in migrated["tabs"]]
+        self.assertEqual(ids[0], migrated["workspaces"][0]["tabs"][0]["id"])
+        self.assertNotIn("id", old["tabs"][0])
+        self.assertEqual(migrated, config.migrate(migrated))
+        ambiguous = copy.deepcopy(old)
+        ambiguous["tabs"].append(copy.deepcopy(ambiguous["tabs"][0]))
+        migrated_ambiguous = config.migrate(ambiguous)
+        open_ids = [tab["id"] for tab in migrated_ambiguous["tabs"]]
+        self.assertEqual(2, len(set(open_ids)))
+        self.assertNotIn(migrated_ambiguous["workspaces"][0]["tabs"][0]["id"], open_ids)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            config.save(migrated, path)
+            self.assertEqual(migrated, config.read(path))
+
+    def test_invalid_ids_and_repeated_ids_in_a_group_are_rejected_but_shared_workspaces_are_valid(self):
+        import copy
+        data = config.defaults()
+        for identity in (None, 1, "not-a-uuid"):
+            data["tabs"][0]["id"] = identity
+            with self.assertRaises(ValueError):
+                config.validate(data)
+        data = config.defaults()
+        data["tabs"].append(copy.deepcopy(data["tabs"][0]))
+        with self.assertRaises(ValueError):
+            config.validate(data)
+        data["tabs"].pop()
+        for name in ("Project A", "Project B"):
+            data["workspaces"].append({"name": name, "tabs": copy.deepcopy(data["tabs"]), "active_tab": 0})
+        config.validate(data)
+
     def test_saved_workspaces_roundtrip_and_older_settings_gain_empty_library(self):
         data = config.defaults()
         data["workspaces"] = [{"name": "BashDock Development", "tabs": [config.default_tab("App"),

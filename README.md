@@ -118,11 +118,13 @@ The **Manage** menu groups tab management and shell actions. **Settings → Conf
 Use **Manage → Workspaces…** to keep named groups of tabs for different projects.
 
 - **Save selected tabs…** lets you name a workspace and check the current tabs to include. Tabs retain their visible order, names, startup/current folders, and command bars. The active tab is remembered when included; otherwise the first selected tab becomes active.
-- **Open — add tabs** adds fresh copies alongside your current tabs and selects the workspace's saved active tab. Existing shell sessions keep running. Opening the same workspace again adds another independent set of tabs.
+- **Open — add tabs** adds only saved tabs that are not already open and selects the workspace's saved active tab, whether existing or newly added. Existing tabs keep their running shells, names, edits, positions, and folders. Reopening the same workspace, or overlapping workspaces, does not create duplicate tabs.
 - **Replace current tabs…** asks before closing current shells, backs up the current workspace, and opens the saved tabs. If the settings cannot be saved, existing shells stay open. Pre-replacement copies are stored as `backups/settings-before-workspace-*.json` under the settings folder.
 - **Update from current tabs…** replaces a saved workspace with a new selection of current tabs after confirmation. **Rename…** and **Delete…** manage the saved entry; neither closes your open tabs. Workspace names must be unique.
 
 Saved workspaces are reusable templates: editing an open tab does not update its saved workspace automatically. Use **Update from current tabs…** to capture those edits. Terminal appearance, the Git Bash executable, window geometry, and quit-confirmation settings remain app-wide.
+
+Each tab has a persistent random UUID, preserved across renaming, configuration edits, restarts, exports, and saved workspaces. Duplicate detection uses this ID, not the name: **New tab** always creates a separate identity, even if you give it the same name as another tab. Closing a saved tab allows it to be reopened from its workspace with that same ID. Existing settings receive IDs automatically; identical older saved/open profiles are linked where possible. Older tabs whose profiles differ cannot reliably be identified as the same tab and receive separate identities. **Replace current tabs…** still explicitly closes the current shells and starts the selected workspace fresh after confirmation.
 
 Workspaces start fresh shell sessions. They preserve command buttons such as an SSH **Connect** button, but do not run those commands or reconnect SSH automatically. They are included in settings exports, imports, and automatic backups. Existing settings files start with an empty workspace library.
 

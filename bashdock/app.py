@@ -4,6 +4,7 @@ import copy
 import logging
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl
 from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices
@@ -609,9 +610,15 @@ class MainWindow(QMainWindow):
             if opened:
                 self.statusBar().showMessage(f"Opened workspace: {workspace['name']}")
             return opened
-        offset = self.tabs.count()
-        data["tabs"].extend(workspace["tabs"])
-        data["active_tab"] = offset + workspace["active_tab"]
+        existing = {tab["id"] for tab in data["tabs"]}
+        missing = [tab for tab in workspace["tabs"] if tab["id"] not in existing]
+        data["tabs"].extend(missing)
+        active_id = workspace["tabs"][workspace["active_tab"]]["id"]
+        data["active_tab"] = next(i for i, tab in enumerate(data["tabs"]) if tab["id"] == active_id)
+        if not missing:
+            self.tabs.setCurrentIndex(data["active_tab"])
+            self.statusBar().showMessage(f"Workspace tabs are already open: {workspace['name']}")
+            return True
         if not self.allow_save:
             QMessageBox.warning(self, "Cannot open workspace", "Recover your settings before opening a saved workspace.")
             return False
@@ -623,15 +630,22 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot open workspace", str(error))
             return False
         self.restoring = True
-        for profile in workspace["tabs"]:
+        for profile in missing:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(data["active_tab"])
         self.restoring = False
         self.tab_changed()
-        self.statusBar().showMessage(f"Added workspace tabs: {workspace['name']}")
+        skipped = len(workspace["tabs"]) - len(missing)
+        self.statusBar().showMessage(f"Opened workspace: {workspace['name']} — {len(missing)} added, {skipped} already open")
         return True
 
     def add_tab(self, profile):
+        profile = copy.deepcopy(profile)
+        profile.setdefault("id", str(uuid4()))
+        for i in range(self.tabs.count()):
+            existing = self.tabs.widget(i)
+            if existing.data["id"] == profile["id"]:
+                return existing
         tab = ShellTab(profile, self, self.terminal_factory)
         tab.terminal.apply_settings(self.data["terminal"])
         tab.configure_requested.connect(lambda: self.configure(tab))
@@ -863,6 +877,7 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(dict(tab.data, bash_path=original_bash), self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             result = copy.deepcopy(dialog.result_data)
+            result["id"] = original["id"]
             self.data["bash_path"] = result.pop("bash_path")
             tab.data = result
             previous_allow = self.allow_save
