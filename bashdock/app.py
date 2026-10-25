@@ -350,27 +350,38 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.tabs)
         self.setCentralWidget(body)
         self.setStatusBar(FooterBar(self))
-        menu = self.menuBar().addMenu("Session")
+        menu = self.menuBar().addMenu("Manage")
         for label, callback, shortcut in (
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
-            ("Open external shell", self.open_external, ""),
             ("Rename tab…", lambda: self.rename_tab(self.tabs.currentIndex()), ""),
             ("Close tab", lambda: self.close_tab(self.tabs.currentIndex()), "Ctrl+Shift+W"),
+            ("", None, ""),
+            ("Open external shell", self.open_external, ""),
             ("Restart shell…", self.restart, ""),
             ("Interrupt (Ctrl+C)", self.interrupt, ""),
-            ("Configure tab…", self.configure, ""),
         ):
+            if callback is None:
+                menu.addSeparator()
+                continue
             action = QAction(label, self)
             action.triggered.connect(callback)
             if shortcut:
                 action.setShortcut(shortcut)
             menu.addAction(action)
-        menu.addSeparator()
+        settings = self.menuBar().addMenu("Settings")
+        configure_action = QAction("Configure current tab…", self)
+        configure_action.triggered.connect(self.configure)
+        settings.addAction(configure_action)
+        settings.addSeparator()
         self.confirm_exit_action = QAction("Confirm before quitting", self)
         self.confirm_exit_action.setCheckable(True)
         self.confirm_exit_action.setChecked(self.data["confirm_on_exit"])
         self.confirm_exit_action.toggled.connect(self.set_confirm_on_exit)
-        menu.addAction(self.confirm_exit_action)
+        settings.addAction(self.confirm_exit_action)
+        help_menu = self.menuBar().addMenu("Help")
+        about_action = QAction("About BashDock…", self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
         for profile in self.data["tabs"]:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
@@ -521,6 +532,37 @@ class MainWindow(QMainWindow):
             return
         tab.set_running(True)
         self.show_status(tab, "")
+
+    def show_about(self):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("About BashDock")
+        dialog.setWindowIcon(self.windowIcon())
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(18, 18, 18, 18)
+        content = QHBoxLayout()
+        content.setSpacing(16)
+        icon = QLabel()
+        icon.setPixmap(self.windowIcon().pixmap(64, 64))
+        content.addWidget(icon, 0, Qt.AlignmentFlag.AlignTop)
+        details = QVBoxLayout()
+        title = QLabel(f"<h2>BashDock</h2><p>Version {__version__}</p>")
+        details.addWidget(title)
+        description = QLabel("A tabbed Git Bash workspace for Windows, with remembered folders "
+                             "and custom command buttons.")
+        description.setWordWrap(True)
+        details.addWidget(description)
+        repository = QLabel('<a href="https://github.com/chrisbokitch/gitbasher" '
+                            'style="color:#9baec4">BashDock on GitHub</a>')
+        repository.setOpenExternalLinks(True)
+        details.addWidget(repository)
+        content.addLayout(details, 1)
+        layout.addLayout(content)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        dialog.resize(440, dialog.sizeHint().height())
+        dialog.exec()
+        dialog.deleteLater()
 
     def open_external(self):
         tab = self.current_tab()

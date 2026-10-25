@@ -96,7 +96,7 @@ Git Bash is detected in common installation locations. If detection fails, open 
 
 - Use **+ New tab** or **Ctrl+Shift+T** for an independent Git Bash shell.
 - Use **Open External**, to the right of **+ New tab**, to open a separate Git Bash window from the active tab's Git installation in its last reported current directory. This starts a fresh shell; it does not transfer running programs, unsaved environment changes, or scrollback. The external window stays open when BashDock closes. For deployment, open it first, close BashDock, then run `./copy.sh` there. If `git-bash.exe` is unavailable beside that installation, the configured Bash opens in a new Windows console instead.
-- Double-click a tab to rename it, or use **Session → Rename tab**.
+- Double-click a tab to rename it, or use **Manage → Rename tab**.
 - Drag tabs to reorder them. Use the tab's close button or **Ctrl+Shift+W** to close it.
 - Each tab has its own configurable command bar at the **bottom**, immediately below its terminal.
 - Names, tab order, selected tab, current folders, startup folders, and command buttons are saved automatically and restored at the next launch.
@@ -106,7 +106,9 @@ Restoring creates **fresh shells** in the remembered folders. Running programs, 
 
 Existing version 0.1 settings migrate into the first tab automatically, including your custom buttons. Closing the last tab quits the application and remembers that tab for next time. Closing another tab removes it from the saved workspace.
 
-The app-close confirmation includes **Don't show this again**. Check it and choose **Yes** to close without prompting next time. You can change this anytime under **Session → Confirm before quitting**. This is an app-wide setting; tabs and folders are still saved before shells close. Confirmation starts enabled, and choosing **No** never changes the setting. Individual tab-close and shell-restart confirmations remain separate.
+The app-close confirmation includes **Don't show this again**. Check it and choose **Yes** to close without prompting next time. You can change this anytime under **Settings → Confirm before quitting**. This is an app-wide setting; tabs and folders are still saved before shells close. Confirmation starts enabled, and choosing **No** never changes the setting. Individual tab-close and shell-restart confirmations remain separate.
+
+The **Manage** menu groups tab management and shell actions. **Settings → Configure current tab…** opens the same editor as the bottom command bar, including the shared Git Bash executable setting. **Help → About BashDock…** shows the app icon, current version, description, and a link to the GitHub repository.
 
 ## Command buttons
 

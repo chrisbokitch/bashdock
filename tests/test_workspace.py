@@ -226,6 +226,30 @@ class WorkspaceTests(unittest.TestCase):
         self.window.confirm_exit_action.setChecked(True)
         self.assertTrue(config.load(self.path)["confirm_on_exit"])
 
+    def test_menus_group_actions_and_about_shows_current_version_and_repository(self):
+        from PySide6.QtWidgets import QDialog, QLabel
+        from bashdock import __version__
+        menus = {action.text(): action.menu() for action in self.window.menuBar().actions()}
+        self.assertEqual(["Manage", "Settings", "Help"], list(menus))
+        manage = menus["Manage"].actions()
+        self.assertEqual(["New tab", "Rename tab…", "Close tab", "", "Open external shell",
+                          "Restart shell…", "Interrupt (Ctrl+C)"], [a.text() for a in manage])
+        self.assertTrue(manage[3].isSeparator())
+        self.assertEqual("Ctrl+Shift+T", manage[0].shortcut().toString())
+        self.assertEqual("Ctrl+Shift+W", manage[2].shortcut().toString())
+        self.assertIn(self.window.confirm_exit_action, menus["Settings"].actions())
+        manage[0].trigger()
+        self.assertEqual(2, self.window.tabs.count())
+        with patch("bashdock.app.QDialog.exec", return_value=0) as show:
+            menus["Help"].actions()[0].trigger()
+            show.assert_called_once()
+            dialog = next(d for d in self.window.findChildren(QDialog) if d.windowTitle() == "About BashDock")
+            labels = dialog.findChildren(QLabel)
+            self.assertTrue(any(f"Version {__version__}" in label.text() for label in labels))
+            self.assertTrue(any(not label.pixmap().isNull() for label in labels))
+            link = next(label for label in labels if 'href="https://github.com/chrisbokitch/gitbasher"' in label.text())
+            self.assertTrue(link.openExternalLinks())
+
     def test_save_failure_during_opt_out_keeps_shell_and_original_preference(self):
         tab = self.window.current_tab()
         self.ready(tab)
