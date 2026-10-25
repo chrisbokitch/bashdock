@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from . import config
 from ._version import __version__
+from .window_theme import apply_titlebar
 
 APP_ICON = Path(__file__).parent / "assets" / "gitbasher.ico"
 
@@ -598,6 +599,11 @@ class MainWindow(QMainWindow):
         dialog.setCheckBox(skip)
         accepted = dialog.exec() == QMessageBox.StandardButton.Yes
         return accepted, skip.isChecked()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        if sys.platform == "win32":
+            apply_titlebar(int(self.winId()))
 
     def closeEvent(self, event):
         running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))

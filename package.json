@@ -1,6 +1,6 @@
 {
   "name": "gitbasher",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "private": true,
   "description": "Development shortcuts for the gitbasher Python desktop app",
   "engines": {
