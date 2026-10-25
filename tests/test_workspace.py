@@ -88,6 +88,64 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def reopen_window(self):
+        self.window.data["confirm_on_exit"] = False
+        self.window.close()
+        self.window.deleteLater()
+        self.app.processEvents()
+        self.window = MainWindow(terminal_factory=FakeTerminal)
+        self.window.show()
+        self.app.processEvents()
+
+    def test_window_size_and_position_are_saved_automatically_and_restored(self):
+        from PySide6.QtTest import QTest
+
+        self.window.show()
+        self.app.processEvents()
+        self.window.resize(640, 480)
+        self.window.move(30, 45)
+        self.app.processEvents()
+        expected_size, expected_pos = self.window.size(), self.window.pos()
+        QTest.qWait(450)
+        self.assertTrue(config.load(self.path)["window_geometry"])
+        self.reopen_window()
+        self.assertEqual(expected_size, self.window.size())
+        self.assertEqual(expected_pos, self.window.pos())
+
+    def test_maximized_window_remembers_normal_size_and_does_not_reopen_minimized(self):
+        self.window.show()
+        self.app.processEvents()
+        self.window.resize(640, 480)
+        self.window.move(30, 45)
+        self.app.processEvents()
+        normal_size = self.window.size()
+        self.window.showMaximized()
+        self.app.processEvents()
+        self.reopen_window()
+        self.assertTrue(self.window.isMaximized())
+        self.window.showNormal()
+        self.app.processEvents()
+        self.assertEqual(normal_size, self.window.size())
+        self.window.showMinimized()
+        self.app.processEvents()
+        self.reopen_window()
+        self.assertFalse(self.window.isMinimized())
+        self.assertEqual(normal_size, self.window.size())
+
+    def test_damaged_geometry_does_not_prevent_workspace_restoration(self):
+        data = config.load(self.path)
+        data["tabs"][0]["name"] = "My workspace"
+        for encoded in ("not base64!", "bm90IFF0IGdlb21ldHJ5", 123):
+            self.window.allow_save = False
+            self.window.close()
+            self.window.deleteLater()
+            data["window_geometry"] = encoded
+            config.save(data, self.path)
+            self.window = MainWindow(terminal_factory=FakeTerminal)
+            self.assertEqual("", self.window.config_error)
+            self.assertEqual("My workspace", self.window.current_tab().data["name"])
+            self.assertEqual((1120, 760), (self.window.width(), self.window.height()))
+
     def test_missing_git_explains_setup_and_restart_detects_new_installation(self):
         tab = self.window.current_tab()
         self.window.data["bash_path"] = "C:/Removed Git/bin/bash.exe"

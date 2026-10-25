@@ -1,4 +1,5 @@
 """Desktop window and transactional command/settings editor."""
+import base64
 import copy
 import logging
 import sys
@@ -443,6 +444,7 @@ class MainWindow(QMainWindow):
             QToolButton#tabClose:hover { background:#3c4b60; }
         """)
         self.tabs.tabBar().update_tab_inset()
+        self.restore_window_geometry()
         if self.config_error:
             QTimer.singleShot(0, self.show_config_error)
 
@@ -519,10 +521,40 @@ class MainWindow(QMainWindow):
 
     def snapshot(self):
         return {"version": 2, "bash_path": self.data["bash_path"],
+                "window_geometry": bytes(self.saveGeometry().toBase64()).decode("ascii"),
                 "confirm_on_exit": self.data["confirm_on_exit"],
                 "terminal": copy.deepcopy(self.data["terminal"]),
                 "active_tab": self.tabs.currentIndex(),
                 "tabs": [copy.deepcopy(self.tabs.widget(i).data) for i in range(self.tabs.count())]}
+
+    def restore_window_geometry(self):
+        # Optional metadata: old workspaces and damaged geometry still load normally.
+        encoded = self.data.get("window_geometry")
+        if not isinstance(encoded, str) or not encoded:
+            return
+        try:
+            geometry = base64.b64decode(encoded, validate=True)
+        except (ValueError, UnicodeError):
+            logging.warning("Ignoring invalid saved window geometry")
+            return
+        # Qt also brings windows back onto an available screen if monitors changed.
+        if not self.restoreGeometry(geometry):
+            logging.warning("Ignoring unrecognized saved window geometry")
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        if hasattr(self, "save_timer"):
+            self.schedule_save()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "save_timer"):
+            self.schedule_save()
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.WindowStateChange and hasattr(self, "save_timer"):
+            self.schedule_save()
 
     def schedule_save(self, *args):
         if not self.restoring and not self.closing and self.allow_save:
