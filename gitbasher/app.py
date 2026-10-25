@@ -270,7 +270,7 @@ class MainWindow(QMainWindow):
         add.clicked.connect(self.new_tab)
         corner = QWidget()
         corner_layout = QHBoxLayout(corner)
-        corner_layout.setContentsMargins(3, 0, 3, 0)
+        corner_layout.setContentsMargins(3, 0, 3, 6)
         corner_layout.addWidget(add)
         self.tabs.setCornerWidget(corner, Qt.Corner.TopRightCorner)
         body = QWidget()
