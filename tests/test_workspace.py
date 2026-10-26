@@ -773,18 +773,36 @@ class WorkspaceTests(unittest.TestCase):
         bar = self.window.tabs.tabBar()
 
         def assert_surface(tab, color):
-            self.app.processEvents()
-            rect = bar.tabRect(self.window.tabs.indexOf(tab))
-            image = bar.grab().toImage()
-            ratio = image.devicePixelRatio()
-            self.assertEqual(QColor(color), image.pixelColor(int((rect.left() + 6) * ratio),
-                                                           int((rect.bottom() - 5) * ratio)))
+            # Native Windows pointer events can arrive after mouseMove returns.
+            # Wait for the exact rendered state instead of sampling the old frame.
+            from PySide6.QtCore import QElapsedTimer
+            timer = QElapsedTimer()
+            timer.start()
+            while True:
+                self.app.processEvents()
+                rect = bar.tabRect(self.window.tabs.indexOf(tab))
+                image = bar.grab().toImage()
+                ratio = image.devicePixelRatio()
+                actual = image.pixelColor(int((rect.left() + 6) * ratio), int((rect.bottom() - 5) * ratio))
+                if actual == QColor(color) or timer.elapsed() >= 1000:
+                    self.assertEqual(QColor(color), actual)
+                    return
+                QTest.qWait(10)
 
+        def park_pointer():
+            # Stay on the same native widget, over empty bar space. Moving to
+            # the parent window can leave its child's hover state stale in QTest.
+            point = QPoint(bar.width() - 2, bar.height() // 2)
+            self.assertEqual(-1, bar.tabAt(point))
+            QTest.mouseMove(bar, point)
+
+        self.app.processEvents()
+        park_pointer()
         assert_surface(server, '#402334')
         assert_surface(first, '#1e222a')
         QTest.mouseMove(bar, bar.tabRect(self.window.tabs.indexOf(server)).center())
         assert_surface(server, '#503645')
-        QTest.mouseMove(self.window, QPoint(400, 300))
+        park_pointer()
         assert_surface(server, '#402334')
         bar.moveTab(self.window.tabs.indexOf(server), 0)
         assert_surface(server, '#402334')
