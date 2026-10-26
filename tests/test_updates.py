@@ -29,7 +29,11 @@ def zip_bytes(extra=()):
         archive.writestr('bashdock/_internal/runtime.dll', b'new runtime')
         archive.writestr('bashdock/bashdock-updater.exe', b'updater')
         for name, content in extra:
-            archive.writestr(name, content)
+            item = zipfile.ZipInfo(name)
+            # Retain intentionally malformed bytes even on Windows, where the
+            # ZipInfo constructor otherwise rewrites backslashes on creation.
+            item.filename = item.orig_filename = name
+            archive.writestr(item, content)
     return stream.getvalue()
 
 
@@ -78,7 +82,7 @@ class UpdateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             for path in ('../outside', 'bashdock/../../outside', '/absolute', 'bashdock/CON.txt',
-                         'bashdock/a:stream', 'bashdock/trailing.', 'bashdock\\outside',
+                         'bashdock/a:stream', 'bashdock/trailing.', 'bashdock\\outside', 'bashdock/nul\x00alias',
                          'bashdock/BASHDOCK.exe'):
                 with self.subTest(path=path):
                     archive = root / 'package.zip'

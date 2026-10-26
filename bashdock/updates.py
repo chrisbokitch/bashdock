@@ -120,6 +120,10 @@ def extract_package(archive, destination):
     with zipfile.ZipFile(archive) as bundle:
         for item in bundle.infolist():
             name = item.filename
+            # ZipInfo normalizes Windows separators and truncates NULs. Inspect
+            # the original name too, before a malformed entry can gain an alias.
+            if item.orig_filename != name or '\x00' in item.orig_filename:
+                raise ValueError('Noncanonical path in update archive.')
             path = PurePosixPath(name)
             if (path.is_absolute() or '\\' in name or ':' in name or '..' in path.parts
                     or not path.parts or path.parts[0] != 'bashdock'):
