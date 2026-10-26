@@ -576,7 +576,7 @@ class MainWindow(QMainWindow):
 
     def update_state_changed(self, state, value):
         messages = {"checking": "Checking for updates…", "downloading": "Downloading update…",
-                    "current": "No newer signed public release is available."}
+                    "current": "BashDock is up to date."}
         if state in messages:
             self.statusBar().showMessage(messages[state])
         if state == "downloading":
