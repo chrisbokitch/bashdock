@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl
-from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices
+from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF
+from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
@@ -28,6 +28,16 @@ APP_ICON = Path(__file__).parent / "assets" / "bashdock.ico"
 def create_terminal(parent):
     from .terminal import Terminal
     return Terminal(parent)
+
+
+class MenuCorners(QObject):
+    """Clip the native popup too, so Windows cannot fill outside the QSS curve."""
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show):
+            shape = QPainterPath()
+            shape.addRoundedRect(QRectF(watched.rect()), 10, 10)
+            watched.setMask(QRegion(shape.toFillPolygon().toPolygon()))
+        return False
 
 
 class FooterBar(QStatusBar):
@@ -529,6 +539,7 @@ class MainWindow(QMainWindow):
             QToolButton#tabClose { border:0;padding:0;margin:0;border-radius:3px;background:transparent; }
             QToolButton#tabClose:hover { background:#3c4b60; }
         """.replace("MENU_ARROW", (APP_ICON.parent / "menu-arrow.svg").as_posix()))
+        self.menu_corners = MenuCorners(self)
         for popup in (self.manage_menu, self.settings_menu, self.help_menu,
                       self.workspaces_menu, self.updates_menu):
             # Native style polishing can reset popup flags. Finish the inherited
@@ -537,6 +548,7 @@ class MainWindow(QMainWindow):
             popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
             popup.setWindowFlags(popup.windowFlags() | Qt.WindowType.FramelessWindowHint
                                  | Qt.WindowType.NoDropShadowWindowHint)
+            popup.installEventFilter(self.menu_corners)
         self.tabs.tabBar().update_tab_inset()
         self.restore_window_geometry()
         if self.config_error:

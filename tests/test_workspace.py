@@ -782,8 +782,28 @@ class WorkspaceTests(unittest.TestCase):
                 self.assertTrue(menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground))
                 image = menu.grab().toImage()
                 self.assertEqual('#253144', image.pixelColor(menu.width() // 2, 3).name())
-                self.assertEqual(0, image.pixelColor(0, 0).alpha())
+                for x, y in ((0, 0), (image.width() - 1, 0),
+                             (0, image.height() - 1), (image.width() - 1, image.height() - 1)):
+                    self.assertEqual(0, image.pixelColor(x, y).alpha(), f'opaque corner at {x}, {y}')
+                mask = menu.mask()
+                self.assertEqual(menu.rect(), mask.boundingRect())
+                for point in (menu.rect().topLeft(), menu.rect().topRight(),
+                              menu.rect().bottomLeft(), menu.rect().bottomRight()):
+                    self.assertFalse(mask.contains(point))
+                self.assertTrue(mask.contains(menu.rect().center()))
                 menu.hide()
+
+    def test_popup_corner_mask_tracks_submenu_resizing_and_reopening(self):
+        from PySide6.QtCore import QPoint
+        menu = self.window.workspaces_menu
+        for name in ('Short', 'A much longer workspace name that widens the submenu'):
+            menu.addAction(name)
+            menu.popup(QPoint(20, 20))
+            self.app.processEvents()
+            self.assertEqual(menu.rect(), menu.mask().boundingRect())
+            self.assertFalse(menu.mask().contains(menu.rect().bottomRight()))
+            self.assertTrue(menu.mask().contains(menu.rect().center()))
+            menu.hide()
 
     def test_menus_group_actions_and_about_shows_current_version_and_repository(self):
         from PySide6.QtWidgets import QDialog, QLabel
