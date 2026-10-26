@@ -56,7 +56,7 @@ class AcceptanceTests(unittest.TestCase):
             launches = []
             def launch(target, health, token):
                 launches.append(target)
-                self.assertEqual(str(output / 'profile/Roaming'), os.environ['APPDATA'])
+                self.assertEqual((output / 'profile/Roaming').resolve(), Path(os.environ['APPDATA']).resolve())
                 if len(launches) == 1:
                     self.assertIn(b'Not a Windows executable', (target / 'bashdock.exe').read_bytes())
                     raise OSError('Windows could not start replacement executable')
