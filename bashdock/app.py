@@ -7,12 +7,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint
-from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor
+from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor, QPen
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit, QStyle,
-    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu,
 )
 
 from . import config, terminal_preferences
@@ -67,6 +67,32 @@ class MenuShadow(QWidget):
             painter.setBrush(QColor(0, 0, 0, 10))
             painter.drawRoundedRect(panel.adjusted(-spread, 2 - spread, spread, 2 + spread),
                                     10 + spread, 10 + spread)
+
+
+class PopupMenu(QMenu):
+    """Use the existing left padding for ticks instead of a second text gutter."""
+    def initStyleOption(self, option, action):
+        super().initStyleOption(option, action)
+        option.menuHasCheckableItems = False
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        for action in self.actions():
+            if not action.isVisible() or not action.isCheckable() or not action.isChecked():
+                continue
+            rect = self.actionGeometry(action)
+            painter.setPen(QPen(QColor('#dde4ef' if action.isEnabled() else '#8995a7'), 1.5))
+            x, y = rect.left() - 10, rect.center().y()
+            painter.drawLine(x, y, x + 3, y + 3)
+            painter.drawLine(x + 3, y + 3, x + 8, y - 3)
+
+
+def add_popup(parent, title):
+    menu = PopupMenu(title, parent)
+    parent.addMenu(menu)
+    return menu
 
 
 class MenuCorners(QObject):
@@ -355,7 +381,20 @@ class TabStrip(QTabBar):
         super().__init__(parent)
         self.top_inset = 0
         self.inset_pending = False
+        self.selected_background = '#10141c'
+        self.selected_foreground = '#dde4ef'
         self.currentChanged.connect(self.position_close_buttons)
+
+    def set_terminal_colors(self, background, foreground):
+        if (background, foreground) != (self.selected_background, self.selected_foreground) or not self.styleSheet():
+            self.selected_background, self.selected_foreground = background, foreground
+            self.apply_tab_style()
+
+    def apply_tab_style(self):
+        self.setStyleSheet(
+            f'QTabBar::tab {{ margin-top:{self.top_inset}px; }} '
+            f'QTabBar::tab:selected {{ background:{self.selected_background};'
+            f'color:{self.selected_foreground};border-bottom-color:{self.selected_background}; }}')
 
     def corner_row_height(self):
         parent = self.parentWidget()
@@ -381,7 +420,7 @@ class TabStrip(QTabBar):
         if inset != self.top_inset:
             self.top_inset = inset
             # Blank space belongs above compact tabs, so their bottoms still meet the shell.
-            self.setStyleSheet(f"QTabBar::tab {{ margin-top:{inset}px; }}")
+            self.apply_tab_style()
             self.updateGeometry()
 
     def changeEvent(self, event):
@@ -485,7 +524,7 @@ class MainWindow(QMainWindow):
         self.statusBar().update_requested.connect(self.restart_for_update)
         # Keep Python wrappers alive as well as Qt ownership. Some supported
         # PySide versions otherwise destroy menus when temporary wrappers expire.
-        self.manage_menu = self.menuBar().addMenu("Manage")
+        self.manage_menu = add_popup(self.menuBar(), "Manage")
         menu = self.manage_menu
         for label, callback, shortcut in (
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
@@ -498,7 +537,7 @@ class MainWindow(QMainWindow):
             ("Interrupt (Ctrl+C)", self.interrupt, ""),
         ):
             if label == "Workspaces":
-                self.workspaces_menu = menu.addMenu(label)
+                self.workspaces_menu = add_popup(menu, label)
                 self.workspaces_menu.aboutToShow.connect(self.refresh_workspaces_menu)
                 self.refresh_workspaces_menu()
                 continue
@@ -510,7 +549,7 @@ class MainWindow(QMainWindow):
             if shortcut:
                 action.setShortcut(shortcut)
             menu.addAction(action)
-        self.settings_menu = self.menuBar().addMenu("Settings")
+        self.settings_menu = add_popup(self.menuBar(), "Settings")
         settings = self.settings_menu
         configure_action = QAction("Configure current tab…", self)
         configure_action.triggered.connect(self.configure)
@@ -533,7 +572,7 @@ class MainWindow(QMainWindow):
         self.confirm_exit_action.setChecked(self.data["confirm_on_exit"])
         self.confirm_exit_action.toggled.connect(self.set_confirm_on_exit)
         settings.addAction(self.confirm_exit_action)
-        self.updates_menu = settings.addMenu("Updates")
+        self.updates_menu = add_popup(settings, "Updates")
         self.automatic_updates_action = QAction("Check automatically", self.updates_menu)
         self.download_updates_action = QAction("Download automatically", self.updates_menu)
         for action, key in ((self.automatic_updates_action, "automatic"), (self.download_updates_action, "download")):
@@ -541,14 +580,15 @@ class MainWindow(QMainWindow):
             action.setChecked(self.data.get("updates", {}).get(key, True))
             action.toggled.connect(lambda checked, key=key: self.set_update_preference(key, checked))
             self.updates_menu.addAction(action)
-        self.help_menu = self.menuBar().addMenu("Help")
+        self.help_menu = add_popup(self.menuBar(), "Help")
         help_menu = self.help_menu
         about_action = QAction("About BashDock…", self)
         about_action.triggered.connect(self.show_about)
-        help_menu.addAction(about_action)
         self.check_updates_action = QAction("Check for updates…", self)
         self.check_updates_action.triggered.connect(self.check_for_updates)
         help_menu.addAction(self.check_updates_action)
+        help_menu.addSeparator()
+        help_menu.addAction(about_action)
         # Older PySide bindings can delete a submenu when a temporary action
         # wrapper expires after QAction.menu() is called.
         self.menu_actions = tuple(menu.menuAction() for menu in
@@ -610,6 +650,7 @@ class MainWindow(QMainWindow):
                                  | Qt.WindowType.NoDropShadowWindowHint)
             self.menu_corners.attach(popup)
         self.tabs.tabBar().update_tab_inset()
+        self.refresh_tab_colors()
         self.restore_window_geometry()
         if self.config_error:
             QTimer.singleShot(0, self.show_config_error)
@@ -947,12 +988,19 @@ class MainWindow(QMainWindow):
             self.schedule_save()
 
     def tab_changed(self, *args):
+        self.refresh_tab_colors()
         tab = self.current_tab()
         if tab:
             self.statusBar().showMessage(tab.status)
             if tab.terminal.ready:
                 tab.terminal.bridge.focus.emit()
         self.schedule_save()
+
+    def refresh_tab_colors(self):
+        tab = self.current_tab()
+        if tab:
+            settings = terminal_preferences.effective(tab.data, self.data['terminal'])
+            self.tabs.tabBar().set_terminal_colors(settings['background'], settings['foreground'])
 
     def show_status(self, tab, text):
         tab.status = text
@@ -1082,6 +1130,7 @@ class MainWindow(QMainWindow):
             tab = self.tabs.widget(index)
             if tab.data.get("terminal") is None:
                 tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
+        self.refresh_tab_colors()
 
     def show_about(self):
         dialog = QDialog(self)
@@ -1187,6 +1236,7 @@ class MainWindow(QMainWindow):
                 return
             self.tabs.setTabText(self.tabs.indexOf(tab), tab.data["name"])
             tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
+            self.refresh_tab_colors()
             tab.build_buttons()
             if not tab.terminal.process and tab.terminal.ready:
                 self.start_shell(tab)

@@ -759,6 +759,73 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(original, self.window.current_tab().terminal.preferences)
         self.assertEqual(original, config.load(self.path)["terminal"])
 
+    def test_selected_tab_uses_effective_terminal_colors_on_switch_and_defaults_change(self):
+        from PySide6.QtGui import QColor
+        self.window.show()
+        first = self.window.current_tab()
+        custom = config.default_tab('Custom colors')
+        custom['terminal'] = dict(self.window.data['terminal'], background='#341527', foreground='#f7ce63')
+        second = self.window.add_tab(custom)
+        bar = self.window.tabs.tabBar()
+
+        def assert_colors(background, foreground):
+            self.app.processEvents()
+            image = bar.grab().toImage()
+            ratio = image.devicePixelRatio()
+            rect = bar.tabRect(bar.currentIndex())
+            self.assertEqual(QColor(background), image.pixelColor(
+                int((rect.left() + 6) * ratio), int((rect.bottom() - 4) * ratio)))
+            name = rect.adjusted(8, bar.top_inset + 3, -30, -3)
+            target = QColor(foreground)
+            # LCD/subpixel font antialiasing can blend every glyph pixel.
+            distance = min(sum(abs(a - b) for a, b in zip(image.pixelColor(x, y).getRgb()[:3],
+                                                          target.getRgb()[:3]))
+                           for x in range(int(name.left() * ratio), int(name.right() * ratio))
+                           for y in range(int(name.top() * ratio), int(name.bottom() * ratio)))
+            self.assertLess(distance, 60)
+
+        self.window.tabs.setCurrentWidget(second)
+        assert_colors('#341527', '#f7ce63')
+        self.window.tabs.setCurrentWidget(first)
+        assert_colors('#10141c', '#dde4ef')
+        changed = dict(self.window.data['terminal'], background='#172c39', foreground='#e5faf7')
+        with patch('bashdock.app.TerminalSettingsDialog') as dialog:
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.values.return_value = changed
+            self.window.configure_terminal()
+        assert_colors('#172c39', '#e5faf7')
+        self.window.tabs.setCurrentWidget(second)
+        assert_colors('#341527', '#f7ce63')
+        self.assertEqual(0, first.terminal.stops)
+        self.assertEqual(0, second.terminal.stops)
+
+    def test_checkable_menu_preserves_text_alignment_and_displays_tick_in_padding(self):
+        from bashdock.app import PopupMenu
+        from PySide6.QtCore import QPoint
+        images = []
+        for checkable in (False, True):
+            menu = PopupMenu('Alignment', self.window)
+            action = menu.addAction('Identical menu label')
+            action.setCheckable(checkable)
+            action.setChecked(checkable)
+            menu.popup(QPoint(20, 20))
+            self.app.processEvents()
+            images.append(menu.grab().toImage())
+            if checkable:
+                action.trigger()
+                self.assertFalse(action.isChecked())
+            menu.hide()
+            menu.deleteLater()
+        plain, checked = images
+        self.assertEqual(plain.size(), checked.size())
+        ratio = plain.devicePixelRatio()
+        # The label and right edge are identical; only the existing left pad differs.
+        x = int(12 * ratio)
+        self.assertEqual(plain.copy(x, 0, plain.width() - x, plain.height()),
+                         checked.copy(x, 0, checked.width() - x, checked.height()))
+        self.assertNotEqual(plain.copy(0, 0, x, plain.height()),
+                            checked.copy(0, 0, x, checked.height()))
+
     def test_menu_popups_have_visible_surface_and_vertical_edge_padding(self):
         from PySide6.QtCore import QPoint
         for menu in (self.window.manage_menu, self.window.settings_menu,
@@ -852,7 +919,10 @@ class WorkspaceTests(unittest.TestCase):
         manage[0].trigger()
         self.assertEqual(2, self.window.tabs.count())
         with patch("bashdock.app.QDialog.exec", return_value=0) as show:
-            menus["Help"].actions()[0].trigger()
+            self.assertEqual(['Check for updates…', '', 'About BashDock…'],
+                             [a.text() for a in menus['Help'].actions()])
+            self.assertTrue(menus['Help'].actions()[1].isSeparator())
+            menus["Help"].actions()[2].trigger()
             show.assert_called_once()
             dialog = next(d for d in self.window.findChildren(QDialog) if d.windowTitle() == "About BashDock")
             labels = dialog.findChildren(QLabel)
