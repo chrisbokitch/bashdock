@@ -535,7 +535,8 @@ class MainWindow(QMainWindow):
             # stylesheet first, then apply our window-level appearance settings.
             popup.ensurePolished()
             popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            popup.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
+            popup.setWindowFlags(popup.windowFlags() | Qt.WindowType.FramelessWindowHint
+                                 | Qt.WindowType.NoDropShadowWindowHint)
         self.tabs.tabBar().update_tab_inset()
         self.restore_window_geometry()
         if self.config_error:

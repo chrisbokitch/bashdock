@@ -765,6 +765,7 @@ class WorkspaceTests(unittest.TestCase):
                      self.window.help_menu, self.window.workspaces_menu, self.window.updates_menu):
             with self.subTest(menu=menu.title()):
                 menu.ensurePolished()
+                flags_before = int(menu.windowFlags())
                 menu.popup(QPoint(20, 20))
                 self.app.processEvents()
                 actions = [a for a in menu.actions() if a.isVisible()]
@@ -775,7 +776,9 @@ class WorkspaceTests(unittest.TestCase):
                 self.assertEqual(12, menu.width() - first.right() - 1)
                 self.assertEqual(10, menu.height() - last.bottom() - 1)
                 from PySide6.QtCore import Qt
-                self.assertTrue(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint)
+                self.assertTrue(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint,
+                                f'popup flags before={flags_before:#x}, after={int(menu.windowFlags()):#x}, '
+                                f'style={menu.style().objectName()}')
                 self.assertTrue(menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground))
                 image = menu.grab().toImage()
                 self.assertEqual('#253144', image.pixelColor(menu.width() // 2, 3).name())
