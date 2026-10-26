@@ -803,6 +803,10 @@ class WorkspaceTests(unittest.TestCase):
             self.assertEqual(menu.rect(), menu.mask().boundingRect())
             self.assertFalse(menu.mask().contains(menu.rect().bottomRight()))
             self.assertTrue(menu.mask().contains(menu.rect().center()))
+            menu.resize(menu.width() + 40, menu.height() + 20)
+            self.app.processEvents()
+            self.assertEqual(menu.rect(), menu.mask().boundingRect())
+            self.assertFalse(menu.mask().contains(menu.rect().bottomRight()))
             menu.hide()
 
     def test_menus_group_actions_and_about_shows_current_version_and_repository(self):

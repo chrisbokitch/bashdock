@@ -32,11 +32,19 @@ def create_terminal(parent):
 
 class MenuCorners(QObject):
     """Clip the native popup too, so Windows cannot fill outside the QSS curve."""
+    def apply_mask(self, menu):
+        shape = QPainterPath()
+        shape.addRoundedRect(QRectF(menu.rect()), 10, 10)
+        menu.setMask(QRegion(shape.toFillPolygon().toPolygon()))
+
     def eventFilter(self, watched, event):
-        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show):
-            shape = QPainterPath()
-            shape.addRoundedRect(QRectF(watched.rect()), 10, 10)
-            watched.setMask(QRegion(shape.toFillPolygon().toPolygon()))
+        if event.type() == QEvent.Type.Show:
+            self.apply_mask(watched)
+        elif event.type() == QEvent.Type.Resize:
+            # QMenu's resize handler may install its native style's mask after
+            # this filter. Reapply once that handler has finished; the context
+            # cancels the callback if the popup is destroyed in the meantime.
+            QTimer.singleShot(0, watched, lambda: self.apply_mask(watched))
         return False
 
 
