@@ -770,10 +770,16 @@ class WorkspaceTests(unittest.TestCase):
                 actions = [a for a in menu.actions() if a.isVisible()]
                 first = menu.actionGeometry(actions[0])
                 last = menu.actionGeometry(actions[-1])
-                self.assertGreaterEqual(first.top(), 7)  # six pixels plus border
-                self.assertGreaterEqual(menu.height() - last.bottom() - 1, 7)
+                self.assertEqual(10, first.top())
+                self.assertEqual(12, first.left())
+                self.assertEqual(12, menu.width() - first.right() - 1)
+                self.assertEqual(10, menu.height() - last.bottom() - 1)
+                from PySide6.QtCore import Qt
+                self.assertTrue(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint)
+                self.assertTrue(menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground))
                 image = menu.grab().toImage()
                 self.assertEqual('#253144', image.pixelColor(menu.width() // 2, 3).name())
+                self.assertEqual(0, image.pixelColor(0, 0).alpha())
                 menu.hide()
 
     def test_menus_group_actions_and_about_shows_current_version_and_repository(self):

@@ -486,6 +486,11 @@ class MainWindow(QMainWindow):
         # wrapper expires after QAction.menu() is called.
         self.menu_actions = tuple(menu.menuAction() for menu in
                                   (self.manage_menu, self.settings_menu, self.help_menu, self.workspaces_menu, self.updates_menu))
+        for popup in (self.manage_menu, self.settings_menu, self.help_menu,
+                      self.workspaces_menu, self.updates_menu):
+            popup.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
+            # Rounded QSS alone leaves opaque square native popup corners.
+            popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         for profile in self.data["tabs"]:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
@@ -494,10 +499,11 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("""
             QMainWindow,QDialog,QWidget { background:#181e29;color:#dde4ef; }
             QMenu {
-                background:#253144;color:#dde4ef;border:1px solid #53647c;
-                padding:6px 0;
+                background:#253144;color:#dde4ef;border:0;border-radius:10px;
+                padding:10px 12px;
             }
-            QMenu::item { padding:2px 16px;background:transparent; }
+            QMenu::item { padding:2px 0;background:transparent; }
+            QMenu::right-arrow { image:url("MENU_ARROW");width:6px;height:10px; }
             QMenu::item:selected { background:#3c4b60;color:#ffffff; }
             QMenu::item:disabled { color:#8995a7; }
             QMenu::separator { height:1px; background:#3c4b60; margin:4px 0; }
@@ -527,7 +533,7 @@ class MainWindow(QMainWindow):
             }
             QToolButton#tabClose { border:0;padding:0;margin:0;border-radius:3px;background:transparent; }
             QToolButton#tabClose:hover { background:#3c4b60; }
-        """)
+        """.replace("MENU_ARROW", (APP_ICON.parent / "menu-arrow.svg").as_posix()))
         self.tabs.tabBar().update_tab_inset()
         self.restore_window_geometry()
         if self.config_error:
