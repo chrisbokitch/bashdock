@@ -127,12 +127,16 @@ class WindowsTests(unittest.TestCase):
                             background="#223344", scrollback=500)
             terminal.apply_settings(settings)
             observed = []
+            expected = [21, "bar", "#223344", 500, "rgb(47, 63, 79)", "rgb(83, 96, 109)"]
             # Return a string across the Qt/Python boundary rather than relying
             # on conversion of a JavaScript array into a Python list.
             script = """(() => {
                 try {
+                    const viewport = document.querySelector('.xterm-viewport');
                     return JSON.stringify([terminal.options.fontSize, terminal.options.cursorStyle,
-                        terminal.options.theme.background, terminal.options.scrollback]);
+                        terminal.options.theme.background, terminal.options.scrollback,
+                        getComputedStyle(viewport, '::-webkit-scrollbar-track').backgroundColor,
+                        getComputedStyle(viewport, '::-webkit-scrollbar-thumb').backgroundColor]);
                 } catch (error) {
                     return JSON.stringify({error: String(error)});
                 }
@@ -151,10 +155,10 @@ class WindowsTests(unittest.TestCase):
                 while time.monotonic() < until:
                     app.processEvents()
                     time.sleep(0.005)
-                if observed and observed[-1] == [21, "bar", "#223344", 500]:
+                if observed and observed[-1] == expected:
                     break
             self.assertTrue(observed)
-            self.assertEqual([21, "bar", "#223344", 500], observed[-1])
+            self.assertEqual(expected, observed[-1])
         finally:
             terminal.stop()
             terminal.close()

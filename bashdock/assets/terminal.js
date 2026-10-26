@@ -1,4 +1,14 @@
 /* All resources are local. Shell output goes to xterm.write, never innerHTML. */
+function scrollbarColors(background) {
+  const channels = background.slice(1).match(/../g).map(channel => parseInt(channel, 16));
+  // Lighten dark terminal themes. Near-white themes need darker relatives so
+  // the thumb remains visible rather than disappearing into a white track.
+  const target = channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722 > 190 ? 0 : 255;
+  const mix = amount => '#' + channels.map(channel =>
+    Math.round(channel + (target - channel) * amount).toString(16).padStart(2, '0')).join('');
+  return {track: mix(0.06), thumb: mix(0.22), hover: mix(0.30), active: mix(0.38)};
+}
+
 const terminal = new Terminal({
   cursorBlink: true, fontFamily: 'Cascadia Mono, Consolas, monospace',
   fontSize: 15, scrollback: 10000, allowProposedApi: false,
@@ -70,6 +80,9 @@ new QWebChannel(qt.webChannelTransport, channel => {
               selectionInactiveBackground: preferences.selection_color}
     };
     document.body.style.backgroundColor = preferences.background;
+    for (const [part, color] of Object.entries(scrollbarColors(preferences.background))) {
+      document.body.style.setProperty(`--scrollbar-${part}`, color);
+    }
     fitVisible();
     requestAnimationFrame(fitVisible);
     document.fonts.ready.then(fitVisible);

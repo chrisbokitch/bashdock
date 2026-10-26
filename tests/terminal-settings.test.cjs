@@ -32,7 +32,9 @@ function setup() {
     FitAddon: {FitAddon: class {fit() {fits++;}}},
     ResizeObserver: class {observe() {}},
     QWebChannel: function(_, fn) {fn({objects: {bridge}});}, qt: {webChannelTransport: {}},
-    document: {getElementById() {return host;}, body: {style: {}}, fonts: {ready: Promise.resolve()}},
+    document: {getElementById() {return host;}, body: {style: {
+      setProperty(name, value) {this[name] = value;}
+    }}, fonts: {ready: Promise.resolve()}},
     requestAnimationFrame(fn) {fn();}
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../bashdock/assets/terminal.js'), 'utf8'), context);
@@ -52,6 +54,33 @@ test('initial and live preferences reach terminal options and surrounding backgr
   assert.equal(s.terminal.options.scrollback, 500);
   assert.equal(s.context.document.body.style.backgroundColor, '#223344');
   assert.ok(s.fits() > 1);
+});
+
+test('scrollbars follow each terminal background on startup and live theme changes', () => {
+  const first = setup(), second = setup();
+  const colors = session => Object.fromEntries(['track', 'thumb', 'hover', 'active'].map(part =>
+    [part, session.context.document.body.style[`--scrollbar-${part}`]]));
+  const defaults = colors(second);
+  first.bridge.settingsChanged.emit(JSON.stringify({...first.initial, background: '#341527'}));
+  const purple = colors(first);
+  assert.notDeepEqual(purple, defaults);
+  assert.deepEqual(colors(second), defaults);
+  const rgb = hex => hex.slice(1).match(/../g).map(channel => parseInt(channel, 16));
+  let previous = rgb('#341527');
+  for (const color of Object.values(purple)) {
+    const current = rgb(color);
+    assert.ok(current.every((value, i) => value > previous[i]));
+    previous = current;
+  }
+  // Extreme light/dark backgrounds must still produce distinct, valid shades.
+  for (const background of ['#000000', '#ffffff']) {
+    first.bridge.settingsChanged.emit(JSON.stringify({...first.initial, background}));
+    const shades = Object.values(colors(first));
+    assert.ok(shades.every(value => /^#[0-9a-f]{6}$/.test(value)));
+    assert.equal(new Set([background, ...shades]).size, 5);
+  }
+  first.bridge.settingsChanged.emit(JSON.stringify(first.initial));
+  assert.deepEqual(colors(first), defaults);
 });
 
 test('copy-on-selection is optional and clearing selection leaves clipboard intact', () => {

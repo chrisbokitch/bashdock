@@ -391,10 +391,12 @@ class TabStrip(QTabBar):
             self.apply_tab_style()
 
     def apply_tab_style(self):
+        # Paint past the bottom clip so fractional scaling cannot antialias
+        # the selected tab's edge against the tab-bar background.
         self.setStyleSheet(
             f'QTabBar::tab {{ margin-top:{self.top_inset}px; }} '
             f'QTabBar::tab:selected {{ background:{self.selected_background};'
-            f'color:{self.selected_foreground};border-bottom-color:{self.selected_background}; }}')
+            f'color:{self.selected_foreground};border-bottom-color:{self.selected_background};margin-bottom:-1px; }}')
 
     def corner_row_height(self):
         parent = self.parentWidget()

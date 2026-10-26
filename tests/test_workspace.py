@@ -780,12 +780,7 @@ class WorkspaceTests(unittest.TestCase):
         x = bar.mapTo(self.window, rect.center()).x()
         for y in range(int((bottom - 1) * ratio), int((top + 2) * ratio)):
             color = image.pixelColor(int(x * ratio), y)
-            if ratio.is_integer():
-                self.assertEqual(QColor('#341527'), color)
-            else:
-                # QWidget.grab composites fractional child edges; a boundary
-                # pixel can blend, but there must be no solid spacer/border row.
-                self.assertNotIn(color, (QColor('#181e29'), QColor('#3c4b60')))
+            self.assertEqual(QColor('#341527'), color)
 
     def test_selected_tab_uses_effective_terminal_colors_on_switch_and_defaults_change(self):
         from PySide6.QtGui import QColor
