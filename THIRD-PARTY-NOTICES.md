@@ -2,9 +2,14 @@
 
 BashDock's original code is GPL-3.0-only. That license does not replace the
 licenses or copyright notices of the components below. Third-party material
-keeps its upstream terms. The release's `licenses/` directory contains full
-texts and attribution files; `licenses/manifest.json` records the actual
-build environment and source archive checksums.
+keeps its upstream terms. Principal license texts remain in the release's `licenses/` directory. Detailed
+source and Python-package notices are preserved in `third-party-licenses.zip`,
+using their original `licenses/` paths. Open that archive in File Explorer;
+`INDEX.json` lists every archived notice and its SHA-256, and source-specific
+indices retain the upstream paths. `licenses/manifest.json` records the actual
+build environment and source archive checksums. `licenses/runtime-files.json`
+records the installed files, including the notice archive itself.
+The archive can also be opened through Help → About BashDock → License and notices.
 
 | Component | Release baseline | License / notice location |
 | --- | --- | --- |
@@ -21,8 +26,8 @@ build environment and source archive checksums.
 | Microsoft ConPTY / OpenConsole | 1.24.260512001 in pinned pywinpty x64 wheel | MIT; `licenses/Microsoft-Terminal-MIT.txt` and `Microsoft-Terminal-NOTICE.txt` |
 | Legacy winpty DLL / agent in pywinpty | Upstream winpty | MIT; `licenses/winpty-MIT.txt` |
 | MinGW / GCC runtime in legacy winpty binaries | GCC 5.3.0 (MSYS2 Rev5) | MinGW permissive terms and GCC GPL with Runtime Library Exception; `licenses/mingw-w64-COPYING.txt` and `GCC-Runtime-Exception.txt` |
-| PyInstaller bootloader | 6.16.0 | GPL with its bootloader exception; `licenses/python-packages/pyinstaller/` |
-| Build tools and any collected Python packages | Actual build versions | Their own license files, including vendored notices, under `licenses/python-packages/` |
+| PyInstaller bootloader | 6.16.0 | GPL with its bootloader exception; `licenses/python-packages/pyinstaller/` inside the notice archive |
+| Build tools and any collected Python packages | Actual build versions | Their own license files, including vendored notices, under `licenses/python-packages/` inside the notice archive |
 
 The Qt and PySide commercial-license texts may also appear in upstream archives.
 BashDock uses the open-source options, not a commercial Qt license. Some Qt

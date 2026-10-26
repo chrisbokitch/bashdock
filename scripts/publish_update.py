@@ -32,11 +32,11 @@ def sign_release(folder, private, version, public):
                     url=f'https://github.com/chrisbokitch/bashdock/releases/download/v{version}/{archive.name}',
                     size=archive.stat().st_size, sha256=digest)
     path = folder / 'bashdock-update.json'
-    path.write_text(json.dumps(manifest, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8')
+    path.write_text(json.dumps(manifest, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8', newline='\n')
     signature = folder / 'bashdock-update.sig'
     subprocess.run([openssl(), 'dgst', '-sha256', '-sign', str(private), '-out', str(signature), str(path)], check=True)
     sums = folder / f'bashdock-{version}-SHA256SUMS.txt'
-    with sums.open('a', encoding='utf-8') as stream:
+    with sums.open('a', encoding='utf-8', newline='\n') as stream:
         for file in (path, signature):
             stream.write(hashlib.sha256(file.read_bytes()).hexdigest() + '  ' + file.name + '\n')
     return path, signature

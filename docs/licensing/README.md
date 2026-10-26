@@ -52,6 +52,16 @@ installed package license/notice files, including CPython's aggregate license
 and PyInstaller's exception. This is an inventory and distribution mechanism,
 not a claim that filename matching independently proves legal compliance.
 
+Detailed source and Python-package notices are consolidated into
+`third-party-licenses.zip` in the portable app folder. Their bytes and original
+collection paths are preserved; `INDEX.json` records each archived path and
+SHA-256, and upstream-path indices remain inside the archive. The packager reads
+back and verifies every notice before deleting its loose staging copy. Principal
+license texts and CPython/xterm licenses stay directly accessible in `licenses/`,
+alongside the dependency manifest and installed-file inventory. The offline About
+dialog describes the collection and opens the archive through File Explorer.
+Matching source archives remain separate release assets.
+
 When updating dependencies, review new/changed license and attribution metadata,
 update the source manifest and native notices/provenance, and inspect the actual
 Windows artifact before publishing. Do not substitute sources for a different

@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from scripts.package_release import package, create_source_archive
 from scripts import verify_release
+from scripts.release_licenses import archive_notices
 
 
 class ReleasePackagingTests(unittest.TestCase):
@@ -27,6 +28,9 @@ class ReleasePackagingTests(unittest.TestCase):
             for filename in ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt'):
                 (source / filename).write_text('license fixture')
             (source / 'licenses/manifest.json').write_text('{}')
+            (source / 'licenses/Qt').mkdir()
+            (source / 'licenses/Qt/LICENSE').write_bytes(b'complete original Qt notice fixture')
+            archive_notices(source)
             source_asset = root / 'release/source-fixture.zip'
             source_asset.parent.mkdir()
             source_asset.write_bytes(b'source fixture')
@@ -37,10 +41,17 @@ class ReleasePackagingTests(unittest.TestCase):
                                                     "sha256": hashlib.sha256(source_asset.read_bytes()).hexdigest()}]})
             expected = hashlib.sha256(archive.read_bytes()).hexdigest() + "  " + archive.name + "\n"
             self.assertEqual(expected, checksum.read_text())
+            self.assertEqual(expected.encode('utf-8'), checksum.read_bytes())
             with zipfile.ZipFile(archive) as bundle:
                 self.assertEqual(b"runtime fixture", bundle.read("bashdock/_internal/nested/runtime.dll"))
                 self.assertIn("bashdock/_internal/.hidden", bundle.namelist())
                 self.assertIn("bashdock/bashdock.exe", bundle.namelist())
+                self.assertIn('bashdock/third-party-licenses.zip', bundle.namelist())
+                self.assertNotIn('bashdock/licenses/Qt/LICENSE', bundle.namelist())
+                inventory = json.loads(bundle.read('bashdock/licenses/runtime-files.json'))
+                archived = next(p for p in inventory if p['path'] == 'third-party-licenses.zip')
+                self.assertEqual(archived['sha256'], hashlib.sha256(
+                    bundle.read('bashdock/third-party-licenses.zip')).hexdigest())
                 details = json.loads(bundle.read("bashdock/BUILD-INFO.json"))
                 self.assertEqual(json.loads(info.read_text()), details)
                 self.assertEqual(commit, details["commit"])

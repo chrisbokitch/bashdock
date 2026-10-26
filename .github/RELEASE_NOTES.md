@@ -7,7 +7,9 @@ Before publishing this draft, complete the clean Windows VM acceptance checklist
 
 BashDock is licensed under GNU GPL version 3 only. Third-party components keep
 their own licenses; see `LICENSE`, `COPYRIGHT`, `THIRD-PARTY-NOTICES.md`, and
-`licenses/` in the app folder. `SOURCE.txt` identifies matching source archives.
+`licenses/` and `third-party-licenses.zip` in the app folder. The archive contains
+the complete detailed notices and a hash index; open it in File Explorer or from
+Help → About → License and notices. `SOURCE.txt` identifies matching source archives.
 
 The application source ZIP and Qt, PySide, pywinpty, and Rust dependency source
 archives are attached separately beside the executable ZIP. You do not need

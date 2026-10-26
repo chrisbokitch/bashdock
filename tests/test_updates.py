@@ -206,6 +206,8 @@ class UpdateTests(unittest.TestCase):
                 z.writestr('bashdock/bashdock-updater.exe', b'helper fixture')
                 z.writestr('bashdock/_internal/bashdock/assets/update-key.json', json.dumps(public))
             manifest, signature = sign_release(root, private, '0.12.0', public)
+            self.assertNotIn(b'\r', manifest.read_bytes())
+            self.assertNotIn(b'\r', (root / 'bashdock-0.12.0-SHA256SUMS.txt').read_bytes())
             self.assertEqual(archive.stat().st_size, json.loads(manifest.read_text())['size'])
             subprocess.run([executable, 'pkey', '-in', str(private), '-pubout', '-out', str(public_file)],
                            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

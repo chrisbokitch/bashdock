@@ -70,6 +70,9 @@ Keep the ZIP and matching checksum file together, then run:
 sha256sum -c bashdock-0.6.4-windows-x64.sha256
 ```
 
+Checksum lists use UTF-8 with LF line endings so this command works in Git Bash
+on Windows without converting the downloaded file.
+
 On PowerShell, `Get-FileHash .\bashdock-0.6.4-windows-x64.zip -Algorithm SHA256` displays the value for comparison.
 
 ## Local packages
@@ -113,9 +116,16 @@ keep the app download small and work with a private repository. Do not publish
 only the executable ZIP or rely on a private commit URL for source access.
 
 Inspect `licenses/manifest.json`, `licenses/runtime-files.json`, full license
-texts/notices, and `SOURCE.txt` in the **actual Windows ZIP**. Source-derived
-notice names are shortened for Windows path compatibility; `.index.json` files
-map them to their original paths. Source collections deliberately include some
+texts/notices, and `SOURCE.txt` in the **actual Windows ZIP**. Detailed source and Python-package notices are bundled in
+`third-party-licenses.zip`; the archive retains their `licenses/` paths and
+contains `INDEX.json` with a SHA-256 for every notice. Source-derived notice
+names are shortened for Windows path compatibility; source-specific `.index.json`
+files inside the archive map them to their original paths. Principal license
+texts, CPython and xterm licenses, and release metadata remain directly accessible
+in `licenses/`. Help → About → License and notices opens the detailed archive
+in File Explorer without extracting it during installation. Packaging and ZIP
+verification read every archived notice and verify the complete index before
+accepting a release. Source collections deliberately include some
 optional components and build tools. Recheck new dependencies and native DLLs
 when updating the lock or Python version. See `docs/licensing/README.md`.
 

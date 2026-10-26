@@ -1058,6 +1058,26 @@ class WorkspaceTests(unittest.TestCase):
         with patch.object(QDialog, 'exec', inspect):
             self.window.show_licenses()
 
+    def test_packaged_about_opens_the_bundled_notice_archive_offline(self):
+        from PySide6.QtWidgets import QDialog, QPushButton
+        from PySide6.QtCore import QUrl
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp) / 'third-party-licenses.zip'
+            archive.write_bytes(b'archive fixture')
+            def inspect(dialog):
+                button = next(b for b in dialog.findChildren(QPushButton)
+                              if b.text() == 'Open detailed notices…')
+                button.click()
+                return 0
+            with patch('bashdock.app.sys.frozen', True, create=True), \
+                    patch('bashdock.app.sys.executable', str(Path(temp) / 'bashdock.exe')), \
+                    patch('bashdock.app.QDesktopServices.openUrl', return_value=True) as open_url, \
+                    patch.object(QDialog, 'exec', inspect):
+                self.window.show_licenses()
+            open_url.assert_called_once_with(QUrl.fromLocalFile(str(archive)))
+
     def test_footer_update_notice_is_clickable_next_to_version_and_survives_status_messages(self):
         from PySide6.QtTest import QTest
         from PySide6.QtCore import Qt

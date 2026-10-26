@@ -24,6 +24,60 @@ else:
     from release_progress import progress
 
 ROOT = Path(__file__).resolve().parent.parent
+NOTICE_ARCHIVE = 'third-party-licenses.zip'
+
+
+def verify_notice_archive(archive):
+    """Read all archived notices without extracting thousands of small files."""
+    with zipfile.ZipFile(archive) as bundle:
+        names = bundle.namelist()
+        if len(names) != len(set(names)):
+            raise ValueError('Duplicate entries in third-party notice archive.')
+        index = json.loads(bundle.read('INDEX.json'))
+        if index.get('schema') != 1 or not index.get('files'):
+            raise ValueError('Missing or empty third-party notice index.')
+        expected = {'INDEX.json'}
+        for item in index['files']:
+            name = item['path']
+            safe_member(name)
+            if not name.startswith('licenses/') or name in expected:
+                raise ValueError('Invalid third-party notice index path.')
+            expected.add(name)
+            if hashlib.sha256(bundle.read(name)).hexdigest() != item['sha256']:
+                raise ValueError(f'Third-party notice checksum mismatch: {name}')
+        if set(names) != expected:
+            raise ValueError('Third-party notice archive does not match its index.')
+    return len(expected) - 1
+
+
+def archive_notices(runtime):
+    """Keep principal texts loose; archive detailed notices before pruning them."""
+    notices = runtime / 'licenses'
+    directories = sorted(p for p in notices.iterdir()
+                         if p.is_dir() and p.name not in ('CPython', 'xterm'))
+    files = sorted(p for folder in directories for p in folder.rglob('*') if p.is_file())
+    if not files:
+        raise ValueError('No detailed third-party notices to archive.')
+    if any(p.is_symlink() for p in notices.rglob('*')):
+        raise ValueError('License notices must not contain symbolic links.')
+    target = runtime / NOTICE_ARCHIVE
+    partial = target.with_suffix('.zip.partial')
+    try:
+        index = []
+        with zipfile.ZipFile(partial, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
+            for path in files:
+                name = path.relative_to(runtime).as_posix()
+                bundle.write(path, name)
+                index.append(dict(path=name, sha256=digest(path)))
+            bundle.writestr('INDEX.json', json.dumps(dict(schema=1, files=index), indent=2) + '\n')
+        verify_notice_archive(partial)
+        partial.replace(target)
+    finally:
+        partial.unlink(missing_ok=True)
+    # Do not remove the originals until the complete archive has been read back.
+    for directory in directories:
+        shutil.rmtree(directory)
+    return len(files)
 
 
 def digest(path):
@@ -232,6 +286,8 @@ def prepare(runtime, output, version, commit):
     (notices / 'manifest.json').write_text(json.dumps(dict(
         application_version=version, source_commit=commit, python=sys.version,
         dependencies=records, source_archives=artifacts,
+        notice_archive=NOTICE_ARCHIVE,
+        notice_layout='Principal texts are in licenses/; detailed notice paths are inside the archive under licenses/.',
         notice_scope='Superset of notices from exact source releases; optional unshipped components may appear.'
     ), indent=2, sort_keys=True) + '\n', encoding='utf-8')
     source_name = f'bashdock-{version}-source.zip'
@@ -239,7 +295,9 @@ def prepare(runtime, output, version, commit):
         f'BashDock {version} — source and licenses\nSource commit: {commit}\n\n'
         'BashDock is licensed under GNU GPL version 3 only. See LICENSE and COPYRIGHT.\n'
         'Third-party components keep their own licenses; see THIRD-PARTY-NOTICES.md\n'
-        'and licenses/. Qt/PySide are used under their open-source license options.\n\n'
+        'and licenses/. Detailed notices are in third-party-licenses.zip; open its\n'
+        'INDEX.json for file hashes and its licenses/ folders for the full texts.\n'
+        'Qt/PySide are used under their open-source license options.\n\n'
         f'The matching application source and build scripts are in {source_name}.\n'
         'Dependency sources are provided as separate archives beside the executable ZIP:\n'
         + ''.join(f"  {a['filename']}\n" for a in artifacts)
@@ -249,4 +307,7 @@ def prepare(runtime, output, version, commit):
         'or replacement of dynamically loaded libraries. Rebuild from source if needed.\n'
         'Redistributors must preserve notices and provide source access under the\n'
         'applicable licenses. A private repository link alone is not source access.\n', encoding='utf-8')
+    with progress('Archiving and verifying detailed third-party notices'):
+        count = archive_notices(runtime)
+    print(f'  Archived {count} notices; principal license texts remain in licenses/.', flush=True)
     return [output / a['filename'] for a in artifacts]

@@ -1132,6 +1132,19 @@ class MainWindow(QMainWindow):
             text.setPlainText((assets / filename).read_text(encoding="utf-8"))
             tabs.addTab(text, label)
         layout.addWidget(tabs)
+        archive = Path(sys.executable).parent / 'third-party-licenses.zip'
+        if getattr(sys, 'frozen', False) and archive.is_file():
+            notice = QLabel('Full dependency notices and their index are included in '
+                            'third-party-licenses.zip beside the application.')
+            notice.setWordWrap(True)
+            layout.addWidget(notice)
+            open_notices = QPushButton('Open detailed notices…')
+            def open_archive():
+                if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(archive))):
+                    QMessageBox.warning(dialog, 'Cannot open notices',
+                                        f'Open this archive in File Explorer:\n{archive}')
+            open_notices.clicked.connect(open_archive)
+            layout.addWidget(open_notices, 0, Qt.AlignmentFlag.AlignLeft)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)

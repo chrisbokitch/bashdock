@@ -14,10 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 if __package__:
-    from .release_licenses import validate_environment, prepare, digest
+    from .release_licenses import validate_environment, prepare, digest, verify_notice_archive, NOTICE_ARCHIVE
     from .release_progress import progress
 else:
-    from release_licenses import validate_environment, prepare, digest
+    from release_licenses import validate_environment, prepare, digest, verify_notice_archive, NOTICE_ARCHIVE
     from release_progress import progress
 
 
@@ -59,9 +59,10 @@ def package(source, output, report_path, version, commit, metadata):
         raise ValueError("Build output is missing the independent update helper.")
     if json.loads(report_path.read_text(encoding="utf-8")).get("ok") is not True:
         raise ValueError("The packaged shell smoke test must pass before packaging.")
-    for name in ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt', 'licenses/manifest.json'):
+    for name in ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt', 'licenses/manifest.json', NOTICE_ARCHIVE):
         if not (source / name).is_file():
             raise ValueError(f'Required release licensing file is missing: {name}')
+    verify_notice_archive(source / NOTICE_ARCHIVE)
     # Include an inventory of actual frozen files, not only Python distribution metadata.
     inventory = []
     for path in sorted(p for p in source.rglob('*') if p.is_file()):
@@ -85,7 +86,8 @@ def package(source, output, report_path, version, commit, metadata):
     archive = output / f"{stem}.zip"
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
         for path in files:
-            bundle.write(path, "bashdock/" + path.relative_to(source).as_posix())
+            bundle.write(path, "bashdock/" + path.relative_to(source).as_posix(),
+                         compress_type=zipfile.ZIP_STORED if path.name == NOTICE_ARCHIVE else zipfile.ZIP_DEFLATED)
         bundle.writestr("bashdock/BUILD-INFO.json", details)
         bundle.writestr("bashdock/README.txt",
             f"BashDock {version}\n\n"
@@ -97,14 +99,15 @@ def package(source, output, report_path, version, commit, metadata):
             "Settings are stored in %APPDATA%\\bashdock\\settings.json.\n\n"
             "Licensed under GNU GPL version 3 only; see LICENSE and COPYRIGHT.\n"
             "See SOURCE.txt for the matching application and dependency source archives.\n"
-            "Third-party notices and license texts are in licenses/.\n\n"
+            "Principal license texts are in licenses/. Full detailed notices and their\n"
+            "hash index are in third-party-licenses.zip (open it in File Explorer).\n\n"
             "Source and issues: https://github.com/chrisbokitch/bashdock\n")
     info_path = output / f"{stem}-build-info.json"
     info_path.write_text(details, encoding="utf-8")
     checksum = output / f"{stem}.sha256"
     with archive.open("rb") as stream:
         digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    checksum.write_text(digest + "  " + archive.name + "\n", encoding="utf-8")
+    checksum.write_text(digest + "  " + archive.name + "\n", encoding="utf-8", newline="\n")
     return archive, checksum, info_path
 
 
@@ -151,7 +154,7 @@ def main():
         packaged = package(args.source, args.output, args.report, version, commit, metadata)
     sums = args.output / f'bashdock-{version}-SHA256SUMS.txt'
     with progress('Writing final release checksums'):
-        sums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in [*packaged, *sources]), encoding='utf-8')
+        sums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in [*packaged, *sources]), encoding='utf-8', newline='\n')
     print('Packaging complete. Release files:', flush=True)
     for path in [*packaged, *sources, sums]:
         print(path)

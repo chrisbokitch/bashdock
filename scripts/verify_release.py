@@ -8,6 +8,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
+if __package__:
+    from .release_licenses import verify_notice_archive, NOTICE_ARCHIVE
+else:
+    from release_licenses import verify_notice_archive, NOTICE_ARCHIVE
+
 
 def main():
     version = json.loads((ROOT / "package.json").read_text())["version"]
@@ -22,10 +27,12 @@ def main():
         root = Path(folder)
         with zipfile.ZipFile(archive) as bundle:
             required = ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt', 'bashdock-updater.exe',
-                        'licenses/manifest.json', 'licenses/runtime-files.json')
+                        'licenses/manifest.json', 'licenses/runtime-files.json', NOTICE_ARCHIVE)
             for name in required:
                 if 'bashdock/' + name not in bundle.namelist():
                     raise ValueError(f'Release license/source information is missing: {name}')
+            import io
+            verify_notice_archive(io.BytesIO(bundle.read('bashdock/' + NOTICE_ARCHIVE)))
             details = json.loads(bundle.read('bashdock/BUILD-INFO.json'))
             for source in details.get('source_assets', []):
                 filename = source['filename']

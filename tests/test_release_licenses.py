@@ -5,15 +5,60 @@ import json
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.release_licenses import collect_tar_notices, download, safe_member
+from scripts.release_licenses import collect_tar_notices, download, safe_member, archive_notices, verify_notice_archive
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 class ReleaseLicenseTests(unittest.TestCase):
+    def test_archive_preserves_all_detailed_texts_and_indices_and_retains_principal_texts(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            originals = {'Qt/a-LICENSE': b'Copyright\r\nOriginal terms\r\n',
+                         'Qt/source.index.json': b'{"a-LICENSE": "original/path/LICENSE"}',
+                         'python-packages/example/NOTICE': 'Copyright — example'.encode(),
+                         'rust/a-MIT': b'Rust terms'}
+            for name, content in {**originals, 'LGPL-3.0.txt': b'full LGPL',
+                                  'CPython/LICENSE.txt': b'PSF', 'xterm/LICENSE': b'MIT',
+                                  'manifest.json': b'{}'}.items():
+                path = root / 'licenses' / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+            self.assertEqual(len(originals), archive_notices(root))
+            archive = root / 'third-party-licenses.zip'
+            self.assertEqual(len(originals), verify_notice_archive(archive))
+            with zipfile.ZipFile(archive) as bundle:
+                for name, content in originals.items():
+                    self.assertEqual(content, bundle.read('licenses/' + name))
+                    self.assertFalse((root / 'licenses' / name).exists())
+            for name in ('LGPL-3.0.txt', 'CPython/LICENSE.txt', 'xterm/LICENSE', 'manifest.json'):
+                self.assertTrue((root / 'licenses' / name).is_file())
+            # Corruption cannot be hidden by creating an otherwise valid ZIP.
+            with zipfile.ZipFile(archive) as bundle:
+                entries = {n: bundle.read(n) for n in bundle.namelist()}
+            entries['licenses/Qt/a-LICENSE'] = b'changed terms'
+            with zipfile.ZipFile(archive, 'w') as bundle:
+                for name, content in entries.items():
+                    bundle.writestr(name, content)
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                verify_notice_archive(archive)
+
+    def test_failed_archive_verification_preserves_loose_notices(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            notice = root / 'licenses/Qt/LICENSE'
+            notice.parent.mkdir(parents=True)
+            notice.write_bytes(b'original terms')
+            with patch('scripts.release_licenses.verify_notice_archive', side_effect=ValueError('bad archive')):
+                with self.assertRaisesRegex(ValueError, 'bad archive'):
+                    archive_notices(root)
+            self.assertEqual(b'original terms', notice.read_bytes())
+            self.assertFalse((root / 'third-party-licenses.zip.partial').exists())
+
     def test_offline_app_notices_match_project_files_and_metadata(self):
         self.assertEqual((ROOT / 'LICENSE').read_bytes(), (ROOT / 'bashdock/assets/GPL-3.0.txt').read_bytes())
         self.assertEqual((ROOT / 'THIRD-PARTY-NOTICES.md').read_bytes(),
