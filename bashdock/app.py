@@ -486,11 +486,6 @@ class MainWindow(QMainWindow):
         # wrapper expires after QAction.menu() is called.
         self.menu_actions = tuple(menu.menuAction() for menu in
                                   (self.manage_menu, self.settings_menu, self.help_menu, self.workspaces_menu, self.updates_menu))
-        for popup in (self.manage_menu, self.settings_menu, self.help_menu,
-                      self.workspaces_menu, self.updates_menu):
-            popup.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
-            # Rounded QSS alone leaves opaque square native popup corners.
-            popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         for profile in self.data["tabs"]:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
@@ -534,6 +529,13 @@ class MainWindow(QMainWindow):
             QToolButton#tabClose { border:0;padding:0;margin:0;border-radius:3px;background:transparent; }
             QToolButton#tabClose:hover { background:#3c4b60; }
         """.replace("MENU_ARROW", (APP_ICON.parent / "menu-arrow.svg").as_posix()))
+        for popup in (self.manage_menu, self.settings_menu, self.help_menu,
+                      self.workspaces_menu, self.updates_menu):
+            # Native style polishing can reset popup flags. Finish the inherited
+            # stylesheet first, then apply our window-level appearance settings.
+            popup.ensurePolished()
+            popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            popup.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
         self.tabs.tabBar().update_tab_inset()
         self.restore_window_geometry()
         if self.config_error:
