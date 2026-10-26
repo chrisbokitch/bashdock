@@ -776,15 +776,15 @@ class WorkspaceTests(unittest.TestCase):
                 self.assertEqual(12, menu.width() - first.right() - 1)
                 self.assertEqual(10, menu.height() - last.bottom() - 1)
                 from PySide6.QtCore import Qt
-                self.assertTrue(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint,
+                self.assertFalse(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint,
                                 f'popup flags before={flags_before:#x}, after={int(menu.windowFlags()):#x}, '
                                 f'style={menu.style().objectName()}')
                 self.assertTrue(menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground))
                 image = menu.grab().toImage()
                 self.assertEqual('#253144', image.pixelColor(menu.width() // 2, 3).name())
-                for x, y in ((0, 0), (image.width() - 1, 0),
-                             (0, image.height() - 1), (image.width() - 1, image.height() - 1)):
-                    self.assertEqual(0, image.pixelColor(x, y).alpha(), f'opaque corner at {x}, {y}')
+                # QWidget.grab() can include pixels outside the native window
+                # mask, especially at fractional Windows scaling. The native
+                # mask, in logical coordinates, determines visible corners.
                 mask = menu.mask()
                 self.assertEqual(menu.rect(), mask.boundingRect())
                 for point in (menu.rect().topLeft(), menu.rect().topRight(),

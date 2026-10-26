@@ -515,7 +515,9 @@ class MainWindow(QMainWindow):
                 background:#253144;color:#dde4ef;border:0;border-radius:10px;
                 padding:10px 12px;
             }
-            QMenu::item { padding:2px 0;background:transparent; }
+            QMenuBar::item { background:transparent;border-radius:5px;padding:2px 6px; }
+            QMenuBar::item:selected,QMenuBar::item:pressed { background:#3c4b60;color:#ffffff; }
+            QMenu::item { padding:2px 0;background:transparent;border-radius:5px; }
             QMenu::right-arrow { image:url("MENU_ARROW");width:6px;height:10px; }
             QMenu::item:selected { background:#3c4b60;color:#ffffff; }
             QMenu::item:disabled { color:#8995a7; }
@@ -554,8 +556,10 @@ class MainWindow(QMainWindow):
             # stylesheet first, then apply our window-level appearance settings.
             popup.ensurePolished()
             popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            popup.setWindowFlags(popup.windowFlags() | Qt.WindowType.FramelessWindowHint
-                                 | Qt.WindowType.NoDropShadowWindowHint)
+            # Keep the rounded client shape, with the platform's subtle popup
+            # shadow outside it (and respect Windows' visual-effects settings).
+            popup.setWindowFlags((popup.windowFlags() | Qt.WindowType.FramelessWindowHint)
+                                 & ~Qt.WindowType.NoDropShadowWindowHint)
             popup.installEventFilter(self.menu_corners)
         self.tabs.tabBar().update_tab_inset()
         self.restore_window_geometry()
