@@ -761,9 +761,9 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(original, config.load(self.path)["terminal"])
 
     def test_inactive_tab_tints_follow_tab_identity_defaults_and_hover(self):
-        from PySide6.QtCore import QPoint
-        from PySide6.QtGui import QColor
-        from PySide6.QtTest import QTest
+        from PySide6.QtCore import QEvent, QPoint, QPointF
+        from PySide6.QtGui import QColor, QHoverEvent
+        from PySide6.QtWidgets import QStyle, QStyleOptionTab
         self.window.show()
         first = self.window.current_tab()
         profile = config.default_tab('Server')
@@ -773,37 +773,30 @@ class WorkspaceTests(unittest.TestCase):
         third = self.window.current_tab()
         bar = self.window.tabs.tabBar()
 
-        def assert_surface(tab, color):
-            # Native Windows pointer events can arrive after mouseMove returns.
-            # Wait for the exact rendered state instead of sampling the old frame.
-            from PySide6.QtCore import QElapsedTimer
-            timer = QElapsedTimer()
-            timer.start()
-            while True:
-                self.app.processEvents()
-                rect = bar.tabRect(self.window.tabs.indexOf(tab))
-                image = bar.grab().toImage()
-                ratio = image.devicePixelRatio()
-                actual = image.pixelColor(int((rect.left() + 6) * ratio), int((rect.bottom() - 5) * ratio))
-                if actual == QColor(color) or timer.elapsed() >= 1000:
-                    self.assertEqual(QColor(color), actual)
-                    return
-                QTest.qWait(10)
+        def assert_surface(tab, color, *, hovered=None):
+            self.app.processEvents()
+            # QTest.mouseMove uses the desktop pointer on native Windows. If
+            # another window owns it, Qt may receive no hover or an unrelated
+            # leave. Deliver the real Qt hover events without desktop focus.
+            point = (bar.tabRect(self.window.tabs.indexOf(hovered)).center()
+                     if hovered is not None else QPoint(-1, -1))
+            event_type = QEvent.Type.HoverMove if hovered is not None else QEvent.Type.HoverLeave
+            self.app.sendEvent(bar, QHoverEvent(event_type, QPointF(point),
+                               QPointF(bar.mapToGlobal(point)), QPointF(-1, -1)))
+            index = self.window.tabs.indexOf(tab)
+            option = QStyleOptionTab()
+            bar.initStyleOption(option, index)
+            self.assertEqual(tab is hovered, bool(option.state & QStyle.StateFlag.State_MouseOver))
+            rect = bar.tabRect(index)
+            image = bar.grab().toImage()
+            ratio = image.devicePixelRatio()
+            actual = image.pixelColor(int((rect.left() + 6) * ratio), int((rect.bottom() - 5) * ratio))
+            self.assertEqual(QColor(color), actual)
 
-        def park_pointer():
-            # Stay on the same native widget, over empty bar space. Moving to
-            # the parent window can leave its child's hover state stale in QTest.
-            point = QPoint(bar.width() - 2, bar.height() // 2)
-            self.assertEqual(-1, bar.tabAt(point))
-            QTest.mouseMove(bar, point)
-
-        self.app.processEvents()
-        park_pointer()
         assert_surface(server, '#402334')
         assert_surface(first, '#1e222a')
-        QTest.mouseMove(bar, bar.tabRect(self.window.tabs.indexOf(server)).center())
-        assert_surface(server, '#503645')
-        park_pointer()
+        assert_surface(server, '#503645', hovered=server)
+        assert_surface(first, '#1e222a', hovered=server)
         assert_surface(server, '#402334')
         bar.moveTab(self.window.tabs.indexOf(server), 0)
         assert_surface(server, '#402334')

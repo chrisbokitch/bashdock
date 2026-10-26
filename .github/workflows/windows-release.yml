@@ -73,6 +73,8 @@ jobs:
                 Write-Host "Checking popup menus: backend=$platform, scale=$scale"
                 .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k popup -v
                 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k inactive_tab_tints -v
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
               }
             }
           } finally {
