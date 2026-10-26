@@ -54,7 +54,7 @@ The source scan produced two occurrences of one xterm.js match under its old/new
 
 | Location | Classification |
 | --- | --- |
-| xterm.js, source and bundled runtime | Generic-key false positive on the JavaScript alias assignment `FourKeyMap=TwoKeyMap=void 0`; not a credential. |
+| xterm.js, source and bundled runtime | Generic-key false positive on a JavaScript map-class alias declaration (`FourKeyMap` / `TwoKeyMap`); not a credential. |
 | Qt license collection: `13d5e2e0e0e18e71c3574a70-README.md`, lines 173, 178 and 183 | Public upstream documentation strings from the hash-verified Qt source archive; not BashDock credentials. |
 | Qt license collection: `43d753637e512f3a0a92b93e-README.chromium`, line 22 | Public upstream documentation string from the hash-verified Qt source archive; not a BashDock credential. |
 | `qtwebengine_devtools_resources.debug.pak`, line 93723 | Google-key-format match also reproduced at the same line and entropy in the official PySide6 Addons 6.10.3 Windows wheel. That wheel's SHA-256 matches the release lock: `b465b38d1ec3476a9197441fe6a62a1fac97c45a8094f11c2d7e318aee1e3fb3`. This is public upstream dependency content, not a project or update-signing credential. |
