@@ -1,0 +1,245 @@
+"""Independent updater. Runs from a temporary directory after BashDock closes."""
+import argparse
+import ctypes
+import json
+import os
+import secrets
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import re
+from pathlib import Path
+from .updates import parse_manifest, digest_file, extract_package
+from .update_security import load_key
+
+
+def wait_for_pid(pid, timeout=120):
+    if sys.platform != 'win32':
+        raise OSError('Installing updates requires Windows.')
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.OpenProcess.argtypes = [ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong]
+    kernel.OpenProcess.restype = ctypes.c_void_p
+    kernel.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    handle = kernel.OpenProcess(0x00100000, False, pid)
+    if not handle:
+        if ctypes.get_last_error() == 87:
+            return
+        raise OSError('Could not wait for BashDock to close.')
+    try:
+        if kernel.WaitForSingleObject(handle, timeout * 1000) != 0:
+            raise OSError('BashDock did not close. The update has not been installed.')
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def processes_in(directory):
+    """Find other app/WebEngine processes without terminating unrelated shells."""
+    from ctypes import wintypes as w
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+
+    class Entry(ctypes.Structure):
+        _fields_ = [('size', w.DWORD), ('usage', w.DWORD), ('pid', w.DWORD),
+                    ('heap', ctypes.c_size_t), ('module', w.DWORD), ('threads', w.DWORD),
+                    ('parent', w.DWORD), ('priority', w.LONG), ('flags', w.DWORD), ('name', w.WCHAR * 260)]
+
+    kernel.CreateToolhelp32Snapshot.argtypes = [w.DWORD, w.DWORD]
+    kernel.CreateToolhelp32Snapshot.restype = w.HANDLE
+    kernel.Process32FirstW.argtypes = [w.HANDLE, ctypes.POINTER(Entry)]
+    kernel.Process32NextW.argtypes = [w.HANDLE, ctypes.POINTER(Entry)]
+    kernel.OpenProcess.argtypes = [w.DWORD, w.BOOL, w.DWORD]
+    kernel.OpenProcess.restype = w.HANDLE
+    kernel.QueryFullProcessImageNameW.argtypes = [w.HANDLE, w.DWORD, w.LPWSTR, ctypes.POINTER(w.DWORD)]
+    kernel.CloseHandle.argtypes = [w.HANDLE]
+    snapshot = kernel.CreateToolhelp32Snapshot(2, 0)
+    if snapshot == ctypes.c_void_p(-1).value:
+        raise OSError('Could not check for other BashDock processes.')
+    found = []
+    try:
+        entry = Entry()
+        entry.size = ctypes.sizeof(entry)
+        more = kernel.Process32FirstW(snapshot, ctypes.byref(entry))
+        while more:
+            if entry.pid != os.getpid():
+                handle = kernel.OpenProcess(0x1000, False, entry.pid)
+                if handle:
+                    try:
+                        name, length = ctypes.create_unicode_buffer(32768), w.DWORD(32768)
+                        if kernel.QueryFullProcessImageNameW(handle, 0, name, ctypes.byref(length)):
+                            if Path(name.value).resolve().is_relative_to(directory):
+                                found.append(entry.pid)
+                    finally:
+                        kernel.CloseHandle(handle)
+            more = kernel.Process32NextW(snapshot, ctypes.byref(entry))
+    finally:
+        kernel.CloseHandle(snapshot)
+    return found
+
+
+def retry(operation, timeout=60):
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            return operation()
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.5)
+
+
+def start_app(target, health=None, token=None):
+    args = [str(target / 'bashdock.exe')]
+    if health is not None:
+        args += ['--update-health', str(health), '--update-token', token]
+    env = dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT='1')
+    runtime = getattr(sys, '_MEIPASS', None)
+    if runtime:
+        env['PATH'] = os.pathsep.join(p for p in env.get('PATH', '').split(os.pathsep)
+                                    if p and not Path(p).resolve().is_relative_to(Path(runtime).resolve()))
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.SetDllDirectoryW.argtypes = [ctypes.c_wchar_p]
+    if not kernel.SetDllDirectoryW(None):
+        raise OSError('Could not reset DLL lookup before restarting BashDock.')
+    try:
+        return subprocess.Popen(args, cwd=target.parent, env=env, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                creationflags=0x00000008 | 0x00000200, close_fds=True)
+    finally:
+        kernel.SetDllDirectoryW(runtime)
+
+
+def wait_for_health(process, health, token, version, timeout=45):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if health.is_file():
+            try:
+                data = json.loads(health.read_text(encoding='utf-8'))
+                if data == {'token': token, 'version': version}:
+                    return True
+            except (OSError, ValueError):
+                pass
+        if process.poll() is not None:
+            return False
+        time.sleep(0.25)
+    return False
+
+
+def install(plan, key, *, verify=None, wait=wait_for_pid, other_processes=processes_in,
+            launch=start_app, healthy=wait_for_health):
+    target = Path(plan['install']).resolve()
+    pending = Path(plan['pending']).resolve()
+    if type(plan.get('pid')) is not int or not 0 < plan['pid'] < 2**32 or not re.fullmatch('[0-9a-f]{64}', plan.get('token', '')):
+        raise ValueError('Invalid update process handoff.')
+    if target == target.parent or target == Path.home().resolve() or not (target / 'bashdock.exe').is_file() or not (target / '_internal').is_dir():
+        raise ValueError('The update target is not a BashDock installation.')
+    arguments = {} if verify is None else {'verify': verify}
+    manifest = parse_manifest((pending / 'manifest.json').read_bytes(),
+                              (pending / 'manifest.sig').read_bytes(), key, **arguments)
+    archive = pending / 'package.zip'
+    if archive.stat().st_size != manifest['size'] or digest_file(archive) != manifest['sha256']:
+        raise ValueError('The pending update changed. Nothing has been installed.')
+    settings = Path(plan['settings']).resolve()
+    backup_settings = Path(plan['settings_backup']).resolve()
+    if not backup_settings.is_file():
+        raise ValueError('The settings backup is missing.')
+    # Extract alongside the installation so directory renames stay on one volume.
+    stage = Path(tempfile.mkdtemp(prefix='.bashdock-new-', dir=target.parent))
+    old = target.with_name('.bashdock-previous-' + secrets.token_hex(8))
+    failed = target.with_name('.bashdock-failed-' + secrets.token_hex(8))
+    moved_old = moved_new = False
+    process = None
+    journal = pending / 'transaction.json'
+    def record(phase):
+        temporary = journal.with_suffix('.tmp')
+        temporary.write_text(json.dumps({'phase': phase, 'install': str(target), 'previous': str(old),
+                                         'failed': str(failed), 'settings_backup': str(backup_settings)}), encoding='utf-8')
+        temporary.replace(journal)
+    try:
+        replacement = extract_package(archive, stage)
+        record('staged')
+        wait(plan['pid'])
+        deadline = time.monotonic() + 60
+        while other_processes(target):
+            if time.monotonic() >= deadline:
+                raise OSError('Close the other BashDock windows before updating.')
+            time.sleep(0.5)
+        retry(lambda: target.rename(old))
+        moved_old = True
+        record('previous-retained')
+        retry(lambda: replacement.rename(target))
+        moved_new = True
+        record('installed-awaiting-startup')
+        health = pending / 'health.json'
+        health.unlink(missing_ok=True)
+        process = launch(target, health, plan['token'])
+        if not healthy(process, health, plan['token'], manifest['version']):
+            raise OSError('The new version did not start successfully.')
+        record('healthy')
+        return {'ok': True, 'version': manifest['version'], 'previous': str(old)}
+    except BaseException:
+        if process is not None and process.poll() is None:
+            process.terminate()
+            process.wait(timeout=15)
+        if moved_new:
+            retry(lambda: target.rename(failed))
+        if moved_old:
+            retry(lambda: old.rename(target))
+            if settings.is_file():
+                shutil.copyfile(settings, pending / 'failed-settings.json')
+            settings.parent.mkdir(parents=True, exist_ok=True)
+            temporary = settings.with_name(settings.name + '.update-restore')
+            shutil.copyfile(backup_settings, temporary)
+            temporary.replace(settings)
+            automatic = Path(plan.get('automatic_backup', pending / 'previous-settings.bak'))
+            shutil.copyfile(automatic if automatic.is_file() else backup_settings,
+                            settings.with_name(settings.name + '.bak'))
+            record('rolled-back')
+        raise
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--install', type=Path)
+    group.add_argument('--self-test', type=Path)
+    args = parser.parse_args()
+    if args.self_test:
+        from .update_security import KEY_FILE
+        json.loads(KEY_FILE.read_text(encoding='utf-8'))
+        args.self_test.write_text(json.dumps({'ok': True, 'frozen': bool(getattr(sys, 'frozen', False))}))
+        return
+    # A named mutex is automatically released even if the helper crashes.
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
+    kernel.CreateMutexW.restype = ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    plan = json.loads(args.install.read_text(encoding='utf-8'))
+    identity = __import__('hashlib').sha256(str(Path(plan['install']).resolve()).casefold().encode()).hexdigest()
+    lock = kernel.CreateMutexW(None, False, 'Local\\BashDock-Update-' + identity)
+    if not lock or ctypes.get_last_error() == 183:
+        if lock:
+            kernel.CloseHandle(lock)
+        raise SystemExit('Another BashDock update is already running.')
+    cache = args.install.parent.parent
+    result_path = cache / 'result.json'
+    try:
+        result = install(plan, load_key())
+        result_path.write_text(json.dumps(result), encoding='utf-8')
+    except Exception as error:
+        result_path.write_text(json.dumps({'ok': False, 'message': str(error)}), encoding='utf-8')
+        target = Path(plan['install'])
+        if (target / 'bashdock.exe').is_file():
+            try:
+                start_app(target)
+            except OSError:
+                pass
+        if sys.platform == 'win32':
+            ctypes.windll.user32.MessageBoxW(None, str(error) + '\nYour previous installation has been kept or restored.',
+                                            'BashDock update could not finish', 0x10)
+        raise SystemExit(1)
+    finally:
+        kernel.CloseHandle(lock)

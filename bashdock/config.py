@@ -27,7 +27,8 @@ def default_tab(name="Git Bash"):
 
 def defaults():
     return {"version": 2, "bash_path": "", "tabs": [default_tab()], "active_tab": 0,
-            "confirm_on_exit": True, "terminal": terminal_preferences.defaults(), "workspaces": []}
+            "confirm_on_exit": True, "terminal": terminal_preferences.defaults(), "workspaces": [],
+            "updates": {"automatic": True, "download": True}}
 
 
 def validate_buttons(buttons):
@@ -135,6 +136,9 @@ def validate(data):
     if type(data.get("confirm_on_exit", True)) is not bool:
         raise ValueError("confirm_on_exit must be a boolean.")
     terminal_preferences.validated(data.get("terminal", {}))
+    updates = data.get("updates", {"automatic": True, "download": True})
+    if not isinstance(updates, dict) or any(type(updates.get(k, True)) is not bool for k in ("automatic", "download")):
+        raise ValueError("Update preferences must be booleans.")
     validate_workspaces(data.get("workspaces", []))
     if not isinstance(data.get("tabs"), list) or not data["tabs"]:
         raise ValueError("At least one tab is required.")
@@ -155,11 +159,14 @@ def migrate(data):
                    buttons=copy.deepcopy(data["buttons"]))
         return validate({"version": 2, "bash_path": data["bash_path"], "tabs": [tab],
                          "active_tab": 0, "confirm_on_exit": True,
-                         "terminal": terminal_preferences.defaults(), "workspaces": []})
+                         "terminal": terminal_preferences.defaults(), "workspaces": [],
+                         "updates": {"automatic": True, "download": True}})
     if isinstance(data, dict) and data.get("version") == 2:
         data = copy.deepcopy(data)
         data.setdefault("confirm_on_exit", True)
         data.setdefault("workspaces", [])
+        if isinstance(data.get("updates", {}), dict):
+            data["updates"] = {"automatic": True, "download": True, **data.get("updates", {})}
         data["terminal"] = terminal_preferences.validated(data.get("terminal", {}))
         validate(data)
         return validate(assign_tab_ids(data))

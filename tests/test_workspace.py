@@ -982,3 +982,78 @@ class WorkspaceTests(unittest.TestCase):
 
         with patch.object(QDialog, 'exec', inspect):
             self.window.show_licenses()
+
+    def test_footer_update_notice_is_clickable_next_to_version_and_survives_status_messages(self):
+        from PySide6.QtTest import QTest
+        from PySide6.QtCore import Qt
+        footer = self.window.statusBar()
+        self.window.show()
+        footer.show_update('0.12.0')
+        requested = []
+        footer.update_requested.connect(lambda: requested.append(True))
+        footer.showMessage('A shell status message')
+        self.app.processEvents()
+        self.assertEqual('Version 0.12.0 is ready — Restart to update', footer.update_button.text())
+        self.assertTrue(footer.update_button.isVisible())
+        self.assertGreaterEqual(footer.update_button.x(), footer.version_label.geometry().right())
+        self.assertGreater(footer.message_label.x(), footer.update_button.x())
+        QTest.mouseClick(footer.update_button, Qt.MouseButton.LeftButton)
+        self.assertEqual([True], requested)
+        footer.clearMessage()
+        self.assertTrue(footer.update_button.isVisible())
+
+    def test_update_restart_cancel_or_save_failure_does_not_stop_shells_or_launch_helper(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        tab = self.window.current_tab()
+        self.ready(tab)
+        updater = Mock()
+        updater.ready = SimpleNamespace(manifest={'version': '0.12.0'})
+        self.window.updater = updater
+        with patch('bashdock.app.QMessageBox.question', return_value=QMessageBox.StandardButton.No):
+            self.window.restart_for_update()
+        updater.launch_install.assert_not_called()
+        self.assertEqual(0, tab.terminal.stops)
+        with patch.object(self.window, 'persist', return_value=False), patch('bashdock.app.QMessageBox.warning'):
+            self.window.restart_for_update()
+        updater.launch_install.assert_not_called()
+        self.assertEqual(0, tab.terminal.stops)
+        self.assertFalse(self.window.update_restart)
+
+    def test_update_restart_keeps_quit_preference_and_launches_helper_before_closing_shells(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        tab = self.window.current_tab()
+        self.ready(tab)
+        self.window.data['confirm_on_exit'] = True
+        updater = Mock()
+        updater.ready = SimpleNamespace(manifest={'version': '0.12.0'})
+        def launching():
+            self.assertEqual(0, tab.terminal.stops)
+            self.assertTrue(config.read(self.path)['confirm_on_exit'])
+        updater.launch_install.side_effect = launching
+        self.window.updater = updater
+        with patch.object(self.window, 'confirm_quit', side_effect=AssertionError('update already confirmed')):
+            self.window.restart_for_update()
+        updater.launch_install.assert_called_once()
+        self.assertEqual(1, tab.terminal.stops)
+        self.assertTrue(self.window.data['confirm_on_exit'])
+        self.window.updater = None
+
+    def test_update_launch_failure_keeps_current_shell_and_ready_notice(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        tab = self.window.current_tab()
+        self.ready(tab)
+        updater = Mock()
+        updater.ready = SimpleNamespace(manifest={'version': '0.12.0'})
+        updater.launch_install.side_effect = OSError('folder not writable')
+        self.window.updater = updater
+        self.window.statusBar().show_update('0.12.0')
+        with patch('bashdock.app.QMessageBox.warning'):
+            self.window.restart_for_update()
+        self.assertFalse(self.window.closing)
+        self.assertFalse(self.window.update_restart)
+        self.assertEqual(0, tab.terminal.stops)
+        updater.cancel.assert_not_called()
+        self.window.updater = None

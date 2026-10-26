@@ -20,6 +20,9 @@ else:
 
 
 def check_source_tree(root, commit=None):
+    private_keys = subprocess.check_output(['git', 'ls-files', '--', '.secrets/'], cwd=root, text=True).strip()
+    if private_keys:
+        raise ValueError('Private update-signing keys must never be tracked or included in a source archive. Remove .secrets/ from Git tracking.')
     actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
     status = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'],
                                      cwd=root, text=True).strip()
@@ -50,6 +53,8 @@ def package(source, output, report_path, version, commit, metadata):
         raise ValueError("A full source commit SHA is required.")
     if not (source / "bashdock.exe").is_file() or not (source / "_internal").is_dir():
         raise ValueError("Build output must contain bashdock.exe and the _internal directory.")
+    if not (source / "bashdock-updater.exe").is_file():
+        raise ValueError("Build output is missing the independent update helper.")
     if json.loads(report_path.read_text(encoding="utf-8")).get("ok") is not True:
         raise ValueError("The packaged shell smoke test must pass before packaging.")
     for name in ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt', 'licenses/manifest.json'):

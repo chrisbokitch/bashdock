@@ -32,6 +32,8 @@ def create_terminal(parent):
 
 class FooterBar(QStatusBar):
     """Keep the version at the left even while status/error messages are displayed."""
+    update_requested = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setSizeGripEnabled(False)
@@ -41,10 +43,24 @@ class FooterBar(QStatusBar):
         self.message_label = QLabel()
         self.message_label.setTextFormat(Qt.TextFormat.PlainText)
         self.addWidget(self.version_label)
+        self.update_button = QPushButton()
+        self.update_button.setObjectName("footerUpdate")
+        self.update_button.setFlat(True)
+        self.update_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_button.clicked.connect(self.update_requested)
+        self.update_button.hide()
+        self.addWidget(self.update_button)
         self.addWidget(self.message_label, 1)
         self.clear_timer = QTimer(self)
         self.clear_timer.setSingleShot(True)
         self.clear_timer.timeout.connect(self.clearMessage)
+
+    def show_update(self, version, ready=True):
+        text = f"Version {version} is ready — Restart to update" if ready else f"Version {version} is available — Download update"
+        self.update_button.setText(text)
+        self.update_button.setToolTip("Save your workspace and restart to install the update." if ready else "Download the verified update in the background.")
+        self.update_button.setAccessibleName(text)
+        self.update_button.show()
 
     def showMessage(self, text, timeout=0):
         self.clear_timer.stop()
@@ -361,6 +377,8 @@ class MainWindow(QMainWindow):
         self.config_error = ""
         self.restoring = True
         self.closing = False
+        self.update_restart = False
+        self.updater = None
         try:
             self.data = config.load()
         except (OSError, ValueError) as error:
@@ -397,6 +415,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.tabs)
         self.setCentralWidget(body)
         self.setStatusBar(FooterBar(self))
+        self.statusBar().update_requested.connect(self.restart_for_update)
         # Keep Python wrappers alive as well as Qt ownership. Some supported
         # PySide versions otherwise destroy menus when temporary wrappers expire.
         self.manage_menu = self.menuBar().addMenu("Manage")
@@ -447,15 +466,26 @@ class MainWindow(QMainWindow):
         self.confirm_exit_action.setChecked(self.data["confirm_on_exit"])
         self.confirm_exit_action.toggled.connect(self.set_confirm_on_exit)
         settings.addAction(self.confirm_exit_action)
+        self.updates_menu = settings.addMenu("Updates")
+        self.automatic_updates_action = QAction("Check automatically", self.updates_menu)
+        self.download_updates_action = QAction("Download automatically", self.updates_menu)
+        for action, key in ((self.automatic_updates_action, "automatic"), (self.download_updates_action, "download")):
+            action.setCheckable(True)
+            action.setChecked(self.data.get("updates", {}).get(key, True))
+            action.toggled.connect(lambda checked, key=key: self.set_update_preference(key, checked))
+            self.updates_menu.addAction(action)
         self.help_menu = self.menuBar().addMenu("Help")
         help_menu = self.help_menu
         about_action = QAction("About BashDock…", self)
         about_action.triggered.connect(self.show_about)
         help_menu.addAction(about_action)
+        self.check_updates_action = QAction("Check for updates…", self)
+        self.check_updates_action.triggered.connect(self.check_for_updates)
+        help_menu.addAction(self.check_updates_action)
         # Older PySide bindings can delete a submenu when a temporary action
         # wrapper expires after QAction.menu() is called.
         self.menu_actions = tuple(menu.menuAction() for menu in
-                                  (self.manage_menu, self.settings_menu, self.help_menu, self.workspaces_menu))
+                                  (self.manage_menu, self.settings_menu, self.help_menu, self.workspaces_menu, self.updates_menu))
         for profile in self.data["tabs"]:
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
@@ -463,6 +493,7 @@ class MainWindow(QMainWindow):
         self.tab_changed()
         self.setStyleSheet("""
             QMainWindow,QDialog,QWidget { background:#181e29;color:#dde4ef; }
+            QMenu { padding-top:2px;padding-bottom:2px; }
             QMenu::item { padding:2px 16px; }
             QMenu::separator { height:1px; background:#3c4b60; margin:4px 0; }
             QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
@@ -474,6 +505,8 @@ class MainWindow(QMainWindow):
             QStatusBar::item { border:0; }
             QStatusBar QLabel { background:transparent;padding:3px 6px; }
             QLabel#footerVersion { color:#9baec4; }
+            QStatusBar QPushButton#footerUpdate { color:#e7c35d;background:transparent;border:0;padding:3px 6px;text-align:left; }
+            QStatusBar QPushButton#footerUpdate:hover { color:#f4dc85;text-decoration:underline;border:0; }
             QTabWidget::pane { border:0;border-top:1px solid #3c4b60;top:-1px; }
             QTabWidget::tab-bar { left:3px; }
             QTabBar::tab {
@@ -494,6 +527,94 @@ class MainWindow(QMainWindow):
         self.restore_window_geometry()
         if self.config_error:
             QTimer.singleShot(0, self.show_config_error)
+        if sys.platform == "win32" and getattr(sys, "frozen", False):
+            from .update_controller import UpdateController
+            self.updater = UpdateController(self)
+            self.updater.changed.connect(self.update_state_changed)
+            self.update_timer = QTimer(self)
+            self.update_timer.setInterval(12 * 60 * 60 * 1000)
+            self.update_timer.timeout.connect(self.automatic_update_check)
+            self.update_timer.start()
+            QTimer.singleShot(5000, self.automatic_update_check)
+            QTimer.singleShot(3000, self.show_update_result)
+        else:
+            self.check_updates_action.setEnabled(False)
+            self.check_updates_action.setToolTip("Automatic updates are available in the compiled Windows application.")
+
+    def set_update_preference(self, key, enabled):
+        previous = copy.deepcopy(self.data.get("updates", {"automatic": True, "download": True}))
+        self.data["updates"] = dict(previous, **{key: enabled})
+        if not self.persist():
+            self.data["updates"] = previous
+            self.sync_update_actions()
+            QMessageBox.warning(self, "Settings were not saved", "Could not save the update preference.")
+
+    def sync_update_actions(self):
+        for action, key in ((self.automatic_updates_action, "automatic"), (self.download_updates_action, "download")):
+            action.blockSignals(True)
+            action.setChecked(self.data.get("updates", {}).get(key, True))
+            action.blockSignals(False)
+
+    def automatic_update_check(self):
+        if self.updater and not self.closing and self.data.get("updates", {}).get("automatic", True):
+            # Unconfigured development builds never make automatic network requests.
+            from .update_security import load_key
+            try:
+                load_key()
+            except ValueError:
+                return
+            self.updater.check(self.data.get("updates", {}).get("download", True))
+
+    def check_for_updates(self):
+        if self.updater:
+            self.updater.check(self.data.get("updates", {}).get("download", True))
+
+    def update_state_changed(self, state, value):
+        messages = {"checking": "Checking for updates…", "downloading": "Downloading update…",
+                    "current": "No newer signed public release is available."}
+        if state in messages:
+            self.statusBar().showMessage(messages[state])
+        if state == "downloading":
+            self.statusBar().update_button.hide()
+        if state in ("ready", "available"):
+            self.statusBar().show_update(value, ready=state == "ready")
+            self.statusBar().clearMessage()
+        if state == "error":
+            self.statusBar().showMessage(f"Update check: {value}")
+        self.check_updates_action.setEnabled(bool(self.updater and not self.updater.busy))
+
+    def restart_for_update(self):
+        if not self.updater:
+            return
+        if self.updater.ready is None:
+            self.updater.download()
+            return
+        version = self.updater.ready.manifest["version"]
+        if QMessageBox.question(self, "Restart to update?",
+                f"Install BashDock {version} and restart?\n\n"
+                "Running commands and shell sessions will close. Tabs, folders, settings, and window position "
+                "will be saved, then reopened in fresh shells. Finish any running work first.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+            return
+        if not self.allow_save:
+            QMessageBox.warning(self, "Cannot update yet", "Recover your settings before restarting to update.")
+            return
+        self.update_restart = True
+        if not self.close():
+            self.update_restart = False
+
+    def show_update_result(self):
+        from .updates import cache_directory
+        import json
+        path = cache_directory() / "result.json"
+        try:
+            result = json.loads(path.read_text(encoding="utf-8"))
+            path.unlink()
+            self.statusBar().showMessage(f"Updated to version {result['version']}." if result.get("ok")
+                                         else "Update could not finish: " + result.get("message", "Previous version restored."))
+        except (OSError, ValueError, KeyError):
+            pass
 
     def show_config_error(self):
         if not self.config_error:
@@ -590,6 +711,7 @@ class MainWindow(QMainWindow):
             self.add_tab(profile)
         self.tabs.setCurrentIndex(self.data["active_tab"])
         self.sync_confirm_action()
+        self.sync_update_actions()
         self.restore_window_geometry()
         self.restoring = False
         self.tab_changed()
@@ -760,6 +882,7 @@ class MainWindow(QMainWindow):
         return {"version": 2, "bash_path": self.data["bash_path"],
                 "window_geometry": bytes(self.saveGeometry().toBase64()).decode("ascii"),
                 "confirm_on_exit": self.data["confirm_on_exit"],
+                "updates": copy.deepcopy(self.data.get("updates", {"automatic": True, "download": True})),
                 "terminal": copy.deepcopy(self.data["terminal"]),
                 "workspaces": copy.deepcopy(self.data.get("workspaces", [])),
                 "active_tab": self.tabs.currentIndex(),
@@ -1031,9 +1154,12 @@ class MainWindow(QMainWindow):
         return accepted, skip.isChecked()
 
     def closeEvent(self, event):
+        if self.closing:
+            event.accept()
+            return
         running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))
         previous_confirm = self.data["confirm_on_exit"]
-        if running and previous_confirm:
+        if running and previous_confirm and not self.update_restart:
             accepted, skip = self.confirm_quit(running)
             if not accepted:
                 event.ignore()
@@ -1048,6 +1174,15 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self.sync_confirm_action()
+        if self.update_restart:
+            try:
+                self.updater.launch_install()
+            except (OSError, ValueError) as error:
+                QMessageBox.warning(self, "Cannot install update", str(error))
+                event.ignore()
+                return
+        if self.updater:
+            self.updater.cancel()
         self.closing = True
         for i in range(self.tabs.count()):
             self.tabs.widget(i).terminal.stop()
@@ -1069,6 +1204,19 @@ def main():
         return
     window = MainWindow()
     window.show()
+    if "--update-health" in sys.argv:
+        def acknowledge_update():
+            import json
+            import re
+            from .updates import cache_directory
+            try:
+                path = Path(sys.argv[sys.argv.index("--update-health") + 1]).resolve()
+                token = sys.argv[sys.argv.index("--update-token") + 1]
+                if path.name == "health.json" and path.is_relative_to(cache_directory().resolve()) and re.fullmatch("[0-9a-f]{64}", token):
+                    path.write_text(json.dumps({"token": token, "version": __version__}), encoding="utf-8")
+            except (OSError, ValueError, IndexError):
+                logging.exception("Could not acknowledge update startup")
+        QTimer.singleShot(1000, acknowledge_update)
     sys.exit(app.exec())
 
 

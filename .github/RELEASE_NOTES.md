@@ -14,3 +14,10 @@ archives are attached separately beside the executable ZIP. You do not need
 these archives to run the app. `bashdock-VERSION-SHA256SUMS.txt` (with the release
 version in its filename) checks all release assets. Preserve source access and
 notices when redistributing.
+
+
+Signed releases include `bashdock-update.json` and `bashdock-update.sig` for the
+app's automatic updater. These are additional metadata assets, not application
+or source downloads. Before publishing, complete the actual update/rollback
+checks in `docs/AUTO-UPDATES.md` and confirm the public signing key was configured
+before building this candidate.

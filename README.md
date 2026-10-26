@@ -218,3 +218,18 @@ If sharing a build outside GitHub, provide its matching source assets and
 checksums from the same download location. A link to a private repository is
 insufficient. No repository visibility change is required for private testing
 when recipients receive the source assets too.
+
+## Automatic updates
+
+Compiled Windows builds support signed stable-release updates, background
+downloads, and a yellow **Version X is ready — Restart to update** footer action
+beside the current version. Restarting requires confirmation and saves your
+workspace before closing shell sessions. The independent helper keeps the prior
+installation until the new version acknowledges startup and restores it if
+startup fails. Preview runs do not update the source checkout.
+
+Use **Help → Check for updates…** and **Settings → Updates** for automatic checks
+and downloads. Public updates need the one-time signing-key setup described in
+[the update guide](docs/AUTO-UPDATES.md); the initial development key is
+unconfigured. Full signed-update VM validation is required before 1.0. See the
+[current 1.0 roadmap](docs/ROADMAP-1.0.md).

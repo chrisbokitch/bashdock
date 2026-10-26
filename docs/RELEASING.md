@@ -174,3 +174,15 @@ installed and expected values. Official CI still uses Python 3.12 x64 and the
 complete hash-locked build environment described above. Update the runtime pins,
 Windows lock, matching source archives, and native notices together when
 intentionally updating dependencies.
+
+## Automatic-update release assets
+
+See [AUTO-UPDATES.md](AUTO-UPDATES.md) for the publisher signing-key setup,
+independent helper and two-version Windows VM acceptance checklist. Automatic
+updates are required for 1.0. The first public build must embed the configured
+public key. The trusted tag-release job signs `bashdock-update.json` and
+`bashdock-update.sig` after Windows validation; the release must stay a draft
+until the normal acceptance checklist and actual update/rollback checks pass.
+
+A missing signing key is permitted only for unconfigured pre-1.0 development
+drafts. A 1.0-or-later draft-release job refuses to continue without signing.

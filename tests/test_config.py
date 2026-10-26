@@ -268,6 +268,20 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config.validate(data)
 
+    def test_update_preferences_migrate_validate_and_survive_export(self):
+        data = config.defaults()
+        data.pop('updates')
+        migrated = config.migrate(data)
+        self.assertEqual({'automatic': True, 'download': True}, migrated['updates'])
+        migrated['updates'] = {'automatic': False, 'download': False}
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'settings.json'
+            config.save(migrated, path)
+            self.assertEqual(migrated['updates'], config.read(path)['updates'])
+        for invalid in (None, [], {'automatic': 1}, {'download': 'yes'}):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                config.validate(dict(migrated, updates=invalid))
+
 
 if __name__ == "__main__":
     unittest.main()

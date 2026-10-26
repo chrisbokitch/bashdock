@@ -21,7 +21,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="BashDock release test ") as folder:
         root = Path(folder)
         with zipfile.ZipFile(archive) as bundle:
-            required = ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt',
+            required = ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt', 'bashdock-updater.exe',
                         'licenses/manifest.json', 'licenses/runtime-files.json')
             for name in required:
                 if 'bashdock/' + name not in bundle.namelist():

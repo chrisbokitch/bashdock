@@ -1,0 +1,5 @@
+{
+  "algorithm": "RSA-PKCS1-SHA256",
+  "exponent": 65537,
+  "modulus": null
+}

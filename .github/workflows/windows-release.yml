@@ -99,6 +99,10 @@ jobs:
         with:
           name: bashdock-windows-x64
           path: release
+      - name: Sign automatic-update metadata
+        env:
+          BASHDOCK_UPDATE_SIGNING_KEY: ${{ secrets.BASHDOCK_UPDATE_SIGNING_KEY }}
+        run: python3 scripts/publish_update.py --artifacts release
       - name: Attach validated assets to a draft release
         env:
           GH_TOKEN: ${{ github.token }}

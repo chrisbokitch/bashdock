@@ -18,6 +18,7 @@ class ReleasePackagingTests(unittest.TestCase):
             source = root / "dist/bashdock"
             (source / "_internal/nested").mkdir(parents=True)
             (source / "bashdock.exe").write_bytes(b"executable fixture")
+            (source / "bashdock-updater.exe").write_bytes(b"independent updater fixture")
             (source / "_internal/nested/runtime.dll").write_bytes(b"runtime fixture")
             (source / "_internal/.hidden").write_bytes(b"hidden runtime fixture")
             report = root / "smoke.json"
@@ -120,6 +121,7 @@ class ReleasePackagingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / 'bashdock.exe').touch()
+            (root / 'bashdock-updater.exe').touch()
             (root / '_internal').mkdir()
             report = root / 'smoke.json'
             report.write_text('{"ok": true}')
@@ -146,3 +148,19 @@ class ReleasePackagingTests(unittest.TestCase):
                 package_release.main()
             self.assertEqual(2, failure.exception.code)
             environment.assert_not_called()
+
+    def test_even_a_clean_commit_cannot_package_tracked_signing_keys(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            def git(*args):
+                return subprocess.check_output(['git', *args], cwd=root, text=True).strip()
+            git('init', '-q')
+            git('config', 'user.name', 'Release test')
+            git('config', 'user.email', 'release-test@example.invalid')
+            (root / '.secrets').mkdir()
+            (root / '.secrets/key.pem').write_text('test fixture; not a real signing key')
+            git('add', '.')
+            git('commit', '-qm', 'fixture')
+            with self.assertRaisesRegex(ValueError, 'must never be tracked'):
+                create_source_archive(root, root / 'release', '0.11.0', git('rev-parse', 'HEAD'))
+            self.assertFalse((root / 'release').exists())

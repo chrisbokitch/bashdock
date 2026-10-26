@@ -11,3 +11,6 @@ npm-debug.log*
 # Optional local deployment helpers
 /copy.bat
 /copy.sh
+
+# Never publish update-signing credentials
+/.secrets/

@@ -1,6 +1,6 @@
 // Use the project's Python directly: no venv activation or shell-specific paths.
 const { spawnSync } = require('node:child_process');
-const { existsSync, readFileSync, rmSync } = require('node:fs');
+const { existsSync, readFileSync, rmSync, copyFileSync } = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
@@ -23,7 +23,7 @@ function run(executable, args, options = {}) {
   }
 }
 
-if (!['setup', 'test', 'preview', 'compile', 'package', 'package-check'].includes(task)) {
+if (!['setup', 'test', 'preview', 'compile', 'package', 'package-check', 'update-keygen'].includes(task)) {
   console.error('Use npm run setup, npm test, npm run preview, npm run compile, or npm run package.');
   process.exit(1);
 }
@@ -47,7 +47,9 @@ if (!existsSync(python)) {
   process.exit(1);
 }
 
-if (task === 'test') {
+if (task === 'update-keygen') {
+  run(python, ['scripts/update_keys.py']);
+} else if (task === 'test') {
   run(python, ['-m', 'unittest', 'discover', '-s', 'tests', '-v']);
   run(process.execPath, ['--test', 'tests/terminal-settings.test.cjs']);
 } else if (task === 'preview') {
@@ -60,6 +62,9 @@ if (task === 'test') {
     run(python, ['-m', 'pip', 'install', '-e', '.[build]']);
   }
   run(python, ['-m', 'PyInstaller', '--clean', '--noconfirm', 'bashdock.spec']);
+  run(python, ['-m', 'PyInstaller', '--clean', '--noconfirm', 'updater.spec']);
+  copyFileSync(path.join(root, 'dist', 'bashdock-updater.exe'), path.join(root, 'dist', 'bashdock', 'bashdock-updater.exe'));
+  run(python, ['scripts/check_updater.py']);
   const executable = path.join(root, 'dist', 'bashdock', 'bashdock.exe');
   if (!existsSync(executable)) {
     console.error(`Build completed without the expected executable: ${executable}`);
