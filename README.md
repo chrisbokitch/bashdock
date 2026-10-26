@@ -2,16 +2,6 @@
 
 A Python/Qt Windows desktop app with multiple Git Bash tabs and a custom command bar beneath each terminal.
 
-Previously called GitBasher. The application, GitHub repository, Python package, and build output now use the BashDock name.
-
-## Updating from GitBasher
-
-Close the app and pull the latest source before renaming your checkout to `C:\Development\bashdock`. Run `npm run setup` from the renamed folder to refresh the editable Python installation and create the `bashdock` launcher, then use `npm run preview`. If a moved virtual environment reports path errors, delete `.venv` and run `npm run setup` again to recreate it.
-
-On first launch, if BashDock has no settings yet, it imports and validates `%APPDATA%\gitbasher\settings.json`, saving a copy to `%APPDATA%\bashdock\settings.json`. Existing tabs, folders, command bars, selected tab, and preferences are preserved. The original file stays intact; subsequent launches use BashDock's settings.
-
-Local `copy.sh`/`copy.bat` helpers remain ignored. Update their source to `C:\Development\bashdock\dist\bashdock` and destination to `C:\Development\tools\bashdock`, and update any executable checks or shortcuts to `bashdock.exe`. Copy the complete build folder, including `_internal`. Existing deployed GitBasher builds are not removed automatically.
-
 ## Requirements
 
 - Windows 10 (1809 or newer) or Windows 11
