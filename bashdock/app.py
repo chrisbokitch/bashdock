@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF
-from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion
+from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint
+from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
@@ -30,21 +30,70 @@ def create_terminal(parent):
     return Terminal(parent)
 
 
+class MenuShadow(QWidget):
+    """A click-through shadow outside the popup's clipped native window."""
+    margin = 8
+
+    def __init__(self, menu):
+        super().__init__(menu, Qt.WindowType.ToolTip | Qt.WindowType.FramelessWindowHint
+                         | Qt.WindowType.NoDropShadowWindowHint
+                         | Qt.WindowType.WindowTransparentForInput
+                         | Qt.WindowType.WindowDoesNotAcceptFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+        self.setStyleSheet("background:transparent;border:0;")
+
+    def sync(self, menu):
+        origin = menu.mapToGlobal(QPoint(0, 0))
+        self.setGeometry(origin.x() - self.margin, origin.y() - self.margin,
+                         menu.width() + 2 * self.margin, menu.height() + 2 * self.margin)
+        if menu.isVisible():
+            self.show()
+            self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        panel = QRectF(self.rect()).adjusted(self.margin, self.margin, -self.margin, -self.margin)
+        outside = QPainterPath()
+        outside.addRect(QRectF(self.rect()))
+        inside = QPainterPath()
+        inside.addRoundedRect(panel, 10, 10)
+        painter.setClipPath(outside.subtracted(inside))
+        painter.setPen(Qt.PenStyle.NoPen)
+        # Layer faint rounded silhouettes into a soft, slightly lowered shadow.
+        for spread in range(self.margin - 2, -1, -1):
+            painter.setBrush(QColor(0, 0, 0, 10))
+            painter.drawRoundedRect(panel.adjusted(-spread, 2 - spread, spread, 2 + spread),
+                                    10 + spread, 10 + spread)
+
+
 class MenuCorners(QObject):
-    """Clip the native popup too, so Windows cannot fill outside the QSS curve."""
+    """Keep native rounded clipping and the app-drawn shadow in sync."""
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.shadows = {}
+
+    def attach(self, menu):
+        self.shadows[menu] = MenuShadow(menu)
+        menu.installEventFilter(self)
+
     def apply_mask(self, menu):
         shape = QPainterPath()
         shape.addRoundedRect(QRectF(menu.rect()), 10, 10)
         menu.setMask(QRegion(shape.toFillPolygon().toPolygon()))
+        if menu.isVisible():
+            self.shadows[menu].sync(menu)
 
     def eventFilter(self, watched, event):
         if event.type() == QEvent.Type.Show:
             self.apply_mask(watched)
-        elif event.type() == QEvent.Type.Resize:
-            # QMenu's resize handler may install its native style's mask after
-            # this filter. Reapply once that handler has finished; the context
-            # cancels the callback if the popup is destroyed in the meantime.
+        elif event.type() in (QEvent.Type.Resize, QEvent.Type.Move):
+            # Run after QMenu installs the native style's resize mask.
             QTimer.singleShot(0, watched, lambda: self.apply_mask(watched))
+        elif event.type() == QEvent.Type.Hide:
+            self.shadows[watched].hide()
         return False
 
 
@@ -556,11 +605,10 @@ class MainWindow(QMainWindow):
             # stylesheet first, then apply our window-level appearance settings.
             popup.ensurePolished()
             popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-            # Keep the rounded client shape, with the platform's subtle popup
-            # shadow outside it (and respect Windows' visual-effects settings).
-            popup.setWindowFlags((popup.windowFlags() | Qt.WindowType.FramelessWindowHint)
-                                 & ~Qt.WindowType.NoDropShadowWindowHint)
-            popup.installEventFilter(self.menu_corners)
+            # The app supplies the shadow; suppress any additional native one.
+            popup.setWindowFlags(popup.windowFlags() | Qt.WindowType.FramelessWindowHint
+                                 | Qt.WindowType.NoDropShadowWindowHint)
+            self.menu_corners.attach(popup)
         self.tabs.tabBar().update_tab_inset()
         self.restore_window_geometry()
         if self.config_error:

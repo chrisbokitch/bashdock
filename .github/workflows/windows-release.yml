@@ -61,17 +61,22 @@ jobs:
           git --version
       - name: Run Python, Windows shell, WebEngine, and JavaScript tests
         run: npm test
-      - name: Check rounded popup menus at Windows display scales
+      - name: Check popup shadows with native Windows and headless rendering
         shell: pwsh
         run: |
+          $previousPlatform = $env:QT_QPA_PLATFORM
           try {
-            foreach ($scale in @("1", "1.25", "1.5")) {
-              $env:QT_SCALE_FACTOR = $scale
-              Write-Host "Checking popup menus at scale $scale"
-              .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k popup -v
-              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            foreach ($platform in @("offscreen", "windows")) {
+              $env:QT_QPA_PLATFORM = $platform
+              foreach ($scale in @("1", "1.25", "1.5")) {
+                $env:QT_SCALE_FACTOR = $scale
+                Write-Host "Checking popup menus: backend=$platform, scale=$scale"
+                .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k popup -v
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              }
             }
           } finally {
+            $env:QT_QPA_PLATFORM = $previousPlatform
             Remove-Item Env:QT_SCALE_FACTOR -ErrorAction SilentlyContinue
           }
       - name: Compile, test executable, and create portable ZIP

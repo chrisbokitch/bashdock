@@ -776,7 +776,7 @@ class WorkspaceTests(unittest.TestCase):
                 self.assertEqual(12, menu.width() - first.right() - 1)
                 self.assertEqual(10, menu.height() - last.bottom() - 1)
                 from PySide6.QtCore import Qt
-                self.assertFalse(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint,
+                self.assertTrue(menu.windowFlags() & Qt.WindowType.NoDropShadowWindowHint,
                                 f'popup flags before={flags_before:#x}, after={int(menu.windowFlags()):#x}, '
                                 f'style={menu.style().objectName()}')
                 self.assertTrue(menu.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground))
@@ -792,6 +792,31 @@ class WorkspaceTests(unittest.TestCase):
                     self.assertFalse(mask.contains(point))
                 self.assertTrue(mask.contains(menu.rect().center()))
                 menu.hide()
+
+    def test_popup_app_shadow_is_drawn_click_through_and_hidden_with_menu(self):
+        from PySide6.QtCore import QPoint, Qt
+        menu = self.window.manage_menu
+        menu.popup(QPoint(40, 40))
+        self.app.processEvents()
+        shadow = self.window.menu_corners.shadows[menu]
+        self.assertTrue(shadow.isVisible())
+        self.assertIs(QApplication.activePopupWidget(), menu)
+        self.assertTrue(shadow.windowFlags() & Qt.WindowType.WindowTransparentForInput)
+        self.assertTrue(shadow.windowFlags() & Qt.WindowType.WindowDoesNotAcceptFocus)
+        self.assertEqual(menu.width() + 16, shadow.width())
+        self.assertEqual(menu.height() + 16, shadow.height())
+        # Grab the shadow itself: pixels beyond the panel must be drawn, while
+        # its centre stays transparent and cannot tint or obscure menu items.
+        image = shadow.grab().toImage()
+        ratio = image.devicePixelRatio()
+        def alpha(x, y):
+            return image.pixelColor(int(x * ratio), int(y * ratio)).alpha()
+        self.assertEqual(0, alpha(shadow.width() // 2, shadow.height() // 2))
+        self.assertGreater(alpha(shadow.width() // 2, shadow.height() - 5), 0)
+        self.assertLess(alpha(shadow.width() // 2, shadow.height() - 5), 80)
+        menu.hide()
+        self.app.processEvents()
+        self.assertFalse(shadow.isVisible())
 
     def test_popup_corner_mask_tracks_submenu_resizing_and_reopening(self):
         from PySide6.QtCore import QPoint
