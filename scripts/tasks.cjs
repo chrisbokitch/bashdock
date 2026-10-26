@@ -76,7 +76,7 @@ if (task === 'update-keygen') {
   run(executable, ['--shell-smoke-test', report], { timeout: 60000, report });
   console.log(`Built ${executable}\nKeep the entire dist/bashdock folder together when copying the app.`);
 } else if (task === 'package') {
-  run(python, ['scripts/package_release.py']);
+  run(python, ['-u', 'scripts/package_release.py']);
 } else if (task === 'package-check') {
   run(python, ['scripts/package_release.py', '--check']);
 }

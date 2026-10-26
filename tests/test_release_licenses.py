@@ -1,4 +1,5 @@
 import hashlib
+from contextlib import redirect_stdout
 import io
 import json
 import tarfile
@@ -55,8 +56,12 @@ class ReleaseLicenseTests(unittest.TestCase):
             cache = root / 'cache'
             path = download(entry, cache)
             self.assertEqual(original.read_bytes(), path.read_bytes())
-            with patch('scripts.release_licenses.urllib.request.urlopen', side_effect=AssertionError('cached')):
+            messages = io.StringIO()
+            with redirect_stdout(messages), \
+                    patch('scripts.release_licenses.urllib.request.urlopen', side_effect=AssertionError('cached')):
                 self.assertEqual(path, download(entry, cache))
+            self.assertIn('Verifying cached source source.tar.xz', messages.getvalue())
+            self.assertNotIn('Downloading source', messages.getvalue())
             path.write_bytes(b'corrupt cache')
             original.write_bytes(b'changed upstream')
             with patch('scripts.release_licenses.time.sleep'):

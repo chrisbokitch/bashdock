@@ -186,3 +186,20 @@ until the normal acceptance checklist and actual update/rollback checks pass.
 
 A missing signing key is permitted only for unconfigured pre-1.0 development
 drafts. A 1.0-or-later draft-release job refuses to continue without signing.
+
+## Long-running packaging steps
+
+The “Keep the entire dist/bashdock folder together” message marks the end of
+compilation, not the end of `npm run package`. Packaging also verifies cached
+dependency sources, scans their license notices (including the large Qt source
+archive), copies source assets, compresses the application and writes checksums.
+These steps can take several minutes even when nothing needs downloading.
+
+Packaging prints each operation immediately, reports elapsed time every five
+seconds while it is running, and prints completion or interruption. Elapsed time
+is not a percentage or a guarantee that an operation is making progress. If a
+run appears stuck, capture the last named operation and its elapsed time.
+Keep `build/source-cache` between builds to reuse verified downloads. A failed
+partial download is removed and retried; completed cached archives are verified
+before reuse. Successful packaging ends with “Packaging complete. Release files:”
+and the generated paths.

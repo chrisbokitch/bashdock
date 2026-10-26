@@ -18,6 +18,11 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePosixPath
 
+if __package__:
+    from .release_progress import progress
+else:
+    from release_progress import progress
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -32,16 +37,20 @@ def download(item, cache):
         raise ValueError('Invalid source archive filename.')
     cache.mkdir(parents=True, exist_ok=True)
     target = cache / item['filename']
-    if target.is_file() and digest(target) == item['sha256']:
-        return target
+    if target.is_file():
+        with progress(f"Verifying cached source {target.name}"):
+            verified = digest(target) == item['sha256']
+        if verified:
+            return target
     partial = target.with_suffix(target.suffix + '.partial')
     for attempt in range(3):
         try:
-            print(f"Downloading source: {item['filename']}", flush=True)
-            with urllib.request.urlopen(item['url'], timeout=60) as response, partial.open('wb') as stream:
-                shutil.copyfileobj(response, stream, 1024 * 1024)
-            if digest(partial) != item['sha256']:
-                raise ValueError(f"Source checksum mismatch: {item['filename']}")
+            with progress(f"Downloading source {item['filename']} (attempt {attempt + 1}/3)"):
+                with urllib.request.urlopen(item['url'], timeout=60) as response, partial.open('wb') as stream:
+                    shutil.copyfileobj(response, stream, 1024 * 1024)
+            with progress(f"Verifying downloaded source {item['filename']}"):
+                if digest(partial) != item['sha256']:
+                    raise ValueError(f"Source checksum mismatch: {item['filename']}")
             partial.replace(target)
             return target
         except (OSError, ValueError):
@@ -203,17 +212,22 @@ def prepare(runtime, output, version, commit):
         shutil.copyfile(ROOT / filename, runtime / filename)
     (notices / 'xterm').mkdir()
     shutil.copyfile(ROOT / 'bashdock/assets/LICENSE', notices / 'xterm/LICENSE')
-    records = collect_environment_notices(notices)
+    with progress('Collecting installed runtime license notices'):
+        records = collect_environment_notices(notices)
     with ThreadPoolExecutor(max_workers=3) as pool:
         paths = list(pool.map(lambda item: download(item, cache), manifest))
     artifacts = []
     for entry, path in zip(manifest, paths):
-        collect_tar_notices(path, notices / entry['name'])
+        with progress(f'Scanning license notices in {path.name}'):
+            count = collect_tar_notices(path, notices / entry['name'])
+        print(f'  Collected {count} notices from {path.name}', flush=True)
         target = output / path.name
-        shutil.copyfile(path, target)
-        artifacts.append(dict(entry, sha256=digest(target)))
-    rust = rust_sources(paths[next(i for i, e in enumerate(manifest) if e['name'] == 'pywinpty')],
-                        cache, output, notices)
+        with progress(f'Copying and verifying source asset {path.name}'):
+            shutil.copyfile(path, target)
+            artifacts.append(dict(entry, sha256=digest(target)))
+    with progress('Assembling Rust dependency sources and notices'):
+        rust = rust_sources(paths[next(i for i, e in enumerate(manifest) if e['name'] == 'pywinpty')],
+                            cache, output, notices)
     artifacts.append(dict(name='pywinpty Rust dependencies', filename=rust.name, sha256=digest(rust)))
     (notices / 'manifest.json').write_text(json.dumps(dict(
         application_version=version, source_commit=commit, python=sys.version,

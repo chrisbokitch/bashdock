@@ -15,8 +15,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 if __package__:
     from .release_licenses import validate_environment, prepare, digest
+    from .release_progress import progress
 else:
     from release_licenses import validate_environment, prepare, digest
+    from release_progress import progress
 
 
 def check_source_tree(root, commit=None):
@@ -128,6 +130,8 @@ def main():
     if args.check:
         print('Packaging prerequisites passed: clean source checkout and matching runtime versions.')
         return
+    print('Compilation is complete. Packaging sources, licenses and the portable ZIP; '
+          'the Qt source archive is large, so this can take several minutes.', flush=True)
     lock = ROOT / "requirements/windows-build.lock"
     metadata = {"python": sys.version, "platform": platform.platform(), "architecture": platform.machine(),
                 "git": subprocess.check_output(["git", "--version"], text=True).strip(),
@@ -137,13 +141,18 @@ def main():
         metadata["workflow_run"] = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
                                     f"/actions/runs/{os.environ['GITHUB_RUN_ID']}")
     # A private repository is not a source offer: distribute explicit source assets.
-    source_archive = create_source_archive(ROOT, args.output, version, commit)
+    with progress('Creating matching application source archive'):
+        source_archive = create_source_archive(ROOT, args.output, version, commit)
     sources = [source_archive, *prepare(args.source, args.output, version, commit)]
     metadata['license'] = 'GPL-3.0-only'
-    metadata['source_assets'] = [dict(filename=p.name, sha256=digest(p)) for p in sources]
-    packaged = package(args.source, args.output, args.report, version, commit, metadata)
+    with progress('Hashing release source assets'):
+        metadata['source_assets'] = [dict(filename=p.name, sha256=digest(p)) for p in sources]
+    with progress('Inventorying runtime files and compressing portable application ZIP'):
+        packaged = package(args.source, args.output, args.report, version, commit, metadata)
     sums = args.output / f'bashdock-{version}-SHA256SUMS.txt'
-    sums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in [*packaged, *sources]), encoding='utf-8')
+    with progress('Writing final release checksums'):
+        sums.write_text(''.join(f'{digest(p)}  {p.name}\n' for p in [*packaged, *sources]), encoding='utf-8')
+    print('Packaging complete. Release files:', flush=True)
     for path in [*packaged, *sources, sums]:
         print(path)
 
