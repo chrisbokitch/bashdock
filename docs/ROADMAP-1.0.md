@@ -29,3 +29,6 @@ Remaining release gates:
 
 An update check and download never authorize closing running shell commands.
 Installing an update always requires the user's restart confirmation.
+
+Future feature investigations are tracked separately in the
+[post-1.0 feature roadmap](FEATURE-ROADMAP.md); they do not block this release.

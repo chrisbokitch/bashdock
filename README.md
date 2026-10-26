@@ -223,3 +223,9 @@ and downloads. Public updates need the one-time signing-key setup described in
 [the update guide](docs/AUTO-UPDATES.md); the initial development key is
 unconfigured. Full signed-update VM validation is required before 1.0. See the
 [current 1.0 roadmap](docs/ROADMAP-1.0.md).
+
+## Feature roadmap
+
+See the [post-1.0 feature roadmap](docs/FEATURE-ROADMAP.md) for proposed multiline
+command editing, prompted command variables and choices, and per-tab shell support.
+These investigations are separate from the [1.0 release checklist](docs/ROADMAP-1.0.md).
