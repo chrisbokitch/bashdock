@@ -19,5 +19,12 @@
     "filename": "pywinpty-3.0.5.tar.gz",
     "url": "https://files.pythonhosted.org/packages/a9/ef/2d27f30c59a67be7025b2d7858c8c2d282b74d66544b2384730b82de74fd/pywinpty-3.0.5.tar.gz",
     "sha256": "61db0db063de9865adbea66db294628f8577f608d9764a4c7d3384eeacc4e81b"
+  },
+  {
+    "name": "truststore",
+    "version": "0.10.4",
+    "filename": "truststore-0.10.4.tar.gz",
+    "url": "https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz",
+    "sha256": "9d91bd436463ad5e4ee4aba766628dd6cd7010cf3e2461756b3303710eebc301"
   }
 ]

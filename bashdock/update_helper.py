@@ -210,6 +210,11 @@ def main():
     if args.self_test:
         from .update_security import KEY_FILE
         json.loads(KEY_FILE.read_text(encoding='utf-8'))
+        from .updates import tls_context
+        context = tls_context()
+        import ssl
+        if not context.check_hostname or context.verify_mode != ssl.CERT_REQUIRED:
+            raise ValueError('The update TLS context must verify hostnames and certificates.')
         args.self_test.write_text(json.dumps({'ok': True, 'frozen': bool(getattr(sys, 'frozen', False))}))
         return
     # A named mutex is automatically released even if the helper crashes.

@@ -11,7 +11,7 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Signal
 from . import config
 from ._version import __version__
-from .updates import cache_directory, discover, download_update
+from .updates import cache_directory, discover, download_update, update_error_message
 from .update_security import load_key
 
 
@@ -64,7 +64,7 @@ class UpdateController(QObject):
             try:
                 operation()
             except Exception as error:
-                self._emit('error', str(error))
+                self._emit('error', update_error_message(error))
             finally:
                 self.busy = False
                 self._emit('finished', None)

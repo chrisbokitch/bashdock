@@ -15,6 +15,7 @@ build environment and source archive checksums.
 | Mesa llvmpipe software renderer / LLVM | Mesa 11.2.2 / LLVM 3.6.2 identified in pinned Qt wheel | MIT, Boost 1.0, and University of Illinois/NCSA terms; `licenses/Mesa-11.2.2-license.html`, `Boost-1.0.txt`, and `LLVM-3.6.2.txt` |
 | Microsoft Visual C++ runtime DLLs | Actual frozen-file inventory | Microsoft proprietary redistributable terms; see publisher requirements below |
 | CPython and bundled standard-library components | Actual build version | PSF and incorporated component licenses; `licenses/CPython/LICENSE.txt` |
+| truststore | 0.10.4 | MIT; wheel and matching source license notices |
 | pywinpty | 3.0.5 | MIT; wheel and source notices |
 | Rust libraries incorporated into pywinpty | Its source Cargo.lock | Per-crate MIT, Apache, BSD, Unicode, and other terms; full crate sources and collected notices |
 | Microsoft ConPTY / OpenConsole | 1.24.260512001 in pinned pywinpty x64 wheel | MIT; `licenses/Microsoft-Terminal-MIT.txt` and `Microsoft-Terminal-NOTICE.txt` |
@@ -37,7 +38,7 @@ versions are recorded in the release inventory and build information.
 ## Source and modification rights
 
 Each release provides the matching BashDock source ZIP and separate, unmodified
-Qt, PySide, pywinpty, and locked Rust crate source archives beside its executable
+Qt, PySide, pywinpty, truststore, and locked Rust crate source archives beside its executable
 ZIP. See `SOURCE.txt` and the release asset checksums. Source includes copyright
 and attribution notices that are not duplicated into the application UI.
 

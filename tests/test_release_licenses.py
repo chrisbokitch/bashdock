@@ -86,7 +86,7 @@ class ReleaseLicenseTests(unittest.TestCase):
         self.assertIn('pywinpty: installed not installed; required 3.0.5', message)
         self.assertIn('npm run setup', message)
         manifest = validate_environment(qt_version='6.10.3', distribution_version=lambda name:
-                                        '3.0.5' if name == 'pywinpty' else '6.10.3')
+                                        {'pywinpty': '3.0.5', 'truststore': '0.10.4'}.get(name, '6.10.3'))
         self.assertEqual('6.10.3', next(e['version'] for e in manifest if e['name'] == 'Qt'))
 
     def test_setup_runtime_pins_match_the_reviewed_release_sources(self):

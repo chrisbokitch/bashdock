@@ -1,4 +1,4 @@
-# Independent stdlib-only helper; it must not load files from the app being replaced.
+# Independent helper with bundled native TLS support; no files loaded from the app being replaced.
 from pathlib import Path
 root = Path(SPECPATH)
 a = Analysis([str(root / 'scripts/launch_updater.py')], pathex=[str(root)],

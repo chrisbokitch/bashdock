@@ -179,7 +179,7 @@ def validate_environment(root=None, *, qt_version=None, distribution_version=Non
         mismatches.append(f"Qt runtime: installed {qt_version}; required {versions['Qt']}")
     for name, expected in [('PySide6', versions['PySide6']), ('PySide6_Essentials', versions['PySide6']),
                            ('PySide6_Addons', versions['PySide6']), ('shiboken6', versions['PySide6']),
-                           ('pywinpty', versions['pywinpty'])]:
+                           ('pywinpty', versions['pywinpty']), ('truststore', versions['truststore'])]:
         try:
             installed = distribution_version(name)
         except importlib.metadata.PackageNotFoundError:

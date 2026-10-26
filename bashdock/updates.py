@@ -5,6 +5,8 @@ import os
 import re
 import shutil
 import stat
+import ssl
+import sys
 import tempfile
 import threading
 import urllib.error
@@ -66,11 +68,31 @@ class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(request, fp, code, message, headers, url)
 
 
+def tls_context():
+    # CryptoAPI builds chains with the live Windows trust store, including
+    # missing intermediates. Do not patch ssl globally or bypass verification.
+    if sys.platform == 'win32':
+        import truststore
+        return truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    return ssl.create_default_context()
+
+
+def update_error_message(error):
+    reason = getattr(error, 'reason', error)
+    if isinstance(reason, ssl.SSLCertVerificationError):
+        return ('Could not verify the secure update connection. Check your Windows date/time '
+                'and trusted certificates, or contact your network administrator.')
+    return str(error)
+
+
 def open_url(url):
     if urllib.parse.urlsplit(url).scheme != 'https':
         raise ValueError('Update downloads require HTTPS.')
     request = urllib.request.Request(url, headers={'User-Agent': 'BashDock-Updater', 'Accept': 'application/vnd.github+json'})
-    return urllib.request.build_opener(HTTPSRedirect()).open(request, timeout=20)
+    context = tls_context()
+    context.set_alpn_protocols(['http/1.1'])
+    return urllib.request.build_opener(
+        HTTPSRedirect(), urllib.request.HTTPSHandler(context=context)).open(request, timeout=20)
 
 
 def read_url(url, limit, opener=open_url):

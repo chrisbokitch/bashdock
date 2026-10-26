@@ -137,3 +137,13 @@ exact downloads, folder replacement, rollback and GUI cancellation/save failures
 Windows CI additionally checks real CNG/OpenSSL interoperability, process handoff
 APIs and the compiled helper outside the application directory. A real two-release
 VM update remains a 1.0 acceptance gate.
+
+## Secure connection failures
+
+Update requests use truststore with Windows CryptoAPI for certificate-chain
+validation, including Windows-managed roots and intermediate retrieval. Hostname
+and certificate checks remain mandatory; HTTP redirects are still rejected.
+No global SSL overrides or separate CA bundle are used. The compiled helper's
+self-test creates this context so missing native TLS modules fail the build.
+If validation still fails, check Windows date/time, Windows certificate updates
+and any organization-managed HTTPS proxy. Never disable certificate checks.
