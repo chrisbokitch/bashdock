@@ -319,6 +319,32 @@ class CommandScrollArea(QScrollArea):
         self.fit_height()
 
 
+class ShellTopBorder(QWidget):
+    """One shell-wide rule, open beneath the selected tab's interior."""
+    def __init__(self, tab_bar, background, parent):
+        super().__init__(parent)
+        self.tab_bar = tab_bar
+        self.background = background
+        self.setFixedHeight(1)
+        tab_bar.currentChanged.connect(self.refresh)
+        tab_bar.tabMoved.connect(self.refresh)
+        tab_bar.layout_changed.connect(self.refresh)
+
+    def refresh(self, *args):
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor('#3c4b60'))
+        index = self.tab_bar.currentIndex()
+        if index >= 0:
+            tab = self.tab_bar.tabRect(index)
+            left = self.mapFromGlobal(self.tab_bar.mapToGlobal(tab.topLeft())).x() + 1
+            # The tab stylesheet leaves a 3px gap after each tab.
+            right = self.mapFromGlobal(self.tab_bar.mapToGlobal(tab.topRight())).x() - 3
+            painter.fillRect(left, 0, max(0, right - left), self.height(), QColor(self.background()))
+
+
 class ShellTab(QWidget):
     """Each tab owns a shell, its button bar, and its saved profile."""
     configure_requested = Signal()
@@ -331,6 +357,9 @@ class ShellTab(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+        self.top_border = ShellTopBorder(parent.tabs.tabBar(), lambda:
+            terminal_preferences.effective(self.data, parent.data['terminal'])['background'], self)
+        layout.addWidget(self.top_border)
         self.terminal = terminal_factory(self)
         layout.addWidget(self.terminal, 1)
         footer = QHBoxLayout()
@@ -377,6 +406,7 @@ class ShellTab(QWidget):
 
 class TabStrip(QTabBar):
     """Reserve enough top-row height for the corner control and its padding."""
+    layout_changed = Signal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.top_inset = 0
@@ -431,7 +461,7 @@ class TabStrip(QTabBar):
         self.setStyleSheet(
             f'QTabBar::tab {{ margin-top:{self.top_inset}px; }} '
             f'QTabBar::tab:selected {{ background:{self.selected_background};'
-            f'color:{self.selected_foreground};border-bottom-color:{self.selected_background};margin-bottom:-1px; }}')
+            f'color:{self.selected_foreground};margin-bottom:-1px; }}')
 
     def corner_row_height(self):
         parent = self.parentWidget()
@@ -469,6 +499,7 @@ class TabStrip(QTabBar):
     def tabLayoutChange(self):
         super().tabLayoutChange()
         self.position_close_buttons()
+        self.layout_changed.emit()
 
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
@@ -660,18 +691,18 @@ class MainWindow(QMainWindow):
             QLabel#footerVersion { color:#9baec4; }
             QStatusBar QPushButton#footerUpdate { color:#e7c35d;background:transparent;border:0;padding:3px 6px;text-align:left; }
             QStatusBar QPushButton#footerUpdate:hover { color:#f4dc85;text-decoration:underline;border:0; }
-            QTabWidget::pane { border:0;top:-1px; }
+            QTabWidget::pane { border:0;top:0; }
             QTabWidget::tab-bar { left:3px; }
             QTabBar::tab {
                 padding:6px 8px 3px;background:transparent;
-                border:1px solid #3c4b60;
+                border:1px solid #3c4b60;border-bottom:0;
                 border-top-left-radius:6px;border-top-right-radius:6px;
                 margin-right:3px;margin-top:0;
             }
             QTabBar::tab:!selected:hover { background:transparent; }
             QTabBar::tab:selected {
                 background:#181e29;color:#dde4ef;
-                border-top:1px solid #53647c;border-bottom-color:#181e29;
+                border-top:1px solid #53647c;
             }
             QToolButton#tabClose { border:0;padding:0;margin:0;border-radius:3px;background:transparent; }
             QToolButton#tabClose:hover { background:#3c4b60; }
@@ -1039,6 +1070,8 @@ class MainWindow(QMainWindow):
         themes = [terminal_preferences.effective(self.tabs.widget(i).data, self.data['terminal'])
                   for i in range(self.tabs.count())]
         self.tabs.tabBar().set_terminal_themes(themes)
+        for i in range(self.tabs.count()):
+            self.tabs.widget(i).top_border.update()
         tab = self.current_tab()
         if tab:
             settings = terminal_preferences.effective(tab.data, self.data['terminal'])

@@ -501,8 +501,9 @@ class WorkspaceTests(unittest.TestCase):
         second.command_buttons[0].click()
         self.assertEqual(["git status --short --branch"], first.terminal.commands)
         self.assertEqual(["make"], second.terminal.commands)
-        self.assertIs(first.layout().itemAt(0).widget(), first.terminal)
-        self.assertIsNotNone(first.layout().itemAt(1).layout())
+        self.assertIs(first.layout().itemAt(0).widget(), first.top_border)
+        self.assertIs(first.layout().itemAt(1).widget(), first.terminal)
+        self.assertIsNotNone(first.layout().itemAt(2).layout())
 
     def test_remembers_order_names_directories_active_tab_and_buttons(self):
         first = self.window.current_tab()
@@ -818,6 +819,44 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(0, server.terminal.stops)
         self.assertEqual(0, third.terminal.stops)
 
+    def test_shell_top_border_spans_the_shell_except_beneath_selected_tab(self):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtGui import QColor
+        from bashdock import terminal_preferences
+        self.window.show()
+        first = self.window.current_tab()
+        profile = config.default_tab('Server')
+        profile['terminal'] = dict(self.window.data['terminal'], background='#341527')
+        second = self.window.add_tab(profile)
+        bar = self.window.tabs.tabBar()
+
+        def inspect(selected, inactive, background, inactive_background):
+            self.window.tabs.setCurrentWidget(selected)
+            self.app.processEvents()
+            border = selected.top_border
+            image = border.grab().toImage()
+            ratio = image.devicePixelRatio()
+            self.assertEqual(selected.terminal.width(), border.width())
+            def x_for(tab):
+                center = bar.tabRect(self.window.tabs.indexOf(tab)).center()
+                return border.mapFromGlobal(bar.mapToGlobal(center)).x()
+            for x, color in ((x_for(selected), background), (x_for(inactive), '#3c4b60'),
+                             (border.width() - 2, '#3c4b60')):
+                self.assertEqual(QColor(color), image.pixelColor(int(x * ratio), 0))
+            # Only the shell's rule remains: no second border on an inactive tab.
+            tab_image = bar.grab().toImage()
+            rect = bar.tabRect(self.window.tabs.indexOf(inactive))
+            theme = terminal_preferences.effective(inactive.data, self.window.data['terminal'])
+            hover = terminal_preferences.inactive_tab_colors(theme)['hover']
+            self.assertIn(tab_image.pixelColor(int(rect.center().x() * ratio), int((rect.bottom() - 1) * ratio)),
+                          (QColor(inactive_background), QColor(hover)))
+
+        inspect(second, first, '#341527', '#1e222a')
+        bar.moveTab(self.window.tabs.indexOf(second), 0)
+        self.window.tabs.setTabText(self.window.tabs.indexOf(second), 'A much longer server tab name')
+        inspect(second, first, '#341527', '#1e222a')
+        inspect(first, second, '#10141c', '#402334')
+
     def test_selected_tab_meets_terminal_without_a_separator_or_layout_gap(self):
         from PySide6.QtCore import QPoint, Qt
         from PySide6.QtGui import QColor
@@ -833,7 +872,9 @@ class WorkspaceTests(unittest.TestCase):
         rect = bar.tabRect(bar.currentIndex())
         bottom = bar.mapTo(self.window, rect.bottomLeft()).y()
         top = tab.terminal.mapTo(self.window, QPoint(0, 0)).y()
-        self.assertEqual(bottom, top)
+        border_top = tab.top_border.mapTo(self.window, QPoint(0, 0)).y()
+        self.assertEqual(bottom + 1, border_top)
+        self.assertEqual(border_top + 1, top)
         image = self.window.grab().toImage()
         ratio = image.devicePixelRatio()
         x = bar.mapTo(self.window, rect.center()).x()
@@ -1105,7 +1146,7 @@ class WorkspaceTests(unittest.TestCase):
                     bar = self.window.tabs.tabBar()
                     tab_bottom = bar.mapTo(self.window, QPoint(0, bar.tabRect(0).bottom() + 1)).y()
                     shell_top = self.window.current_tab().terminal.mapTo(self.window, QPoint(0, 0)).y()
-                    self.assertEqual(-1, shell_top - tab_bottom)
+                    self.assertEqual(1, shell_top - tab_bottom)
 
     def test_tab_close_icons_stay_in_place_when_switching_tabs(self):
         from PySide6.QtCore import QPoint, Qt
