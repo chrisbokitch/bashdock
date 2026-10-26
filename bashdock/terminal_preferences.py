@@ -35,3 +35,15 @@ def effective(tab, app_defaults):
     """A custom tab preset is independent of later changes to app defaults."""
     override = tab.get("terminal")
     return validated(app_defaults if override is None else override)
+
+
+def inactive_tab_colors(settings):
+    """Use the scrollbar's track tint, plus a slightly brighter hover shade."""
+    def rgb(value):
+        return [int(value[i:i + 2], 16) for i in (1, 3, 5)]
+    def mix(start, end, amount):
+        return '#' + ''.join(f'{int(a + (b - a) * amount + 0.5):02x}' for a, b in zip(start, end))
+    background, foreground = rgb(settings['background']), rgb(settings['foreground'])
+    target = [0 if sum(c * w for c, w in zip(background, (0.2126, 0.7152, 0.0722))) > 190 else 255] * 3
+    return dict(background=mix(background, target, 0.06), hover=mix(background, target, 0.14),
+                foreground=mix(foreground, background, 0.15))

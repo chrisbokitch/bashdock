@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit, QStyle,
-    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu, QStyleOptionTab,
 )
 
 from . import config, terminal_preferences
@@ -383,7 +383,42 @@ class TabStrip(QTabBar):
         self.inset_pending = False
         self.selected_background = '#10141c'
         self.selected_foreground = '#dde4ef'
+        self.terminal_themes = []
         self.currentChanged.connect(self.position_close_buttons)
+
+    def set_terminal_themes(self, themes):
+        self.terminal_themes = [terminal_preferences.inactive_tab_colors(theme) for theme in themes]
+        for index, colors in enumerate(self.terminal_themes):
+            color = themes[index]['foreground'] if index == self.currentIndex() else colors['foreground']
+            self.setTabTextColor(index, QColor(color))
+        self.update()
+
+    def paintEvent(self, event):
+        # Fill individual inactive tabs beneath Qt's transparent tab shapes.
+        # Qt still draws borders, labels, focus, and movable-tab interactions.
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setClipRect(event.rect())
+        painter.setPen(Qt.PenStyle.NoPen)
+        for index, colors in enumerate(self.terminal_themes):
+            if index >= self.count() or index == self.currentIndex():
+                continue
+            option = QStyleOptionTab()
+            self.initStyleOption(option, index)
+            rect = QRectF(self.tabRect(index)).adjusted(0, self.top_inset, -3, 0)
+            path = QPainterPath()
+            path.moveTo(rect.left(), rect.bottom())
+            path.lineTo(rect.left(), rect.top() + 6)
+            path.quadTo(rect.left(), rect.top(), rect.left() + 6, rect.top())
+            path.lineTo(rect.right() - 6, rect.top())
+            path.quadTo(rect.right(), rect.top(), rect.right(), rect.top() + 6)
+            path.lineTo(rect.right(), rect.bottom())
+            path.closeSubpath()
+            painter.setBrush(QColor(colors['hover'] if option.state & QStyle.StateFlag.State_MouseOver
+                                    else colors['background']))
+            painter.drawPath(path)
+        painter.end()
+        super().paintEvent(event)
 
     def set_terminal_colors(self, background, foreground):
         if (background, foreground) != (self.selected_background, self.selected_foreground) or not self.styleSheet():
@@ -509,6 +544,7 @@ class MainWindow(QMainWindow):
         self.tabs.tabBarDoubleClicked.connect(self.rename_tab)
         self.tabs.currentChanged.connect(self.tab_changed)
         self.tabs.tabBar().tabMoved.connect(self.schedule_save)
+        self.tabs.tabBar().tabMoved.connect(self.refresh_tab_colors)
         add = QPushButton("+ New tab")
         add.clicked.connect(self.new_tab)
         corner = QWidget()
@@ -627,12 +663,12 @@ class MainWindow(QMainWindow):
             QTabWidget::pane { border:0;top:-1px; }
             QTabWidget::tab-bar { left:3px; }
             QTabBar::tab {
-                padding:6px 8px 3px;background:#202a39;color:#aab6c8;
+                padding:6px 8px 3px;background:transparent;
                 border:1px solid #3c4b60;
                 border-top-left-radius:6px;border-top-right-radius:6px;
                 margin-right:3px;margin-top:0;
             }
-            QTabBar::tab:!selected:hover { background:#2b394b;color:#dde4ef; }
+            QTabBar::tab:!selected:hover { background:transparent; }
             QTabBar::tab:selected {
                 background:#181e29;color:#dde4ef;
                 border-top:1px solid #53647c;border-bottom-color:#181e29;
@@ -967,6 +1003,7 @@ class MainWindow(QMainWindow):
         inset_layout.setContentsMargins(4, 0, 6, 0)
         inset_layout.addWidget(close)
         self.tabs.tabBar().setTabButton(index, QTabBar.ButtonPosition.RightSide, inset)
+        self.refresh_tab_colors()
         return tab
 
     def new_tab(self):
@@ -998,7 +1035,10 @@ class MainWindow(QMainWindow):
                 tab.terminal.bridge.focus.emit()
         self.schedule_save()
 
-    def refresh_tab_colors(self):
+    def refresh_tab_colors(self, *args):
+        themes = [terminal_preferences.effective(self.tabs.widget(i).data, self.data['terminal'])
+                  for i in range(self.tabs.count())]
+        self.tabs.tabBar().set_terminal_themes(themes)
         tab = self.current_tab()
         if tab:
             settings = terminal_preferences.effective(tab.data, self.data['terminal'])
@@ -1276,6 +1316,7 @@ class MainWindow(QMainWindow):
         tab.terminal.stop()
         self.tabs.removeTab(index)
         tab.deleteLater()
+        self.refresh_tab_colors()
         self.schedule_save()
 
     def set_confirm_on_exit(self, enabled):

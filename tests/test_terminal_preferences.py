@@ -5,6 +5,18 @@ from bashdock import config, terminal_preferences
 
 
 class TerminalPreferenceTests(unittest.TestCase):
+    def test_inactive_tab_tints_match_scrollbar_track_and_keep_extreme_themes_visible(self):
+        settings = dict(terminal_preferences.defaults(), background='#341527', foreground='#f7ce63')
+        self.assertEqual(dict(background='#402334', hover='#503645', foreground='#dab25a'),
+                         terminal_preferences.inactive_tab_colors(settings))
+        self.assertEqual('#1e222a', terminal_preferences.inactive_tab_colors(
+            terminal_preferences.defaults())['background'])
+        for background, foreground in (('#000000', '#ffffff'), ('#ffffff', '#000000')):
+            colors = terminal_preferences.inactive_tab_colors(dict(background=background, foreground=foreground))
+            self.assertNotEqual(background, colors['background'])
+            self.assertNotEqual(colors['background'], colors['hover'])
+            self.assertNotEqual(colors['background'], colors['foreground'])
+
     def test_tab_inheritance_and_custom_preferences_validate_including_saved_workspaces(self):
         defaults = dict(terminal_preferences.defaults(), font_size=22, background="#223344")
         tab = config.default_tab()

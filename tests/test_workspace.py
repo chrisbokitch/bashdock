@@ -759,6 +759,47 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(original, self.window.current_tab().terminal.preferences)
         self.assertEqual(original, config.load(self.path)["terminal"])
 
+    def test_inactive_tab_tints_follow_tab_identity_defaults_and_hover(self):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtGui import QColor
+        from PySide6.QtTest import QTest
+        self.window.show()
+        first = self.window.current_tab()
+        profile = config.default_tab('Server')
+        profile['terminal'] = dict(self.window.data['terminal'], background='#341527', foreground='#f7ce63')
+        server = self.window.add_tab(profile)
+        self.window.new_tab()
+        third = self.window.current_tab()
+        bar = self.window.tabs.tabBar()
+
+        def assert_surface(tab, color):
+            self.app.processEvents()
+            rect = bar.tabRect(self.window.tabs.indexOf(tab))
+            image = bar.grab().toImage()
+            ratio = image.devicePixelRatio()
+            self.assertEqual(QColor(color), image.pixelColor(int((rect.left() + 6) * ratio),
+                                                           int((rect.bottom() - 5) * ratio)))
+
+        assert_surface(server, '#402334')
+        assert_surface(first, '#1e222a')
+        QTest.mouseMove(bar, bar.tabRect(self.window.tabs.indexOf(server)).center())
+        assert_surface(server, '#503645')
+        QTest.mouseMove(self.window, QPoint(400, 300))
+        assert_surface(server, '#402334')
+        bar.moveTab(self.window.tabs.indexOf(server), 0)
+        assert_surface(server, '#402334')
+        changed = dict(self.window.data['terminal'], background='#223344')
+        with patch('bashdock.app.TerminalSettingsDialog') as dialog:
+            dialog.return_value.exec.return_value = 1
+            dialog.return_value.values.return_value = changed
+            self.window.configure_terminal()
+        assert_surface(first, '#2f3f4f')
+        assert_surface(server, '#402334')
+        self.window.close_tab(self.window.tabs.indexOf(first))
+        assert_surface(server, '#402334')
+        self.assertEqual(0, server.terminal.stops)
+        self.assertEqual(0, third.terminal.stops)
+
     def test_selected_tab_meets_terminal_without_a_separator_or_layout_gap(self):
         from PySide6.QtCore import QPoint, Qt
         from PySide6.QtGui import QColor
