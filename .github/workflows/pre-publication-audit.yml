@@ -1,0 +1,31 @@
+name: Pre-publication artifact audit
+on:
+  push:
+    branches: [audit/pre-publication-20261025]
+    paths:
+      - .github/workflows/pre-publication-audit.yml
+      - scripts/audit_large_artifacts.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Inspect retained large artifacts without release secrets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONUNBUFFERED: '1'
+        run: python3 scripts/audit_large_artifacts.py
+      - name: Retain redacted audit results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pre-publication-audit-results
+          path: audit-results/*.json
+          if-no-files-found: warn
+          retention-days: 14
