@@ -171,6 +171,47 @@ class UpdateTests(unittest.TestCase):
             wait.assert_not_called()
             self.assertEqual(b'old', (root / 'app/bashdock.exe').read_bytes())
 
+    def test_waiting_status_explains_other_windows_and_file_locks(self):
+        import itertools
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / 'app'
+            (target / '_internal').mkdir(parents=True)
+            (target / 'bashdock.exe').write_bytes(b'old')
+            pending = root / 'pending'
+            pending.mkdir()
+            content = zip_bytes()
+            (pending / 'package.zip').write_bytes(content)
+            (pending / 'manifest.json').write_text(json.dumps(metadata(content=content)))
+            (pending / 'manifest.sig').write_bytes(b'signature')
+            settings = root / 'settings.json'
+            settings.write_text('old settings')
+            plan = dict(install=str(target), pending=str(pending), pid=12, token='a' * 64,
+                        settings=str(settings), settings_backup=str(settings))
+            status = Mock()
+            with patch.object(update_helper.time, 'sleep'), patch.object(
+                    update_helper.time, 'monotonic', side_effect=itertools.count(0, 61)):
+                with self.assertRaisesRegex(OSError, 'other BashDock windows'):
+                    update_helper.install(plan, {}, verify=lambda *a: None, wait=Mock(),
+                                          other_processes=lambda p: [456], status=status)
+            self.assertTrue(any('minimized' in call.args[0] for call in status.call_args_list))
+            self.assertEqual(b'old', (target / 'bashdock.exe').read_bytes())
+            self.assertFalse(list(root.glob('.bashdock-previous-*')))
+            operation, blocked = Mock(side_effect=[OSError('locked'), 'done']), Mock()
+            with patch.object(update_helper.time, 'sleep'):
+                self.assertEqual('done', update_helper.retry(operation, blocked=blocked))
+            blocked.assert_called_once()
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Native Windows updater status window')
+    def test_native_updater_status_window_opens_updates_and_closes(self):
+        from bashdock.update_status import UpdateStatus
+        with UpdateStatus() as status:
+            status.set_text('Waiting for another BashDock window to close…')
+            self.assertTrue(status.thread.is_alive())
+            __import__('time').sleep(0.15)
+        self.assertFalse(status.thread.is_alive())
+        self.assertIsNone(status.error)
+
     @unittest.skipUnless(sys.platform == 'win32', 'Windows CNG signature verification')
     def test_windows_cng_verifies_openssl_signature_and_rejects_modified_manifest(self):
         from scripts.update_keys import openssl, modulus

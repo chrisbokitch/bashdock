@@ -147,3 +147,73 @@ No global SSL overrides or separate CA bundle are used. The compiled helper's
 self-test creates this context so missing native TLS modules fail the build.
 If validation still fails, check Windows date/time, Windows certificate updates
 and any organization-managed HTTPS proxy. Never disable certificate checks.
+
+## Visible installation progress (0.11.12+)
+
+The independent helper opens a native status window while verifying, extracting,
+waiting, replacing files and checking startup. If another instance holds the
+installation, it asks you to close other BashDock windows, including minimized
+windows. Locked-folder retries show guidance too. Each wait still has a timeout;
+an unsuccessful update retains/restores the previous installation and reports
+an error. The window can be minimized, but cannot be closed during replacement.
+It requires no Qt files from the installation being replaced.
+
+This feedback belongs to the **installed helper**: a v0.11.4 installation updating
+to a newer version still uses its old helper for that transition. Validate the
+new feedback with a 0.11.12-or-later baseline and a subsequent signed release.
+
+## Repeatable compiled-helper recovery and tamper checks
+
+Use a disposable Windows VM with Git for Windows installed. This command needs
+no Python or Node. It uses the compiled 0.11.12+ helper, real Windows signature
+verification, actual directory replacement, and Windows process creation. It
+never changes the supplied baseline or downloaded release assets.
+
+1. Extract a known-working release into a baseline folder (for example,
+   `C:\UpdateTest\baseline\bashdock`). Close that copy. Keep the ordinary
+   installation separate.
+2. Download the **same release's** `bashdock-update.json`, `bashdock-update.sig`
+   and application ZIP into `C:\UpdateTest\assets`. The assets must have the
+   production signature; source archives are unnecessary. The baseline can be
+   an older version; the supplied assets can be the existing published v0.11.11.
+3. Obtain the **new** `bashdock-updater.exe` from a 0.11.12+ compiled package.
+   Put it outside the baseline, for example `C:\UpdateTest\bashdock-updater.exe`.
+4. Ensure several GB of free space. In Git Bash, run (the `run-1` folder must
+   **not already exist**):
+
+   ```bash
+   cd /c/UpdateTest
+   ./bashdock-updater.exe --acceptance-test 'C:\UpdateTest\run-1' \
+     --baseline 'C:\UpdateTest\baseline\bashdock' \
+     --assets 'C:\UpdateTest\assets'
+   ```
+
+The harness copies the baseline into the new output folder and uses isolated
+APPDATA/LOCALAPPDATA settings with automatic checks disabled. It tests:
+
+- A changed manifest (valid JSON with an added newline).
+- A changed signature.
+- A changed ZIP byte with the original size.
+- A truncated ZIP.
+- A genuine Windows failure to launch the replacement: **after** verifying and
+  extracting the signed ZIP, it deliberately replaces only the disposable
+  executable with invalid bytes and changes the disposable settings. The real
+  installer must restore all previous file hashes and both settings files, and
+  retain failed settings and a `rolled-back` transaction record.
+- Launching the restored real app and receiving its version/token startup
+  acknowledgment. Inspect the tab named **Rollback test — disposable copy**,
+  then close that test app.
+
+Each tamper case must be rejected before waiting for an app or writing an
+installation transaction. All original assets and the baseline remain unchanged.
+`run-1/acceptance-results.json` must contain `"ok": true` and six passing cases.
+A native success/failure message identifies the outcome. Keep the report with
+acceptance evidence; test folders are retained for inspection. Close the test
+app before deleting the output folder or restoring the VM checkpoint. Use a new
+output folder for each run.
+
+This deliberately skips the normal running-app handoff because no baseline app
+is running in the copy. It tests an OS launch failure, not every possible crash
+or hang after a successful launch. Normal GUI handoff, second-instance feedback,
+and real two-release updating still need their separate VM checks. It does not
+weaken signature verification or add a failure switch to normal app startup.

@@ -78,12 +78,14 @@ def processes_in(directory):
     return found
 
 
-def retry(operation, timeout=60):
+def retry(operation, timeout=60, *, blocked=None):
     deadline = time.monotonic() + timeout
     while True:
         try:
             return operation()
         except OSError:
+            if blocked:
+                blocked()
             if time.monotonic() >= deadline:
                 raise
             time.sleep(0.5)
@@ -127,7 +129,8 @@ def wait_for_health(process, health, token, version, timeout=45):
 
 
 def install(plan, key, *, verify=None, wait=wait_for_pid, other_processes=processes_in,
-            launch=start_app, healthy=wait_for_health):
+            launch=start_app, healthy=wait_for_health, status=lambda text: None):
+    status('Verifying the downloaded update…')
     target = Path(plan['install']).resolve()
     pending = Path(plan['pending']).resolve()
     if type(plan.get('pid')) is not int or not 0 < plan['pid'] < 2**32 or not re.fullmatch('[0-9a-f]{64}', plan.get('token', '')):
@@ -157,28 +160,37 @@ def install(plan, key, *, verify=None, wait=wait_for_pid, other_processes=proces
                                          'failed': str(failed), 'settings_backup': str(backup_settings)}), encoding='utf-8')
         temporary.replace(journal)
     try:
+        status('Preparing the new version…')
         replacement = extract_package(archive, stage)
         record('staged')
+        status('Waiting for BashDock to close…')
         wait(plan['pid'])
         deadline = time.monotonic() + 60
         while other_processes(target):
+            status('Waiting for other BashDock windows to close…\nClose any other BashDock windows, including minimized windows, to continue.')
             if time.monotonic() >= deadline:
                 raise OSError('Close the other BashDock windows before updating.')
             time.sleep(0.5)
-        retry(lambda: target.rename(old))
+        status('Installing the update…')
+        def locked():
+            status('Waiting for files in the installation folder to become available…\nClose programs using this folder. The update will retry for up to one minute.')
+        retry(lambda: target.rename(old), blocked=locked)
         moved_old = True
         record('previous-retained')
-        retry(lambda: replacement.rename(target))
+        retry(lambda: replacement.rename(target), blocked=locked)
         moved_new = True
         record('installed-awaiting-startup')
         health = pending / 'health.json'
         health.unlink(missing_ok=True)
+        status('Starting the new version…')
         process = launch(target, health, plan['token'])
         if not healthy(process, health, plan['token'], manifest['version']):
             raise OSError('The new version did not start successfully.')
         record('healthy')
+        status('Update complete.')
         return {'ok': True, 'version': manifest['version'], 'previous': str(old)}
     except BaseException:
+        status('The update could not finish. Keeping or restoring the previous version…')
         if process is not None and process.poll() is None:
             process.terminate()
             process.wait(timeout=15)
@@ -206,7 +218,25 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--install', type=Path)
     group.add_argument('--self-test', type=Path)
+    group.add_argument('--acceptance-test', type=Path, metavar='NEW_OUTPUT_FOLDER')
+    parser.add_argument('--baseline', type=Path)
+    parser.add_argument('--assets', type=Path)
     args = parser.parse_args()
+    if args.acceptance_test:
+        from .update_acceptance import run_acceptance
+        from .update_status import UpdateStatus
+        if not args.baseline or not args.assets:
+            parser.error('--acceptance-test requires --baseline and --assets')
+        try:
+            with UpdateStatus('BashDock updater acceptance test') as status:
+                run_acceptance(args.baseline, args.assets, args.acceptance_test, status=status.set_text)
+        except Exception as error:
+            ctypes.windll.user32.MessageBoxW(None, str(error), 'Updater acceptance test failed', 0x10)
+            raise SystemExit(1)
+        ctypes.windll.user32.MessageBoxW(None,
+            'All checks passed. Inspect and close the disposable BashDock window.\nResults: ' +
+            str(args.acceptance_test / 'acceptance-results.json'), 'Updater acceptance test passed', 0x40)
+        return
     if args.self_test:
         from .update_security import KEY_FILE
         json.loads(KEY_FILE.read_text(encoding='utf-8'))
@@ -215,6 +245,10 @@ def main():
         import ssl
         if not context.check_hostname or context.verify_mode != ssl.CERT_REQUIRED:
             raise ValueError('The update TLS context must verify hostnames and certificates.')
+        from .update_status import UpdateStatus
+        with UpdateStatus() as status:
+            status.set_text('Checking the independent updater…')
+            time.sleep(0.2)
         args.self_test.write_text(json.dumps({'ok': True, 'frozen': bool(getattr(sys, 'frozen', False))}))
         return
     # A named mutex is automatically released even if the helper crashes.
@@ -232,7 +266,9 @@ def main():
     cache = args.install.parent.parent
     result_path = cache / 'result.json'
     try:
-        result = install(plan, load_key())
+        from .update_status import UpdateStatus
+        with UpdateStatus() as status:
+            result = install(plan, load_key(), status=status.set_text)
         result_path.write_text(json.dumps(result), encoding='utf-8')
     except Exception as error:
         result_path.write_text(json.dumps({'ok': False, 'message': str(error)}), encoding='utf-8')
