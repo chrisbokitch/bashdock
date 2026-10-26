@@ -759,6 +759,23 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(original, self.window.current_tab().terminal.preferences)
         self.assertEqual(original, config.load(self.path)["terminal"])
 
+    def test_menu_popups_have_visible_surface_and_vertical_edge_padding(self):
+        from PySide6.QtCore import QPoint
+        for menu in (self.window.manage_menu, self.window.settings_menu,
+                     self.window.help_menu, self.window.workspaces_menu, self.window.updates_menu):
+            with self.subTest(menu=menu.title()):
+                menu.ensurePolished()
+                menu.popup(QPoint(20, 20))
+                self.app.processEvents()
+                actions = [a for a in menu.actions() if a.isVisible()]
+                first = menu.actionGeometry(actions[0])
+                last = menu.actionGeometry(actions[-1])
+                self.assertGreaterEqual(first.top(), 7)  # six pixels plus border
+                self.assertGreaterEqual(menu.height() - last.bottom() - 1, 7)
+                image = menu.grab().toImage()
+                self.assertEqual('#253144', image.pixelColor(menu.width() // 2, 3).name())
+                menu.hide()
+
     def test_menus_group_actions_and_about_shows_current_version_and_repository(self):
         from PySide6.QtWidgets import QDialog, QLabel
         from bashdock import __version__

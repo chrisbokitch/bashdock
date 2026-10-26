@@ -493,8 +493,13 @@ class MainWindow(QMainWindow):
         self.tab_changed()
         self.setStyleSheet("""
             QMainWindow,QDialog,QWidget { background:#181e29;color:#dde4ef; }
-            QMenu { padding-top:2px;padding-bottom:2px; }
-            QMenu::item { padding:2px 16px; }
+            QMenu {
+                background:#253144;color:#dde4ef;border:1px solid #53647c;
+                padding:6px 0;
+            }
+            QMenu::item { padding:2px 16px;background:transparent; }
+            QMenu::item:selected { background:#3c4b60;color:#ffffff; }
+            QMenu::item:disabled { color:#8995a7; }
             QMenu::separator { height:1px; background:#3c4b60; margin:4px 0; }
             QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
             QPushButton:hover { border-color:#70dcc2; }
