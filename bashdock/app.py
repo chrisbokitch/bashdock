@@ -329,7 +329,7 @@ class ShellTab(QWidget):
         self.shell_bash_path = ""
         self.status = "Loading terminal…"
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 3, 0, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         self.terminal = terminal_factory(self)
         layout.addWidget(self.terminal, 1)
@@ -622,7 +622,7 @@ class MainWindow(QMainWindow):
             QLabel#footerVersion { color:#9baec4; }
             QStatusBar QPushButton#footerUpdate { color:#e7c35d;background:transparent;border:0;padding:3px 6px;text-align:left; }
             QStatusBar QPushButton#footerUpdate:hover { color:#f4dc85;text-decoration:underline;border:0; }
-            QTabWidget::pane { border:0;border-top:1px solid #3c4b60;top:-1px; }
+            QTabWidget::pane { border:0;top:-1px; }
             QTabWidget::tab-bar { left:3px; }
             QTabBar::tab {
                 padding:6px 8px 3px;background:#202a39;color:#aab6c8;

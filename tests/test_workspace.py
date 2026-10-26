@@ -759,6 +759,34 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(original, self.window.current_tab().terminal.preferences)
         self.assertEqual(original, config.load(self.path)["terminal"])
 
+    def test_selected_tab_meets_terminal_without_a_separator_or_layout_gap(self):
+        from PySide6.QtCore import QPoint, Qt
+        from PySide6.QtGui import QColor
+        self.window.show()
+        tab = self.window.current_tab()
+        tab.data['terminal'] = dict(self.window.data['terminal'], background='#341527')
+        self.window.refresh_tab_colors()
+        # Give the isolated fake terminal the same surface as the real web view.
+        tab.terminal.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        tab.terminal.setStyleSheet('background:#341527;')
+        self.app.processEvents()
+        bar = self.window.tabs.tabBar()
+        rect = bar.tabRect(bar.currentIndex())
+        bottom = bar.mapTo(self.window, rect.bottomLeft()).y()
+        top = tab.terminal.mapTo(self.window, QPoint(0, 0)).y()
+        self.assertEqual(bottom, top)
+        image = self.window.grab().toImage()
+        ratio = image.devicePixelRatio()
+        x = bar.mapTo(self.window, rect.center()).x()
+        for y in range(int((bottom - 1) * ratio), int((top + 2) * ratio)):
+            color = image.pixelColor(int(x * ratio), y)
+            if ratio.is_integer():
+                self.assertEqual(QColor('#341527'), color)
+            else:
+                # QWidget.grab composites fractional child edges; a boundary
+                # pixel can blend, but there must be no solid spacer/border row.
+                self.assertNotIn(color, (QColor('#181e29'), QColor('#3c4b60')))
+
     def test_selected_tab_uses_effective_terminal_colors_on_switch_and_defaults_change(self):
         from PySide6.QtGui import QColor
         self.window.show()
@@ -1023,7 +1051,7 @@ class WorkspaceTests(unittest.TestCase):
                     bar = self.window.tabs.tabBar()
                     tab_bottom = bar.mapTo(self.window, QPoint(0, bar.tabRect(0).bottom() + 1)).y()
                     shell_top = self.window.current_tab().terminal.mapTo(self.window, QPoint(0, 0)).y()
-                    self.assertEqual(3, shell_top - tab_bottom)
+                    self.assertEqual(-1, shell_top - tab_bottom)
 
     def test_tab_close_icons_stay_in_place_when_switching_tabs(self):
         from PySide6.QtCore import QPoint, Qt
