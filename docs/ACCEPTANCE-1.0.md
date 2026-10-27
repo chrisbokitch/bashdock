@@ -198,30 +198,13 @@ The exercised manual scope was:
 The owner confirmed both checks passed. Clipboard behavior stays in M5;
 actual Windows display-scaling checks stay in M9.
 
-## Outstanding manual Windows checks
-
-Use a disposable VM/profile for destructive recovery and updater-failure cases.
-Preserve E1–E8; do not rerun completed historical checks merely because an older
-checklist left them unchecked. The IDs below identify the remaining scope.
-
-| ID | Check to finish | Existing evidence / result still needed |
-| --- | --- | --- |
-| M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
-| M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
-| M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
-| M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
-| M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
-| M6 | Terminal defaults and per-tab overrides | Inheritance, returning to defaults, cancel/save failure behavior, preservation through workspaces/settings, and applying appearance without restarting shells. Appearance restoration has focused owner evidence; this complete scenario is unrecorded. |
-| M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
-| M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
-| M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
-
-### M5 automated coverage and remaining manual smoke
+## Completed M5: clipboard and mouse preferences
 
 The new native test exposed duplicate Ctrl+Shift+V input from Chromium's
 default paste handling in addition to BashDock's bridge. **0.14.7** suppresses
-the browser default action for handled copy/paste shortcuts. Use 0.14.7 or later
-for the remaining M5 manual checks; earlier completed M2–M4 scope is retained.
+the browser default action for handled copy/paste shortcuts. The completed M5
+manual scope below follows the requested installed 0.14.7 checks; earlier
+completed M2–M4 scope is retained.
 
 - [test_clipboard.py](../tests/test_clipboard.py) exercises the real Qt clipboard
   and Python bridge: Unicode copy/single-line paste, empty text, and LF/CRLF/CR
@@ -249,7 +232,12 @@ clipboard and integration cases with native Qt Windows rendering. Clipboard
 tests preserve and restore the native clipboard's original MIME data; the
 offscreen backend's process-local clipboard is cleared during teardown.
 
-Only these installed-app checks remain for M5; record the app version:
+**Passed — owner confirmation, 2026-10-27**, following the requested installed
+0.14.7 checks. Both manual scenarios below passed; combined with the automated
+coverage above, M5 is complete. No separate package checksum was supplied for
+this confirmation.
+
+The exercised manual scope was:
 
 1. **Physical selection and another app:** drag-select terminal text with the
    mouse, use Ctrl+Shift+C, and paste into Notepad. Include non-ASCII text and a
@@ -265,9 +253,27 @@ Only these installed-app checks remain for M5; record the app version:
    effect, then restore whichever settings you prefer. Use harmless clipboard
    text and avoid Enter while checking paste behavior.
 
-Both checks remain outstanding until an owner result is recorded. These are
-native pointer/external-app integration checks, not a requirement to repeat the
-complete automated clipboard/preference matrix manually.
+The owner confirmed both native pointer/external-app integration checks passed.
+No separate repeat of the complete automated clipboard/preference matrix is
+required for M5.
+
+## Outstanding manual Windows checks
+
+Use a disposable VM/profile for destructive recovery and updater-failure cases.
+Preserve E1–E8; do not rerun completed historical checks merely because an older
+checklist left them unchecked. The IDs below identify the remaining scope.
+
+| ID | Check to finish | Existing evidence / result still needed |
+| --- | --- | --- |
+| M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
+| M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
+| M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
+| M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
+| M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
+| M6 | Terminal defaults and per-tab overrides | Inheritance, returning to defaults, cancel/save failure behavior, preservation through workspaces/settings, and applying appearance without restarting shells. Appearance restoration has focused owner evidence; this complete scenario is unrecorded. |
+| M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
+| M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
+| M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
 
 ## Outstanding updater checks
 
