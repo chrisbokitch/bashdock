@@ -10,8 +10,10 @@ ROOT = Path(__file__).resolve().parent.parent
 
 if __package__:
     from .release_licenses import verify_notice_archive, NOTICE_ARCHIVE
+    from .check_startup_health import verify_startup_health
 else:
     from release_licenses import verify_notice_archive, NOTICE_ARCHIVE
+    from check_startup_health import verify_startup_health
 
 
 def main():
@@ -53,6 +55,7 @@ def main():
                        cwd=root, timeout=60, check=True)
         if json.loads(report.read_text(encoding="utf-8")).get("ok") is not True:
             raise ValueError(f"Extracted executable smoke test failed: {report}")
+        verify_startup_health(executable, root, version)
     print(f"Checksum and extracted executable verified: {archive.name}")
 
 

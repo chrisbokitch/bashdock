@@ -1473,14 +1473,11 @@ def main():
     window.show()
     if "--update-health" in sys.argv:
         def acknowledge_update():
-            import json
-            import re
-            from .updates import cache_directory
+            from .update_health import acknowledge_startup
             try:
-                path = Path(sys.argv[sys.argv.index("--update-health") + 1]).resolve()
-                token = sys.argv[sys.argv.index("--update-token") + 1]
-                if path.name == "health.json" and path.is_relative_to(cache_directory().resolve()) and re.fullmatch("[0-9a-f]{64}", token):
-                    path.write_text(json.dumps({"token": token, "version": __version__}), encoding="utf-8")
+                if not acknowledge_startup(sys.argv, installation=Path(sys.executable).resolve().parent,
+                                           version=__version__):
+                    logging.error("Update startup confirmation was rejected.")
             except (OSError, ValueError, IndexError):
                 logging.exception("Could not acknowledge update startup")
         QTimer.singleShot(1000, acknowledge_update)

@@ -309,3 +309,13 @@ Confirm the staged notice is consumed and a new staging command is detected.
 The automated suite checks real local signatures (Windows CNG on Windows), target
 binding, tampering, atomic publication, isolation from the public trust path, and
 transactional startup rollback with disposable installation/settings fixtures.
+
+Every `npm run compile` also starts disposable copies of the compiled GUI and
+checks its actual startup receipt for both public-cache and installation-scoped
+local-inbox paths. User settings and cache directories are isolated, public
+network checks are disabled, and only the test process trees are stopped after
+verification. Results are in `build/startup-health-smoke.json`. ZIP verification
+repeats this check on the extracted executable. A local startup receipt must be
+inside the running installation's own `pending-*` inbox; other installations and
+arbitrary paths remain rejected. Diagnostic reports include receipt acceptance
+and write-success flags, without paths or update tokens.

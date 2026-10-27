@@ -30,6 +30,7 @@ SCHEMA = {
     'resize_complete': set(), 'resize_failed': {'errno', 'winerror'},
     'focus_requested': {'native_focus'}, 'web_focus': {'focused'},
     'window_resize': {'width', 'height'}, 'tab_selected': set(),
+    'update_health': {'accepted', 'written', 'local', 'public', 'errno', 'winerror'},
 }
 
 

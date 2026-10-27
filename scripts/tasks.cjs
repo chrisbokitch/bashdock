@@ -86,6 +86,11 @@ if (task === 'stage-update') {
   const report = path.join(root, 'build', 'packaged-shell-smoke.json');
   rmSync(report, { force: true });
   run(executable, ['--shell-smoke-test', report], { timeout: 60000, report });
+  console.log('Checking compiled GUI startup confirmation for public and local updates…');
+  const healthReport = path.join(root, 'build', 'startup-health-smoke.json');
+  rmSync(healthReport, { force: true });
+  run(python, ['scripts/check_startup_health.py', executable, '--report', healthReport],
+      { timeout: 200000, report: healthReport });
   console.log(`Built ${executable}\nKeep the entire dist/bashdock folder together when copying the app.`);
 } else if (task === 'package') {
   run(python, ['-u', 'scripts/package_release.py']);
