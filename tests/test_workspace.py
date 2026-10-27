@@ -11,7 +11,7 @@ if sys.platform != "win32":
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QApplication, QWidget, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QMessageBox, QPushButton
 from bashdock import config
 from bashdock.app import MainWindow, SettingsDialog
 
@@ -504,6 +504,16 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIs(first.layout().itemAt(0).widget(), first.top_border)
         self.assertIs(first.layout().itemAt(1).widget(), first.terminal)
         self.assertIsNotNone(first.layout().itemAt(2).layout())
+        for tab in (first, second):
+            configure = tab.findChild(QPushButton, 'configureTab')
+            self.assertEqual('', configure.text())
+            self.assertEqual('Configure tab…', configure.toolTip())
+            self.assertEqual('Configure tab…', configure.accessibleName())
+            self.assertFalse(configure.icon().pixmap(18, 18).isNull())
+            self.assertEqual(36, configure.width())
+            with patch.object(self.window, 'configure') as open_settings:
+                configure.click()
+                open_settings.assert_called_once_with(tab)
 
     def test_remembers_order_names_directories_active_tab_and_buttons(self):
         first = self.window.current_tab()

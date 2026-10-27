@@ -374,7 +374,13 @@ class ShellTab(QWidget):
         scroll.setWidget(self.bar)
         self.bar.installEventFilter(scroll)
         footer.addWidget(scroll, 1)
-        configure = QPushButton("Configure tab…")
+        configure = QPushButton()
+        configure.setObjectName("configureTab")
+        configure.setIcon(QIcon(str(APP_ICON.parent / "settings.svg")))
+        configure.setIconSize(QSize(18, 18))
+        configure.setFixedWidth(36)
+        configure.setToolTip("Configure tab…")
+        configure.setAccessibleName("Configure tab…")
         configure.clicked.connect(self.configure_requested.emit)
         footer.addWidget(configure)
         layout.addLayout(footer)
@@ -683,6 +689,7 @@ class MainWindow(QMainWindow):
             QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
             QPushButton:hover { border-color:#70dcc2; }
             QPushButton:disabled { color:#77818f; }
+            QPushButton#configureTab { padding:6px; }
             QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
             QLineEdit { padding:6px; }
             QStatusBar { background:#111b2b;border-top:1px solid #27384d; }
