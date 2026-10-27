@@ -9,7 +9,7 @@ release numbers.
 
 | Order | Feature | Scope |
 | --- | --- | --- |
-| 1 | Workspace submenu: Replace current toggle | Expose the existing add/replace behavior directly in the submenu. |
+| 1 | Workspace submenu: Replace current toggle | Implemented in development 1.1.0; owner visual check pending. |
 | 2 | Wrapping command buttons | Wrap the command bar into additional rows as the window narrows. |
 | 3 | Tab icons and compact overflow | Optional tab icons, with an icon-only treatment when labels no longer fit. |
 | 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
@@ -30,7 +30,7 @@ editor/template/shell features.
 
 ## Workspace submenu: Replace current toggle
 
-Post-1.0 request: add a checkable **Replace current** item at the bottom of
+Implemented in development **1.1.0**: a checkable **Replace current** item at the bottom of
 **Manage → Workspaces**, separated from the saved workspace entries by a separator.
 
 - Unchecked: choosing a saved workspace adds its missing tabs, preserving the
@@ -39,8 +39,10 @@ Post-1.0 request: add a checkable **Replace current** item at the bottom of
   adding tabs, using the existing replacement confirmation and backup behavior.
 - Toggling the item only changes the opening mode; it does not immediately open
   a workspace or close any tabs.
-- Start with the existing additive behavior by default. Decide whether the mode
-  persists across app launches when implementing the enhancement.
+- Additive behavior is the default for new and existing settings. The selected
+  mode persists across launches and settings export/import/backup recovery.
+- Failed preference saves restore the prior mode and checkmark. The workspace
+  manager’s explicit Open/Replace controls retain their existing behavior.
 
 Acceptance: submenu entries respect the selected mode; the checked state is
 clear; cancelling replacement preserves current shells and settings.

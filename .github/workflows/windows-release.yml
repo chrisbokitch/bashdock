@@ -136,6 +136,8 @@ jobs:
             $env:QT_QPA_PLATFORM = "windows"
             .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k m3 -v
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k workspace_replace -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k saved_workspace_buttons -v
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } finally {

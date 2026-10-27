@@ -75,6 +75,15 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 config.validate(data)
 
+    def test_workspace_open_mode_defaults_for_older_settings_and_rejects_nonboolean(self):
+        old = config.defaults()
+        del old['workspace_replace_current']
+        self.assertFalse(config.migrate(old)['workspace_replace_current'])
+        self.assertNotIn('workspace_replace_current', old)
+        for value in ('true', 1, None, []):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                config.validate(dict(old, workspace_replace_current=value))
+
     def test_imports_gitbasher_workspace_once_and_keeps_original(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.dict("os.environ", {"APPDATA": directory}):

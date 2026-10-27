@@ -971,8 +971,24 @@ class MainWindow(QMainWindow):
             self.workspaces_menu.addSeparator()
             for index, workspace in enumerate(workspaces):
                 action = QAction(workspace["name"].replace("&", "&&"), self.workspaces_menu)
-                action.triggered.connect(lambda checked=False, index=index: self.open_workspace(index))
+                action.triggered.connect(lambda checked=False, index=index: self.open_workspace(
+                    index, replace=self.data.get("workspace_replace_current", False)))
                 self.workspaces_menu.addAction(action)
+        self.workspaces_menu.addSeparator()
+        self.workspace_replace_action = QAction("Replace current", self.workspaces_menu)
+        self.workspace_replace_action.setCheckable(True)
+        self.workspace_replace_action.setChecked(self.data.get("workspace_replace_current", False))
+        self.workspace_replace_action.setToolTip("Replace current tabs when opening a saved workspace from this menu.")
+        self.workspace_replace_action.triggered.connect(self.set_workspace_replace_current)
+        self.workspaces_menu.addAction(self.workspace_replace_action)
+
+    def set_workspace_replace_current(self, enabled):
+        previous = self.data.get("workspace_replace_current", False)
+        self.data["workspace_replace_current"] = enabled
+        if not self.persist():
+            self.data["workspace_replace_current"] = previous
+            self.workspace_replace_action.setChecked(previous)
+            QMessageBox.warning(self, "Settings were not saved", "Could not save the workspace opening mode.")
 
     def store_workspaces(self, workspaces):
         try:
@@ -1135,6 +1151,7 @@ class MainWindow(QMainWindow):
                 "updates": copy.deepcopy(self.data.get("updates", {"automatic": True, "download": True})),
                 "terminal": copy.deepcopy(self.data["terminal"]),
                 "workspaces": copy.deepcopy(self.data.get("workspaces", [])),
+                "workspace_replace_current": self.data.get("workspace_replace_current", False),
                 "active_tab": self.tabs.currentIndex(),
                 "tabs": [copy.deepcopy(self.tabs.widget(i).data) for i in range(self.tabs.count())]}
 

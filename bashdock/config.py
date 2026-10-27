@@ -28,6 +28,7 @@ def default_tab(name="Git Bash"):
 def defaults():
     return {"version": 2, "bash_path": "", "tabs": [default_tab()], "active_tab": 0,
             "confirm_on_exit": True, "terminal": terminal_preferences.defaults(), "workspaces": [],
+            "workspace_replace_current": False,
             "updates": {"automatic": True, "download": True}}
 
 
@@ -135,6 +136,8 @@ def validate(data):
         raise ValueError("bash_path must be a string.")
     if type(data.get("confirm_on_exit", True)) is not bool:
         raise ValueError("confirm_on_exit must be a boolean.")
+    if type(data.get("workspace_replace_current", False)) is not bool:
+        raise ValueError("workspace_replace_current must be a boolean.")
     terminal_preferences.validated(data.get("terminal", {}))
     updates = data.get("updates", {"automatic": True, "download": True})
     if not isinstance(updates, dict) or any(type(updates.get(k, True)) is not bool for k in ("automatic", "download")):
@@ -160,11 +163,13 @@ def migrate(data):
         return validate({"version": 2, "bash_path": data["bash_path"], "tabs": [tab],
                          "active_tab": 0, "confirm_on_exit": True,
                          "terminal": terminal_preferences.defaults(), "workspaces": [],
+                         "workspace_replace_current": False,
                          "updates": {"automatic": True, "download": True}})
     if isinstance(data, dict) and data.get("version") == 2:
         data = copy.deepcopy(data)
         data.setdefault("confirm_on_exit", True)
         data.setdefault("workspaces", [])
+        data.setdefault("workspace_replace_current", False)
         if isinstance(data.get("updates", {}), dict):
             data["updates"] = {"automatic": True, "download": True, **data.get("updates", {})}
         data["terminal"] = terminal_preferences.validated(data.get("terminal", {}))

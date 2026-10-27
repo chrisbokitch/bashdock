@@ -1628,7 +1628,7 @@ class WorkspaceTests(unittest.TestCase):
 
     def test_workspaces_submenu_configures_and_opens_current_saved_entries_without_duplicates(self):
         submenu = next(a.menu() for a in self.window.manage_menu.actions() if a.text() == "Workspaces")
-        self.assertEqual(["Configure…"], [a.text() for a in submenu.actions()])
+        self.assertEqual(["Configure…", "", "Replace current"], [a.text() for a in submenu.actions()])
         with patch("bashdock.app.WorkspacesDialog") as dialog:
             submenu.actions()[0].trigger()
             dialog.return_value.exec.assert_called_once()
@@ -1640,7 +1640,8 @@ class WorkspaceTests(unittest.TestCase):
         self.ready(second)
         self.assertTrue(self.window.save_workspace("CIDR", [1]))
         submenu.aboutToShow.emit()
-        self.assertEqual(["Configure…", "", "App && Website", "CIDR"], [a.text() for a in submenu.actions()])
+        self.assertEqual(["Configure…", "", "App && Website", "CIDR", "", "Replace current"],
+                         [a.text() for a in submenu.actions()])
         self.assertTrue(submenu.actions()[1].isSeparator())
         submenu.actions()[2].trigger()
         self.assertIs(first, self.window.current_tab())
@@ -1658,7 +1659,75 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual("Renamed", submenu.actions()[2].text())
         self.assertTrue(self.window.store_workspaces([]))
         submenu.aboutToShow.emit()
-        self.assertEqual(["Configure…"], [a.text() for a in submenu.actions()])
+        self.assertEqual(["Configure…", "", "Replace current"], [a.text() for a in submenu.actions()])
+
+    def test_workspace_replace_toggle_changes_only_mode_and_persists_after_menu_refresh_and_reopen(self):
+        self.assertTrue(self.window.save_workspace('Project', [0]))
+        self.window.new_tab()
+        tabs = [self.window.tabs.widget(i) for i in range(2)]
+        for tab in tabs:
+            self.ready(tab)
+        self.window.refresh_workspaces_menu()
+        menu = self.window.workspaces_menu
+        self.assertTrue(menu.actions()[-2].isSeparator())
+        action = menu.actions()[-1]
+        self.assertEqual('Replace current', action.text())
+        self.assertTrue(action.isCheckable())
+        self.assertFalse(action.isChecked())
+        action.trigger()
+        self.assertTrue(config.read(self.path)['workspace_replace_current'])
+        self.assertEqual(tabs, [self.window.tabs.widget(i) for i in range(2)])
+        self.assertEqual([0, 0], [tab.terminal.stops for tab in tabs])
+        self.assertEqual([[], []], [tab.terminal.commands for tab in tabs])
+        self.assertFalse(list((self.path.parent / 'backups').glob('settings-before-workspace-*.json')))
+        self.window.refresh_workspaces_menu()
+        self.assertTrue(menu.actions()[-1].isChecked())
+        self.reopen_window()
+        self.window.refresh_workspaces_menu()
+        self.assertTrue(self.window.workspaces_menu.actions()[-1].isChecked())
+        self.window.workspaces_menu.actions()[-1].trigger()
+        self.assertFalse(config.read(self.path)['workspace_replace_current'])
+
+    def test_workspace_replace_submenu_cancel_keeps_shells_and_accept_backs_up_then_replaces(self):
+        self.assertTrue(self.window.save_workspace('Project', [0]))
+        self.window.new_tab()
+        self.window.current_tab().data['name'] = 'Unsaved work'
+        tabs = [self.window.tabs.widget(i) for i in range(2)]
+        for tab in tabs:
+            self.ready(tab)
+        self.window.refresh_workspaces_menu()
+        menu = self.window.workspaces_menu
+        menu.actions()[-1].trigger()
+        saved = self.path.read_bytes()
+        with patch('bashdock.app.QMessageBox.question', return_value=QMessageBox.StandardButton.No):
+            menu.actions()[2].trigger()
+        self.assertEqual(saved, self.path.read_bytes())
+        self.assertEqual(tabs, [self.window.tabs.widget(i) for i in range(2)])
+        self.assertEqual([0, 0], [tab.terminal.stops for tab in tabs])
+        self.assertTrue(menu.actions()[-1].isChecked())
+        menu.actions()[2].trigger()
+        self.assertEqual(1, self.window.tabs.count())
+        self.assertIsNot(tabs[0], self.window.current_tab())
+        self.assertEqual([1, 1], [tab.terminal.stops for tab in tabs])
+        self.assertTrue(self.window.data['workspace_replace_current'])
+        archives = list((self.path.parent / 'backups').glob('settings-before-workspace-*.json'))
+        self.assertEqual(1, len(archives))
+        self.assertEqual('Unsaved work', config.read(archives[0])['tabs'][1]['name'])
+        self.assertEqual([], self.window.current_tab().terminal.commands)
+
+    def test_workspace_replace_toggle_failed_save_reverts_check_and_keeps_shell(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        self.window.refresh_workspaces_menu()
+        before = self.path.read_bytes()
+        with patch.object(self.window, 'persist', return_value=False), \
+                patch('bashdock.app.QMessageBox.warning') as warning:
+            self.window.workspace_replace_action.trigger()
+        self.assertFalse(self.window.workspace_replace_action.isChecked())
+        self.assertFalse(self.window.data['workspace_replace_current'])
+        self.assertEqual(before, self.path.read_bytes())
+        self.assertEqual(0, tab.terminal.stops)
+        warning.assert_called_once()
 
     def test_save_failure_during_opt_out_keeps_shell_and_original_preference(self):
         tab = self.window.current_tab()

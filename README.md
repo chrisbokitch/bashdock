@@ -121,6 +121,8 @@ Saved workspaces are reusable templates: editing an open tab does not update its
 
 Each tab has a persistent random UUID, preserved across renaming, configuration edits, restarts, exports, and saved workspaces. Duplicate detection uses this ID, not the name: **New tab** always creates a separate identity, even if you give it the same name as another tab. Closing a saved tab allows it to be reopened from its workspace with that same ID. Existing settings receive IDs automatically; identical older saved/open profiles are linked where possible. Older tabs whose profiles differ cannot reliably be identified as the same tab and receive separate identities. **Replace current tabs…** still explicitly closes the current shells and starts the selected workspace fresh after confirmation.
 
+**Manage → Workspaces → Replace current** changes how saved workspace menu entries open. Unchecked (the default), they add missing tabs and focus tabs already open. Checked, they replace the current tabs after confirmation and a backup. Changing the toggle alone does not open or close tabs. The mode is remembered across launches and included in settings exports/backups; the workspace manager’s explicit Open and Replace controls keep their own behavior.
+
 Workspaces start fresh shell sessions. They preserve command buttons such as an SSH **Connect** button, but do not run those commands or reconnect SSH automatically. They are included in settings exports, imports, and automatic backups. Existing settings files start with an empty workspace library.
 
 ## Command buttons

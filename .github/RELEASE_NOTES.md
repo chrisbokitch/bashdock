@@ -1,15 +1,8 @@
-BashDock 1.0 brings persistent Git Bash tabs, per-tab command buttons and saved
-workspaces to Windows.
+BashDock 1.1 adds **Manage → Workspaces → Replace current**.
 
-- Restore tabs, folders, command bars and window geometry in fresh shell sessions.
-- Set terminal defaults and independent per-tab appearance overrides.
-- Export/import settings and recover from backups.
-- Copy/paste with multiline confirmation, jump to the bottom of terminal output,
-  and open an independent external Git Bash window.
-- Install verified, signed automatic updates after confirming restart, with
-  startup checks and rollback protection. Developers can stage local builds.
-- Export diagnostic reports without command text, terminal output or clipboard
-  contents.
+Leave it unchecked to add missing workspace tabs. Check it to replace the current
+tabs, using the existing confirmation and backup. The mode is remembered across
+launches; changing the toggle alone leaves running shells untouched.
 
 Download the Windows x64 ZIP, extract the complete `bashdock` folder, and run `bashdock.exe`. Git for Windows must be installed; Python and Node are not required.
 
