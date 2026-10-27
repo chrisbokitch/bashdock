@@ -385,24 +385,7 @@ and an archive preserves the original damaged bytes. Its successful exit verifie
 the owner's visual/manual result. The owner has now confirmed the requested
 checks passed. No full manual failure/start-fresh matrix is required for M7.
 
-## Outstanding manual Windows checks
-
-Use a disposable VM/profile for destructive recovery and updater-failure cases.
-Preserve E1–E8; do not rerun completed historical checks merely because an older
-checklist left them unchecked. The IDs below identify the remaining scope.
-
-| ID | Check to finish | Existing evidence / result still needed |
-| --- | --- | --- |
-| M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
-| M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
-| M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
-| M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
-| M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
-| M6 | Installed appearance and native picker smoke | Inheritance/overrides, return to defaults, nested Save/Cancel, reset/save failure, settings/workspace persistence and live WebEngine appearance without shell restart are automated. Only visual comparison of inherited/custom tabs and actual font/colour picker usability remain below; no complete manual functional matrix is required. |
-| M8 | Installed external terminal and quit presentation smoke | Launch arguments/current-folder routing/runtime environment and quit confirmation/opt-out/save ordering are automated. Windows process-handle tests cover embedded shells, a foreground child, reader/init-file cleanup and independent-process preservation. Only actual installed external-terminal interaction/survival and quit-dialog presentation remain below. |
-| M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
-
-### M8 automated coverage and remaining manual smoke
+## Completed M8: external shell and exit lifecycle
 
 Existing [external-shell tests](../tests/test_external_shell.py) cover the
 selected Git installation, paths containing spaces/Unicode, detached Git Bash
@@ -436,11 +419,15 @@ Additional regressions cover:
 `npm test` includes these cases; the Windows workflow also runs the new dialogs
 and process lifecycle case with native Qt. Process creation is mocked in the
 external-launch tests: a real installed Git Bash/Mintty window and its keyboard
-interaction still require the short manual check below. The independent test
-process is not a claim that an actual external Git window has been accepted.
+interaction are covered by the owner-confirmed manual check below. The
+independent fixture process provides separate automated cleanup evidence.
 
-Only these installed-app checks remain for M8; use **0.14.7**, with idle/test
-tabs rather than unfinished work. No app update is needed.
+**Passed — owner confirmation, 2026-10-27**, following the requested installed
+0.14.7 checks with idle/test tabs. The owner confirmed both checks passed;
+combined with the automated coverage above, M8 is complete. No separate
+package checksum or diagnostic report was supplied for this confirmation.
+
+The exercised manual scope was:
 
 1. **External terminal:** change an embedded tab to a recognisable folder
    (preferably containing spaces), then choose Manage → Open external shell.
@@ -453,9 +440,25 @@ tabs rather than unfinished work. No app update is needed.
    Reopen and confirm another quit does not prompt. Re-enable quit confirmation
    in Settings if that is your preferred setting.
 
-Both checks remain outstanding until an owner result is recorded. No separate
+The owner confirmed both checks passed. No separate
 manual process-killing/save-failure matrix is required; the automation uses
 only processes it created. Actual Windows display-scaling remains M9.
+
+## Outstanding manual Windows checks
+
+Use a disposable VM/profile for destructive recovery and updater-failure cases.
+Preserve E1–E8; do not rerun completed historical checks merely because an older
+checklist left them unchecked. The IDs below identify the remaining scope.
+
+| ID | Check to finish | Existing evidence / result still needed |
+| --- | --- | --- |
+| M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
+| M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
+| M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
+| M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
+| M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
+| M6 | Installed appearance and native picker smoke | Inheritance/overrides, return to defaults, nested Save/Cancel, reset/save failure, settings/workspace persistence and live WebEngine appearance without shell restart are automated. Only visual comparison of inherited/custom tabs and actual font/colour picker usability remain below; no complete manual functional matrix is required. |
+| M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
 
 ## Outstanding updater checks
 
