@@ -69,7 +69,7 @@ class WindowsTests(unittest.TestCase):
                     index = attempt % 2
                     tabs.setCurrentIndex(index)
                     window.resize(900 + (attempt % 3) * 45, 650 + (attempt % 4) * 20)
-                    QTest.qWait((2200, 0, 50, 250)[attempt % 4])
+                    QTest.qWait((0, 2200, 50, 250)[attempt % 4])
                     before = prompts[index]
                     marker = f'{attempt},'
                     command = f"printf '%s' {shlex.quote(marker)} >> {shlex.quote(receipt.as_posix())}"
