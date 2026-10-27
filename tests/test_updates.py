@@ -204,13 +204,41 @@ class UpdateTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == 'win32', 'Native Windows updater status window')
     def test_native_updater_status_window_opens_updates_and_closes(self):
+        import ctypes
+        import time
+        from ctypes import wintypes as w
         from bashdock.update_status import UpdateStatus
-        with UpdateStatus() as status:
-            status.set_text('Waiting for another BashDock window to close…')
+        user = ctypes.WinDLL('user32', use_last_error=True)
+        user.FindWindowW.argtypes = [w.LPCWSTR, w.LPCWSTR]
+        user.FindWindowW.restype = w.HWND
+        user.FindWindowExW.argtypes = [w.HWND, w.HWND, w.LPCWSTR, w.LPCWSTR]
+        user.FindWindowExW.restype = w.HWND
+        user.GetWindowTextW.argtypes = [w.HWND, w.LPWSTR, ctypes.c_int]
+        user.IsWindow.argtypes = [w.HWND]
+        user.SendMessageW.argtypes = [w.HWND, w.UINT, w.WPARAM, w.LPARAM]
+        user.SendMessageW.restype = ctypes.c_ssize_t
+        title = f'BashDock updater test {os.getpid()}'
+        text = 'Waiting for other BashDock windows to close…\nClose any other BashDock windows, including minimized windows, to continue.'
+        with UpdateStatus(title) as status:
+            status.set_text(text)
             self.assertTrue(status.thread.is_alive())
-            __import__('time').sleep(0.15)
+            window = user.FindWindowW(None, title)
+            self.assertTrue(window)
+            label = user.FindWindowExW(window, None, 'STATIC', None)
+            self.assertTrue(label)
+            observed = ctypes.create_unicode_buffer(1024)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                user.GetWindowTextW(label, observed, len(observed))
+                if observed.value == text:
+                    break
+                time.sleep(0.02)
+            self.assertEqual(text, observed.value)
+            user.SendMessageW(window, 0x0010, 0, 0)  # WM_CLOSE cannot dismiss a live transaction.
+            self.assertTrue(user.IsWindow(window))
         self.assertFalse(status.thread.is_alive())
         self.assertIsNone(status.error)
+        self.assertFalse(user.IsWindow(window))
 
     @unittest.skipUnless(sys.platform == 'win32', 'Windows CNG signature verification')
     def test_windows_cng_verifies_openssl_signature_and_rejects_modified_manifest(self):

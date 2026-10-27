@@ -1957,6 +1957,88 @@ class WorkspaceTests(unittest.TestCase):
                         self.assertIs(processes[index], tab.terminal.process)
                         self.assertEqual(0, tab.terminal.stops)
 
+    def test_updater_u5_preference_actions_persist_gate_automatic_checks_and_rollback_on_failure(self):
+        from unittest.mock import Mock
+        updater = Mock()
+        self.window.updater = updater
+        self.window.download_updates_action.trigger()
+        self.assertFalse(config.read(self.path)['updates']['download'])
+        with patch('bashdock.update_security.load_key', return_value={}):
+            self.window.automatic_update_check()
+            updater.check.assert_called_once_with(False)
+            updater.check.reset_mock()
+            self.window.automatic_updates_action.trigger()
+            self.assertFalse(config.read(self.path)['updates']['automatic'])
+            self.window.automatic_update_check()
+            updater.check.assert_not_called()
+            # Disabling automatic checks still permits an explicit manual check.
+            self.window.check_for_updates()
+            updater.check.assert_called_once_with(False)
+        saved = self.path.read_bytes()
+        with patch.object(self.window, 'persist', return_value=False), \
+                patch('bashdock.app.QMessageBox.warning'):
+            self.window.download_updates_action.trigger()
+        self.assertFalse(self.window.download_updates_action.isChecked())
+        self.assertFalse(self.window.data['updates']['download'])
+        self.assertEqual(saved, self.path.read_bytes())
+        updater.launch_install.assert_not_called()
+        self.window.updater = None
+
+    def test_updater_u3_real_confirmation_cancel_and_failures_keep_offer_and_both_shells_usable(self):
+        from PySide6.QtCore import QTimer
+        from unittest.mock import Mock
+        from types import SimpleNamespace
+        self.window.new_tab()
+        for index in range(2):
+            self.ready(self.window.tabs.widget(index))
+        self.window.show()
+        updater = Mock()
+        updater.ready = SimpleNamespace(manifest={'version': '0.14.7', 'channel': 'local-development'})
+        self.window.updater = updater
+        self.window.statusBar().show_update('0.14.7', local=True)
+        initial = self.path.read_bytes()
+        seen = []
+        # Unpatch the global test answer stub to exercise the real default-No dialog.
+        self.answers.stop()
+        try:
+            for outcome in ('cancel', 'save', 'launch'):
+                def answer():
+                    dialog = self.app.activeModalWidget()
+                    seen.append((dialog.windowTitle(), dialog.defaultButton().text(), dialog.text()))
+                    dialog.button(QMessageBox.StandardButton.No if outcome == 'cancel'
+                                  else QMessageBox.StandardButton.Yes).click()
+                QTimer.singleShot(0, answer)
+                updater.launch_install.side_effect = OSError('fixture helper could not start')
+                from contextlib import ExitStack
+                with ExitStack() as stack:
+                    stack.enter_context(patch('bashdock.app.QMessageBox.warning'))
+                    if outcome == 'save':
+                        stack.enter_context(patch.object(self.window, 'persist', return_value=False))
+                    self.window.restart_for_update()
+                self.assertFalse(self.window.closing)
+                self.assertFalse(self.window.update_restart)
+                self.assertTrue(self.window.statusBar().update_button.isVisible())
+                self.assertIsNotNone(updater.ready)
+                updater.cancel.assert_not_called()
+                if outcome != 'launch':
+                    updater.launch_install.assert_not_called()
+                    self.assertEqual(initial, self.path.read_bytes())
+                for index in range(2):
+                    tab = self.window.tabs.widget(index)
+                    self.assertEqual(0, tab.terminal.stops)
+                    tab.terminal.run_command('fixture command after failed restart')
+                    self.assertEqual('fixture command after failed restart', tab.terminal.commands[-1])
+            self.assertEqual(3, len(seen))
+            for title, default, text in seen:
+                self.assertEqual('Restart to update?', title)
+                self.assertIn('No', default)
+                self.assertIn('locally built BashDock 0.14.7', text)
+                self.assertIn('fresh shells', text)
+            updater.launch_install.assert_called_once()
+        finally:
+            self.answers.start()
+            self.window.updater = None
+
     def test_local_update_confirmation_pins_the_build_even_if_newer_staging_finishes(self):
         from types import SimpleNamespace
         from unittest.mock import Mock

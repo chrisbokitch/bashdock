@@ -183,6 +183,80 @@ class LocalUpdateTests(unittest.TestCase):
         self.assertEqual('a' * 40, local.installed_info(self.target)['commit'])
         process.terminate.assert_called_once()
 
+    def test_u1_waits_for_other_instance_then_retries_locked_folder_before_success(self):
+        ready = self.stage()
+        plan = self.plan(ready)
+        status = []
+        process = Mock()
+        inspections = []
+        def other_processes(target):
+            inspections.append(target)
+            self.assertEqual(b'old executable', (target / 'bashdock.exe').read_bytes())
+            return [456] if len(inspections) == 1 else []
+        real_rename = Path.rename
+        attempts = []
+        def rename(path, destination):
+            if path == self.target:
+                attempts.append(destination)
+                if len(attempts) == 1:
+                    raise PermissionError('fixture file temporarily locked')
+            return real_rename(path, destination)
+        with patch.object(update_helper.time, 'sleep'), patch.object(Path, 'rename', rename):
+            result = update_helper.install(plan, None, verify=self.verify, wait=Mock(),
+                other_processes=other_processes, launch=Mock(return_value=process),
+                healthy=lambda *args: True, status=status.append)
+        self.assertTrue(result['ok'])
+        self.assertEqual(2, len(inspections))
+        self.assertEqual(2, len(attempts))
+        self.assertTrue(any('minimized windows' in text for text in status))
+        self.assertTrue(any('one minute' in text for text in status))
+        self.assertEqual('Update complete.', status[-1])
+        self.assertEqual('healthy', json.loads((ready.directory / 'transaction.json').read_text())['phase'])
+        self.assertEqual(b'new executable', (self.target / 'bashdock.exe').read_bytes())
+        process.terminate.assert_not_called()
+
+    def test_u7_real_signed_offer_consumed_on_success_and_new_offer_found_by_new_controller(self):
+        from bashdock.update_controller import UpdateController
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])
+        first = self.stage()
+        controller = UpdateController(installation=self.target)
+        controller.local_timer.stop()
+        self.addCleanup(controller.cancel)
+        events = []
+        controller.changed.connect(lambda state, value: events.append((state, value)))
+        # Pass verification explicitly: default arguments are bound at import.
+        real_discover = local.discover_local
+        with patch.object(local, 'discover_local',
+                          side_effect=lambda target, pending=None:
+                          real_discover(target, pending, verify=self.verify)), \
+                patch.object(controller, '_start', side_effect=lambda work: work()):
+            controller.poll_local()
+            controller.poll_local()
+        self.assertEqual([('local-ready', '0.14.0')], events)
+        self.assertEqual(first.directory, controller.ready.directory)
+        plan = self.plan(first)
+        result = update_helper.install(plan, None, verify=self.verify, wait=Mock(),
+            other_processes=lambda target: [], launch=Mock(return_value=Mock()),
+            healthy=lambda *args: True)
+        self.assertTrue(result['ok'])
+        self.assertIsNone(local.candidate(self.target))
+        restarted = UpdateController(installation=self.target)
+        restarted.local_timer.stop()
+        self.addCleanup(restarted.cancel)
+        restarted.poll_local()
+        self.assertIsNone(restarted.ready)
+        self.package(commit='c' * 40)
+        second = self.stage(commit='c' * 40)
+        with patch.object(local, 'discover_local',
+                          side_effect=lambda target, pending=None:
+                          real_discover(target, pending, verify=self.verify)), \
+                patch.object(restarted, '_start', side_effect=lambda work: work()):
+            restarted.poll_local()
+        self.assertNotEqual(first.directory, restarted.ready.directory)
+        self.assertEqual(second.directory, restarted.ready.directory)
+        self.assertEqual('c' * 40, restarted.ready.manifest['commit'])
+
     def test_newer_staging_survives_older_transaction_acknowledgement(self):
         first, second = self.stage(), self.stage()
         local.acknowledge(self.target, first.directory)

@@ -527,22 +527,86 @@ Remaining updater cases, publisher confirmation and final-candidate gates are
 listed below; the eventual 1.0 ZIP still requires its own package smoke and any
 targeted retests warranted by changes.
 
-## Outstanding updater checks
+## Updater acceptance: automated coverage and remaining packaged smoke
 
-| ID | Check to finish | Existing evidence / result still needed |
+U1–U7 have been reconciled against the recorded public-update/rollback evidence
+and the existing suite. The following additional tests reduce the remaining
+manual work; they do not claim an injected error was reproduced against an
+owner's installed executable.
+
+| ID | Automated acceptance and evidence | Remaining manual scope |
 | --- | --- | --- |
-| U1 | Visible waiting guidance with the newer helper | During a normal signed update from 0.11.12 or later, leave another instance minimized/behind a window; verify visible instructions, progress after closing it, useful locked-file/timeout guidance, and no forced termination of unrelated processes. Older-helper waiting passed (E3); native status-window tests are automated. No dummy public release is needed. |
-| U2 | Unwritable installation | Confirm useful failure/manual-install guidance with no elevation or forced closure. A compiled-app manual result is unrecorded. |
-| U3 | Settings-save and helper-launch failures | Confirm restart failure leaves current shells usable and the ready notice available. Injected Qt tests pass; a reviewed disposable compiled-app procedure/result is still needed. |
-| U4 | Version replay and recipient source access | Version filtering/replay rejection is automated. Record the remaining compiled-path replay check and anonymous access to all matching application/source assets for the chosen public candidate. Manifest/signature/ZIP tamper checks already passed E4; do not repeat those unchanged checks as if unperformed. |
-| U5 | Download interruption and automation preferences | Interrupt a download and verify usable current installation/cleanup; verify download-disabled and all-checks-disabled behavior. Verify source preview makes no implicit update/install attempt. Automated coverage is separate from these unrecorded manual results. |
-| U6 | Complete update with paths containing spaces | Compiled extraction/startup checks cover spaced paths; a complete normal GUI update in that installation path is unrecorded. |
-| U7 | Remaining local stage-update UI checks | Stage, cancel restart and continue using shells, confirm restart, check About/restored configuration/second launch, verify the old offer is consumed and another staging command appears. Normal successful staging/restart is E7; cancellation and the complete offer lifecycle need explicit results. Trust binding/revocation/tamper cases have automated coverage. |
+| U1 | Signed local transaction waits for a simulated second instance, retries a temporary directory lock, completes and records healthy without terminating the new process. Existing timeout tests preserve the original installation. Native Windows status tests read the actual window label, verify its guidance updates, reject WM_CLOSE during a live transaction and verify teardown. Existing Windows process tests track only fixture-owned children. | Observe waiting and completion during a normal public signed update from 0.11.12 or later; combine with candidate asset checks below. No separate manual timeout/locked-file/forced-kill matrix is required. |
+| U2 | Real temporary installation/controller handoff receives an injected write-probe PermissionError before backup/spawn; guidance recommends a writable folder, no helper launches and installation/settings remain unchanged. | None for the automated failure contract. This is not a test of every Windows ACL or elevation configuration. |
+| U3 | Real restart dialog defaults to No. Cancel, failed save and failed helper launch leave both fake shells and the ready notice usable. Controller tests inject helper-copy, backup, DLL-reset and spawn failures; DLL lookup restores after spawn failure. Successful handoff uses detached flags, strips only bundled runtime PATH entries and archives the snapshot before spawn. | None for these deterministic failure paths; normal compiled handoff remains in the combined local smoke below. |
+| U4 | Existing discovery tests reject equal/older versions, drafts/prereleases and mismatched signed metadata. Existing tamper/CNG/compiled-helper evidence is retained. | Anonymous application/source/license/update-asset access for the chosen public candidate, combined with U1/final publication. No duplicate manual replay/tamper matrix is required for unchanged filtering. |
+| U5 | Mid-stream connection loss/cancellation remove only the partial pending directory, preserve an existing ready update and allow a clean retry. Check-without-download never fetches the ZIP or launches a helper. Real Qt preference actions persist disabled checks/downloads, preserve explicit manual checks and roll back failed preference saves. Existing source-preview tests confirm no implicit installation/local timer; the source UI does not create the automatic-check controller. | None for these automated routes. No deliberate network interruption of a working installation is needed. |
+| U6 | Existing extraction/startup and the new signed transaction fixtures use paths containing spaces. | One complete installed GUI handoff at a spaced installation path, combined with U7 below. |
+| U7 | Real fixture-key signed staging, controller discovery/deduplication, transaction success, consumed pointer, no old offer in a new controller and discovery of a different next build are exercised together. Existing tests cover newer-offer preservation, revocation, installation binding and startup rollback. | One installed-app cancel/install/reopen smoke, combined with U6 below. |
 
-The normal public update and compiled rollback/tamper milestones are complete.
-Do not reinterpret U1–U7 as requiring a second first-public-release exercise.
-If code/dependencies change the tested behavior, record a targeted retest with
-its reason.
+New coverage is in [test_update_orchestration.py](../tests/test_update_orchestration.py),
+[test_local_updates.py](../tests/test_local_updates.py),
+[test_updates.py](../tests/test_updates.py) and the `test_updater_*` cases in
+[test_workspace.py](../tests/test_workspace.py). All run under `npm test`;
+Windows CI additionally runs the new dialog/preference/controller cases with
+native Qt. Local fixture keys are disposable and never use the publisher key.
+OS/network failures and process launch/health are injected where stated.
+
+### Remaining check A: local installed-app lifecycle (U6 + U7)
+
+Use a disposable installation with idle test tabs on a Windows machine with
+source build tools. The M1 VM can be reused after adding those tools; alternatively
+use your development machine with the isolated profile below. Extract the full
+0.14.7 package at a writable path containing spaces, for example
+`C:/Development/BashDock Update Test/bashdock`. Keep the whole packaged folder
+together. Launch only this copy with private settings from Git Bash:
+
+```bash
+mkdir -p "C:/Development/BashDock Update Test/profile"
+APPDATA="C:/Development/BashDock Update Test/profile" "C:/Development/BashDock Update Test/bashdock/bashdock.exe" &
+```
+
+The APPDATA assignment applies only to the launched app and its updater/new-app
+children. Local staging remains in the normal installation-scoped cache. Run
+staging from the updated source checkout on that same machine; it must build a
+different commit from the installed build. Do not change production trust or
+normal settings for this check.
+
+1. Launch the spaced-path installation, prepare two recognisable test tabs with
+   different folders/buttons and note the current About version. Stage from the
+   source checkout with:
+   `npm run stage-update -- "C:/Development/BashDock Update Test/bashdock"`.
+   Wait for the local-ready notice, click it and choose No. Verify both existing
+   terminals still accept a harmless command and the notice remains.
+2. Click again and accept restart. Confirm the progress window closes after the
+   new app starts, About matches the staged build, and tabs/folders/buttons and
+   geometry return in fresh shells. Close/reopen once more; confirm normal
+   startup and that the consumed offer does not reappear. Because test-only
+   changes retain version 0.14.7, compare the installed BUILD-INFO.json commit
+   with the staged package metadata rather than expecting a version increment.
+   Record the installation path and the installed version/commit. A later offer
+   is covered by automation; no dummy source change or second build is required.
+
+### Remaining check B: normal public update (U1 + U4)
+
+Use the next intended public candidate; do not create a dummy release solely
+for this check. Start from a published 0.11.12-or-later baseline with the newer
+waiting-window helper. Use two idle instances from the same disposable
+installation, leaving one minimized. Confirm restart in the other, inspect the
+visible instructions to close other/minimized windows, then close the remaining
+instance normally. Verify completion and the new app's normal startup. Do not
+kill unrelated applications or deliberately run the one-minute timeout.
+
+For that same candidate, check its application ZIP, matching source, checksums,
+signed update metadata and required license/source assets are reachable without
+GitHub sign-in. Record the baseline/target identity and exact ZIP checksum; this
+asset check also supplies the relevant part of F3 rather than creating a second
+publication exercise.
+
+Both packaged checks remain pending owner confirmation. The normal public
+update and compiled rollback/tamper milestones are already complete. Reassess
+only relevant paths if code/dependencies change; do not repeat completed cases
+merely because older lists were unchecked.
 
 ## Publisher confirmation and final candidate
 
