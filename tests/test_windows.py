@@ -37,10 +37,12 @@ class WindowsTests(unittest.TestCase):
 
         def wait(predicate):
             deadline = time.monotonic() + 20
-            while not predicate() and time.monotonic() < deadline:
+            while time.monotonic() < deadline:
+                if predicate():
+                    return
                 app.processEvents()
                 time.sleep(0.01)
-            self.assertTrue(predicate(), 'Interactive terminal did not reach expected state')
+            self.fail('Interactive terminal did not reach expected state')
 
         def evaluate(script):
             result = []
@@ -165,6 +167,7 @@ class WindowsTests(unittest.TestCase):
             s.wait(lambda: 'PAGE-001' in s.screen())
             s.terminal.resize(713, 419)
             s.wait(lambda: s.evaluate("""terminal.buffer.active.type === 'alternate' &&
+                Math.abs(innerWidth - 713) <= 1 && Math.abs(innerHeight - 419) <= 1 &&
                 terminal.cols === fit.proposeDimensions().cols &&
                 terminal.rows === fit.proposeDimensions().rows"""))
             key(qt.Key.Key_Down)
