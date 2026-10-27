@@ -17,7 +17,7 @@ smoke check and any retests warranted by changes.
 
 | ID | Completed scope | Evidence and limits |
 | --- | --- | --- |
-| E1 | Public signing configuration, tag build, signed draft assets and stable publication | [Closed release milestone #1](https://github.com/chrisbokitch/bashdock/issues/1). Published 0.11.11/0.11.12 assets and real updates demonstrate working signing configuration; secure private-key backup is a separate unrecorded confirmation. |
+| E1 | Public signing configuration, tag build, signed draft assets and stable publication | [Closed release milestone #1](https://github.com/chrisbokitch/bashdock/issues/1). Published 0.11.11/0.11.12 assets and real updates demonstrate working signing configuration; secure private-key backup and restore comparison are now owner-confirmed under P1. |
 | E2 | Exact-ZIP checksum, VM launch, typing/buttons, restored tabs/folders/buttons/settings/geometry, About/notices and close/reopen smoke | Owner-reported 0.11.11 and 0.11.12 checks in #1. These focused smoke results do not certify every workspace, clipboard, recovery or scaling case. |
 | E3 | Real public updates 0.11.4 → 0.11.11 → 0.11.12, restart cancellation and fresh-shell restoration | Owner reports in #1. The second-instance wait completed without forcibly closing unrelated processes, using the older helper. The later visible waiting guidance remains outstanding (U1). |
 | E4 | Compiled-helper tamper rejection and OS launch-failure rollback | The VM report recorded in #1 passed altered manifest, altered signature, changed ZIP, truncated ZIP, deliberate Windows launch failure with prior files/settings restored, and restored real-app version/token acknowledgment. It did not test every post-launch crash/hang or normal running-app handoff. |
@@ -633,10 +633,12 @@ merely because older lists were unchecked.
 
 ## Publisher confirmation and final candidate
 
-- [ ] P1: Confirm an existing secure backup of the production update signing key.
-  Configuration/signing is proven by E1; backup is not recorded. Never attach
-  the key, paste it into an issue/chat, or regenerate the live channel key for
-  this checklist.
+- [x] P1: Production update-signing private-key backup verified — owner
+  confirmation, 2026-10-27. The owner saved the existing key in secure vault
+  storage, downloaded/restored a copy and reported **Backup matches** after
+  comparing it with the original. No private-key contents were supplied, and
+  no key rotation was performed. This confirms the requested backup/restore
+  check; it does not claim an additional offline backup.
 - [ ] F1: Resolve outstanding blockers and deliberately select 1.0.0 with the owner.
 - [ ] F2: Record the exact candidate tag/commit/ZIP SHA-256 and run its final
   launch/shell/restoration/About/close-reopen smoke plus targeted change-based

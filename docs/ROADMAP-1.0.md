@@ -44,8 +44,8 @@ launch is required.
       (U1/U4) with the next intended public candidate. U2/U3/U5 failure and
       preference contracts are automated; preserve existing tamper/rollback
       evidence. See the acceptance record for coverage and limits.
-- [ ] Confirm the existing secure production signing-key backup (P1).
-      Signing configuration is complete; backup confirmation is not recorded.
+- [x] Verify the production signing-key backup (P1): owner confirmed secure
+      vault storage and a restored copy matching the original, 2026-10-27.
 - [ ] Resolve blockers, deliberately choose 1.0.0 with the owner, and validate
       the exact candidate ZIP and any change-based retests (F1–F2).
 - [ ] Review and publish the approved candidate with all required assets and
