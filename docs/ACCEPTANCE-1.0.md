@@ -1,6 +1,6 @@
 # BashDock 1.0 acceptance status
 
-Reconciled through **0.14.6**. This is the current status record for
+Reconciled through **0.14.7**. This is the current status record for
 [issue #2](https://github.com/chrisbokitch/bashdock/issues/2).
 [RELEASING.md](RELEASING.md#validate-the-draft-before-publishing) and
 [AUTO-UPDATES.md](AUTO-UPDATES.md#required-windows-vm-validation) remain the
@@ -217,6 +217,11 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
 
 ### M5 automated coverage and remaining manual smoke
+
+The new native test exposed duplicate Ctrl+Shift+V input from Chromium's
+default paste handling in addition to BashDock's bridge. **0.14.7** suppresses
+the browser default action for handled copy/paste shortcuts. Use 0.14.7 or later
+for the remaining M5 manual checks; earlier completed M2–M4 scope is retained.
 
 - [test_clipboard.py](../tests/test_clipboard.py) exercises the real Qt clipboard
   and Python bridge: Unicode copy/single-line paste, empty text, and LF/CRLF/CR

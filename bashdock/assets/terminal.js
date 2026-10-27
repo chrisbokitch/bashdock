@@ -71,10 +71,14 @@ new QWebChannel(qt.webChannelTransport, channel => {
   bridge.focus.connect(() => terminal.focus());
   terminal.attachCustomKeyEventHandler(event => {
     if (event.ctrlKey && event.shiftKey && event.code === 'KeyC') {
+      event.preventDefault();
       if (event.type === 'keydown') bridgeCopy();
       return false;
     }
     if (event.ctrlKey && event.shiftKey && event.code === 'KeyV') {
+      // Returning false only stops xterm; Chromium can still perform its own
+      // paste, duplicating text and bypassing the native confirmation route.
+      event.preventDefault();
       // Qt handles paste through the native clipboard, including multiline confirmation.
       if (event.type === 'keydown') bridge.requestPaste();
       return false;

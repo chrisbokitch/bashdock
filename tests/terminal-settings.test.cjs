@@ -165,17 +165,21 @@ test('right-click paste respects mouse-aware programs and uses the confirmed nat
   assert.equal(s.bridge.pastes, 1);
   s.host.events.mousedown({...event, shiftKey: true});
   assert.equal(s.bridge.pastes, 2);
-  assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyV', type: 'keydown'}), false);
+  assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyV', type: 'keydown', preventDefault() {}}), false);
   assert.equal(s.bridge.pastes, 3);
 });
 
 test('clipboard shortcuts fire once on keydown and leave ordinary Ctrl+C available to the shell', () => {
   const s = setup();
   s.terminal.selection = 'caf\u00e9 selected';
+  let prevented = 0;
   for (const type of ['keydown', 'keypress', 'keyup']) {
-    assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyC', type}), false);
-    assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyV', type}), false);
+    assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyC', type,
+      preventDefault() {prevented++;}}), false);
+    assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyV', type,
+      preventDefault() {prevented++;}}), false);
   }
+  assert.equal(prevented, 6, 'Handled shortcuts must suppress Chromium default copy/paste too');
   assert.deepEqual(s.bridge.copies, ['caf\u00e9 selected']);
   assert.equal(s.bridge.pastes, 1);
   assert.equal(s.terminal.key({ctrlKey: true, shiftKey: false, code: 'KeyC', type: 'keydown'}), true);

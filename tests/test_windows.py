@@ -227,10 +227,16 @@ class WindowsTests(unittest.TestCase):
             # legitimately emit no change, unlike a physical mouse gesture.
             s.wait(lambda: s.evaluate("m5Selections.includes('')"))
             clipboard.setText('pending copy')
-            self.assertTrue(s.evaluate(select))
-            s.wait(lambda: clipboard.text() == text)
+            # Selecting the same range via the public API retains xterm's
+            # cached range even after clearSelection. Use a distinct range to
+            # exercise a real change rather than relying on that API quirk.
+            prefix = text[:7]
+            short_select = select.replace(f'terminal.select(0, i, {len(text)})',
+                                          f'terminal.select(0, i, {len(prefix)})')
+            self.assertTrue(s.evaluate(short_select))
+            s.wait(lambda: clipboard.text() == prefix)
             s.evaluate('terminal.clearSelection()')
-            self.assertEqual(text, clipboard.text())
+            self.assertEqual(prefix, clipboard.text())
 
             # Inspect real xterm/bridge routing without sending mouse reports
             # or synthetic clipboard text to the live shell's command line.
@@ -268,6 +274,7 @@ class WindowsTests(unittest.TestCase):
     def test_m5_native_paste_confirmation_cancel_accept_and_explicit_enter(self):
         from unittest.mock import patch
         from PySide6.QtCore import QTimer
+        from PySide6.QtTest import QTest
         from PySide6.QtWidgets import QApplication, QMessageBox
 
         with self.saved_clipboard() as clipboard, self.interactive_session() as s:
@@ -281,6 +288,9 @@ class WindowsTests(unittest.TestCase):
                 question.assert_not_called()
             self.assertEqual(['printf single > single.txt'], pasted)
             s.wait(lambda: 'single.txt' in s.screen())
+            QTest.qWait(150)
+            self.assertEqual(1, s.screen().count('printf single > single.txt'),
+                             'Chromium must not duplicate the bridge paste')
             self.assertFalse((s.folder / 'single.txt').exists())
             s.key(s.qt.Key.Key_Return)
             s.receipt('single.txt', 'single')
@@ -315,6 +325,8 @@ class WindowsTests(unittest.TestCase):
                         if accept:
                             s.wait(lambda: len(pasted) == 2)
                             s.wait(lambda: 'paste-second.txt' in s.screen())
+                        else:
+                            s.prompt()  # A rejected paste must leave the input line empty.
                         self.assertEqual(['printf single > single.txt'] + ([value] if accept else []), pasted)
                         self.assertEqual(value, clipboard.text())
                         self.assertFalse((s.folder / 'paste-first.txt').exists())
