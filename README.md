@@ -142,6 +142,8 @@ An interactive Bash init file loads `/etc/profile` followed by the first availab
 
 Buttons send text followed by Enter to the active terminal, just like typing. Use them at an empty shell prompt: a running program, password prompt, or partially typed command will receive that input instead. There is no job queue or automatic idle detection in this first version.
 
+Button input includes a leading space followed by Backspace as a compatibility guard against Git Bash losing its first input character after a resize. At a standard empty Bash prompt, the guard cancels out before the command is entered, including when its first space is dropped. It leaves no leading space in the command or its history entry. Keyboard input and clipboard pastes do not use this guard. Custom Readline bindings for Space or Backspace can change this behavior.
+
 - Type directly in the terminal; arrows, history, Tab, Ctrl+C, ANSI colours, and terminal resizing are forwarded.
 - Select text with the mouse, then **Ctrl+Shift+C** to copy.
 - **Ctrl+Shift+V** pastes from the clipboard. Multiline clipboard pastes require confirmation.

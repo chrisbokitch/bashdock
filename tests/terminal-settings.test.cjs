@@ -193,23 +193,11 @@ test('web focus diagnostics contain only focus state', () => {
   assert.deepEqual(s.bridge.inputs, []);
 });
 
-test('button restores focus without sending focus reports into its command stream', () => {
+test('button input follows focus-generated terminal replies', () => {
   const s = setup();
   s.terminal.focus = () => s.terminal.data('\x1b[I');
   s.bridge.paste.emit(1, 'printf intact');
-  assert.deepEqual(s.bridge.inputs, ['printf intact\r']);
-});
-
-test('ConPTY input filters only exact focus reports and preserves keys, queries and paste contents', () => {
-  const s = setup();
-  s.terminal.data('\x1b[O');
-  s.terminal.data('\x1b[I');
-  s.terminal.data('p');
-  s.terminal.data('\x1b[A');
-  s.terminal.data('\x1b[1;1R');
-  s.terminal.data('text\x1b[Iinside a paste');
-  s.bridge.paste.emit(1, 'printf intact');
-  assert.deepEqual(s.bridge.inputs, ['p', '\x1b[A', '\x1b[1;1R', 'text\x1b[Iinside a paste', 'printf intact\r']);
+  assert.deepEqual(s.bridge.inputs, ['\x1b[I', 'printf intact\r']);
 });
 
 test('clipboard input still uses bracketed paste without adding Enter', () => {

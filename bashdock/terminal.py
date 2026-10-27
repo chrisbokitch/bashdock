@@ -196,6 +196,12 @@ class Terminal(QWebEngineView):
             self.bridge.output.emit("".join(chunks))
 
     def write(self, data, command_id=0):
+        if command_id:
+            # Git Bash can drop the first input character after a resize.
+            # At the empty prompt required for command buttons, this space
+            # and Backspace cancel out even when the space is swallowed.
+            # Unlike a leading-space workaround, no space remains in history.
+            data = ' \x7f' + data
         self.trace.record('write_attempt', command=command_id, characters=len(data),
             utf8_bytes=len(data.encode('utf-8', errors='surrogatepass')), running=bool(self.process))
         if self.process:

@@ -128,7 +128,7 @@ class WindowsTests(unittest.TestCase):
                 # the shell, not the widget that had focus beforehand.
                 QTest.keyClicks(focus, 'x')
                 wait_for(lambda: len(writes) >= (attempt + 1) * 2)
-                self.assertEqual(['pwd\r', 'x'] * (attempt + 1), writes)
+                self.assertEqual([' \x7fpwd\r', 'x'] * (attempt + 1), writes)
                 self.assertEqual('', other.text())
         finally:
             terminal.stop()
@@ -299,10 +299,10 @@ class WindowsTests(unittest.TestCase):
             wait_for(mode_ready)
             terminal.run_command("pwd")
             wait_for(lambda: bool(writes))
-            self.assertEqual(["pwd\r"], writes)
+            self.assertEqual([" \x7fpwd\r"], writes)
             terminal.run_command("printf 'first\\n'\nprintf 'second\\n'")
             wait_for(lambda: len(writes) >= 2)
-            self.assertEqual("printf 'first\\n'\rprintf 'second\\n'\r", writes[1])
+            self.assertEqual(" \x7fprintf 'first\\n'\rprintf 'second\\n'\r", writes[1])
             # Clipboard paste still uses xterm's active bracketed-paste behavior.
             terminal.bridge.clipboardPaste.emit("clipboard text")
             wait_for(lambda: len(writes) >= 3)

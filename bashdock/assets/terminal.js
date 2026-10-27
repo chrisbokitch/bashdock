@@ -52,13 +52,7 @@ new QWebChannel(qt.webChannelTransport, channel => {
     bridge.directory(data.slice(prefix.length));
     return true;
   });
-  terminal.onData(data => {
-    // ConPTY enables focus reporting at startup. With Git Bash, forwarding
-    // these notifications around resizes can discard the next input character.
-    // Keep focus itself working, but omit focus reports from the input stream.
-    if (data === '\x1b[I' || data === '\x1b[O') return;
-    bridge.input(data);
-  });
+  terminal.onData(data => bridge.input(data));
   terminal.onResize(size => bridge.resize(size.cols, size.rows));
   bridge.output.connect(data => terminal.write(data, () => {
     // xterm parses output asynchronously. Release queued buttons only after
