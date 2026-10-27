@@ -210,11 +210,59 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
 | M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
 | M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
-| M5 | Clipboard and optional mouse preferences | Selection/copy, paste, multiline confirmation/cancel, copy-on-select and right-click paste, including mouse-aware programs. JavaScript/Qt coverage is not a recorded manual clipboard result. |
+| M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
 | M6 | Terminal defaults and per-tab overrides | Inheritance, returning to defaults, cancel/save failure behavior, preservation through workspaces/settings, and applying appearance without restarting shells. Appearance restoration has focused owner evidence; this complete scenario is unrecorded. |
 | M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
 | M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+
+### M5 automated coverage and remaining manual smoke
+
+- [test_clipboard.py](../tests/test_clipboard.py) exercises the real Qt clipboard
+  and Python bridge: Unicode copy/single-line paste, empty text, and LF/CRLF/CR
+  multiline confirmation with a default of No. Rejecting emits no paste;
+  accepting preserves the text without adding Enter or changing the clipboard.
+- [terminal-settings.test.cjs](../tests/terminal-settings.test.cjs) covers
+  selection-copy defaults/live toggles, keyboard shortcuts firing once on
+  keydown, plain Ctrl+C remaining available to the shell, and right-click /
+  context-menu handling under mouse tracking, Shift override and live disable.
+- `test_m5_real_selection_copy_shortcut_and_mouse_preference_routing` in
+  [test_windows.py](../tests/test_windows.py) uses real xterm selection,
+  Ctrl+Shift+C and the native clipboard. It checks optional copy-on-select and
+  the real DOM/WebChannel paste route, including mouse-tracking suppression,
+  Shift override and preference disable. Selection and right-click events in
+  this case are created programmatically; mouse-tracking mode is enabled with
+  terminal control sequences, rather than by running a mouse-aware application.
+- `test_m5_native_paste_confirmation_cancel_accept_and_explicit_enter` uses
+  actual Ctrl+Shift+V key events, native clipboard data, the real Qt multiline
+  dialog and Git Bash. Cancelling sends nothing; accepting pastes bracketed
+  multiline input without running it until an explicit Enter. File receipts
+  prove the single- and multiline commands execute only after Enter.
+
+These cases are included in `npm test`; the Windows workflow also runs the new
+clipboard and integration cases with native Qt Windows rendering. Clipboard
+tests preserve and restore the native clipboard's original MIME data; the
+offscreen backend's process-local clipboard is cleared during teardown.
+
+Only these installed-app checks remain for M5; record the app version:
+
+1. **Physical selection and another app:** drag-select terminal text with the
+   mouse, use Ctrl+Shift+C, and paste into Notepad. Include non-ASCII text and a
+   line break. Copy a harmless single-line command from Notepad and paste with
+   Ctrl+Shift+V; check the text is correct and waits for Enter. The full multiline
+   confirmation matrix is automated and does not need repeating manually.
+2. **Optional mouse preferences:** enable copy-on-select and right-click paste.
+   Confirm physical selection copies automatically and right-click pastes at
+   a shell prompt. In a mouse-aware terminal application you use (for example
+   Vim with `:set mouse=a`, using a disposable file), confirm an ordinary right
+   click remains available to that application. Shift+right-click is the
+   explicit paste override. Disable the preferences and check they stop taking
+   effect, then restore whichever settings you prefer. Use harmless clipboard
+   text and avoid Enter while checking paste behavior.
+
+Both checks remain outstanding until an owner result is recorded. These are
+native pointer/external-app integration checks, not a requirement to repeat the
+complete automated clipboard/preference matrix manually.
 
 ## Outstanding updater checks
 

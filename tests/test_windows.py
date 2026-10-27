@@ -18,7 +18,7 @@ from bashdock.shell_integration import create_init_file
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(unittest.TestCase):
     @contextmanager
-    def m4_session(self):
+    def interactive_session(self):
         """Real xterm/ConPTY session with a predictable prompt and file receipts."""
         from types import SimpleNamespace
         from PySide6.QtCore import Qt
@@ -98,7 +98,7 @@ class WindowsTests(unittest.TestCase):
             retry(temporary.cleanup, timeout=5)
 
     def test_m4_history_editing_completion_interrupt_and_unicode(self):
-        with self.m4_session() as s:
+        with self.interactive_session() as s:
             key, qt = s.key, s.qt
             s.command("printf '%s' first > history.txt")
             s.receipt('history.txt', 'first')
@@ -144,7 +144,7 @@ class WindowsTests(unittest.TestCase):
             s.wait(lambda: value in s.screen().splitlines())
 
     def test_m4_real_pager_navigation_resize_exit_preserves_shell_state(self):
-        with self.m4_session() as s:
+        with self.interactive_session() as s:
             key, qt = s.key, s.qt
             (s.folder / 'pager.txt').write_text(
                 ''.join(f'PAGE-{i:03d} pager content\n' for i in range(1, 151)), encoding='utf-8')
@@ -169,6 +169,152 @@ class WindowsTests(unittest.TestCase):
             s.command("printf '%s' \"$BASHDOCK_M4\" > ../after-pager.txt; "
                       "[[ $PWD == */child ]] && printf cwd >> ../after-pager.txt")
             s.receipt('after-pager.txt', 'keptcwd')
+
+    @contextmanager
+    def saved_clipboard(self):
+        from PySide6.QtCore import QMimeData
+        from PySide6.QtWidgets import QApplication
+
+        app = QApplication.instance() or QApplication([])
+        clipboard = app.clipboard()
+        original = QMimeData()
+        mime = clipboard.mimeData()
+        if mime is not None:
+            for kind in mime.formats():
+                original.setData(kind, mime.data(kind))
+        try:
+            yield clipboard
+        finally:
+            if app.platformName() == 'offscreen':
+                clipboard.clear()  # Process-local; avoid offscreen MIME teardown crashes.
+            else:
+                clipboard.setMimeData(original)
+            app.processEvents()
+
+    def test_m5_real_selection_copy_shortcut_and_mouse_preference_routing(self):
+        from unittest.mock import Mock, patch
+        from PySide6.QtTest import QTest
+
+        with self.saved_clipboard() as clipboard, self.interactive_session() as s:
+            t = s.terminal
+            clipboard.setText('unchanged')
+            text = 'COPY_M5 caf\u00e9'
+            t.bridge.output.emit('\r\n' + text + '\r\n')
+            s.wait(lambda: text in s.screen().splitlines())
+            select = """(() => {
+                const b = terminal.buffer.active;
+                for (let i = 0; i < b.length; i++) {
+                    if (b.getLine(i).translateToString(true) === %s) {
+                        terminal.select(0, i, %d); return true;
+                    }
+                }
+                return false;
+            })()""" % (json.dumps(text), len(text))
+            self.assertTrue(s.evaluate(select))
+            self.assertEqual('unchanged', clipboard.text())
+            s.key(s.qt.Key.Key_C, s.qt.KeyboardModifier.ControlModifier | s.qt.KeyboardModifier.ShiftModifier)
+            s.wait(lambda: clipboard.text() == text)
+            t.apply_settings(dict(t.preferences, copy_on_select=True, right_click_paste=True))
+            s.evaluate('terminal.clearSelection()')
+            clipboard.setText('pending copy')
+            self.assertTrue(s.evaluate(select))
+            s.wait(lambda: clipboard.text() == text)
+            s.evaluate('terminal.clearSelection()')
+            self.assertEqual(text, clipboard.text())
+
+            # Inspect real xterm/bridge routing without sending mouse reports
+            # or synthetic clipboard text to the live shell's command line.
+            fake_process = Mock()
+            writes = []
+            fake_process.write.side_effect = writes.append
+            with patch.object(t, 'process', fake_process):
+                clipboard.setText('right click text')
+                click = """document.getElementById('terminal').dispatchEvent(
+                    new MouseEvent('mousedown', {button: 2, bubbles: true, cancelable: true, shiftKey: %s}))"""
+                s.evaluate(click % 'false')
+                s.wait(lambda: any('right click text' in value for value in writes))
+                writes.clear()
+                t.bridge.output.emit('\x1b[?1000h\x1b[?1006h')
+                s.wait(lambda: s.evaluate("terminal.modes.mouseTrackingMode !== 'none'"))
+                requested = []
+                t.bridge.clipboardPaste.connect(requested.append)
+                s.evaluate(click % 'false')
+                # Allow asynchronous WebChannel requests to arrive before
+                # checking that a mouse-aware program did not trigger paste.
+                QTest.qWait(150)
+                self.assertEqual([], requested)
+                s.evaluate(click % 'true')
+                s.wait(lambda: requested == ['right click text'])
+                t.apply_settings(dict(t.preferences, copy_on_select=False, right_click_paste=False))
+                clipboard.setText('disabled')
+                s.evaluate(click % 'true')
+                QTest.qWait(150)
+                self.assertEqual(['right click text'], requested)
+                self.assertTrue(s.evaluate(select))
+                QTest.qWait(150)
+                self.assertEqual('disabled', clipboard.text())
+                t.bridge.output.emit('\x1b[?1000l\x1b[?1006l')
+
+    def test_m5_native_paste_confirmation_cancel_accept_and_explicit_enter(self):
+        from unittest.mock import patch
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication, QMessageBox
+
+        with self.saved_clipboard() as clipboard, self.interactive_session() as s:
+            pasted = []
+            s.terminal.bridge.clipboardPaste.connect(pasted.append)
+            shortcut = s.qt.KeyboardModifier.ControlModifier | s.qt.KeyboardModifier.ShiftModifier
+            clipboard.setText('printf single > single.txt')
+            with patch('bashdock.terminal.QMessageBox.question') as question:
+                s.key(s.qt.Key.Key_V, shortcut)
+                s.wait(lambda: bool(pasted))
+                question.assert_not_called()
+            self.assertEqual(['printf single > single.txt'], pasted)
+            s.wait(lambda: 'single.txt' in s.screen())
+            self.assertFalse((s.folder / 'single.txt').exists())
+            s.key(s.qt.Key.Key_Return)
+            s.receipt('single.txt', 'single')
+
+            value = 'printf first > paste-first.txt\nprintf second > paste-second.txt'
+            clipboard.setText(value)
+            for accept in (False, True):
+                with self.subTest(accept=accept):
+                    dialogs = []
+
+                    def answer_dialog():
+                        dialog = QApplication.activeModalWidget()
+                        dialogs.append((dialog.windowTitle(), dialog.standardButton(dialog.defaultButton())))
+                        dialog.button(QMessageBox.StandardButton.Yes if accept else QMessageBox.StandardButton.No).click()
+
+                    # The Qt key event reaches Chromium/WebChannel asynchronously;
+                    # poll for the modal rather than assuming a fixed delay.
+                    timer = QTimer(s.terminal)
+                    timer.setInterval(10)
+
+                    def when_visible():
+                        if isinstance(QApplication.activeModalWidget(), QMessageBox):
+                            timer.stop()
+                            answer_dialog()
+
+                    timer.timeout.connect(when_visible)
+                    timer.start()
+                    try:
+                        s.key(s.qt.Key.Key_V, shortcut)
+                        s.wait(lambda: bool(dialogs))
+                        self.assertEqual([('Paste multiple lines?', QMessageBox.StandardButton.No)], dialogs)
+                        if accept:
+                            s.wait(lambda: len(pasted) == 2)
+                            s.wait(lambda: 'paste-second.txt' in s.screen())
+                        self.assertEqual(['printf single > single.txt'] + ([value] if accept else []), pasted)
+                        self.assertEqual(value, clipboard.text())
+                        self.assertFalse((s.folder / 'paste-first.txt').exists())
+                        self.assertFalse((s.folder / 'paste-second.txt').exists())
+                    finally:
+                        timer.stop()
+                        timer.deleteLater()
+            s.key(s.qt.Key.Key_Return)
+            s.receipt('paste-first.txt', 'first')
+            s.receipt('paste-second.txt', 'second')
 
     def test_saved_workspace_buttons_require_click_after_add_replace_and_reopen(self):
         from unittest.mock import patch

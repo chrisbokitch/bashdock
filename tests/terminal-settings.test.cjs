@@ -169,6 +169,48 @@ test('right-click paste respects mouse-aware programs and uses the confirmed nat
   assert.equal(s.bridge.pastes, 3);
 });
 
+test('clipboard shortcuts fire once on keydown and leave ordinary Ctrl+C available to the shell', () => {
+  const s = setup();
+  s.terminal.selection = 'caf\u00e9 selected';
+  for (const type of ['keydown', 'keypress', 'keyup']) {
+    assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyC', type}), false);
+    assert.equal(s.terminal.key({ctrlKey: true, shiftKey: true, code: 'KeyV', type}), false);
+  }
+  assert.deepEqual(s.bridge.copies, ['caf\u00e9 selected']);
+  assert.equal(s.bridge.pastes, 1);
+  assert.equal(s.terminal.key({ctrlKey: true, shiftKey: false, code: 'KeyC', type: 'keydown'}), true);
+  assert.equal(s.terminal.key({ctrlKey: false, shiftKey: true, code: 'KeyV', type: 'keydown'}), true);
+  assert.deepEqual(s.bridge.inputs, []);
+});
+
+test('disabling mouse preferences takes effect immediately and only eligible right clicks are consumed', () => {
+  const s = setup();
+  let prevented = 0, stopped = 0;
+  const event = {button: 2, shiftKey: false,
+    preventDefault() {prevented++;}, stopImmediatePropagation() {stopped++;}};
+  s.bridge.settingsChanged.emit(JSON.stringify({...s.initial, copy_on_select: true, right_click_paste: true}));
+  s.terminal.selection = 'selected';
+  s.terminal.selectionChanged();
+  s.host.events.mousedown({...event, button: 0});
+  assert.equal(s.bridge.pastes, 0);
+  s.host.events.mousedown(event);
+  s.host.events.contextmenu(event);
+  assert.deepEqual([s.bridge.pastes, prevented, stopped], [1, 2, 1]);
+  s.terminal.modes.mouseTrackingMode = 'vt200';
+  s.host.events.mousedown(event);
+  s.host.events.contextmenu(event);
+  assert.deepEqual([s.bridge.pastes, prevented, stopped], [1, 2, 1]);
+  s.host.events.mousedown({...event, shiftKey: true});
+  s.host.events.contextmenu({...event, shiftKey: true});
+  assert.deepEqual([s.bridge.pastes, prevented, stopped], [2, 4, 2]);
+  s.bridge.settingsChanged.emit(JSON.stringify(s.initial));
+  s.terminal.selectionChanged();
+  s.host.events.mousedown({...event, shiftKey: true});
+  s.host.events.contextmenu({...event, shiftKey: true});
+  assert.deepEqual(s.bridge.copies, ['selected']);
+  assert.deepEqual([s.bridge.pastes, prevented, stopped], [2, 4, 2]);
+});
+
 test('first and repeated command buttons send plain commands and Enter in one write even with stale paste mode', () => {
   for (const bracketedPasteMode of [false, true]) {
     const s = setup();
