@@ -13,7 +13,7 @@ from scripts.check_settings_manual import DAMAGED, exercise
 class SettingsManualTests(unittest.TestCase):
     def test_m7_launcher_isolates_appdata_and_checks_cancel_restore_without_touching_normal_profile(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             normal, disposable = root / 'normal', root / 'disposable'
             original = normal / 'bashdock' / 'settings.json'
             config.save(config.defaults(), original)
@@ -43,7 +43,7 @@ class SettingsManualTests(unittest.TestCase):
 
     def test_m7_launcher_refuses_existing_profile_or_invalid_backup_before_damaging_any_file(self):
         with tempfile.TemporaryDirectory() as folder, patch('builtins.print'):
-            root = Path(folder)
+            root = Path(folder).resolve()
             existing = root / 'existing'
             existing.mkdir()
             sentinel = existing / 'keep.txt'
