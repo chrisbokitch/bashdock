@@ -13,6 +13,19 @@ from scripts.release_licenses import archive_notices
 
 
 class ReleasePackagingTests(unittest.TestCase):
+    def test_startup_smoke_cleanup_retries_transient_windows_dll_locks(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from scripts import check_startup_health
+        cleanup = Mock(side_effect=[PermissionError('DLL still mapped'), None])
+        directory = SimpleNamespace(name='isolated smoke folder', cleanup=cleanup)
+        with patch.object(check_startup_health.tempfile, 'TemporaryDirectory', return_value=directory), \
+                patch('bashdock.update_helper.time.sleep') as pause:
+            with check_startup_health.temporary_work_directory(prefix='BashDock test ') as root:
+                self.assertEqual(Path(directory.name), root)
+        self.assertEqual(2, cleanup.call_count)
+        pause.assert_called_once_with(0.5)
+
     def test_portable_zip_contains_complete_runtime_and_matching_checksum_and_provenance(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

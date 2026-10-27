@@ -1,5 +1,6 @@
 """Exercise real compiled GUI startup receipts with isolated user directories."""
 import argparse
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -13,7 +14,18 @@ sys.path.insert(0, str(ROOT))
 
 from bashdock import config
 from bashdock.local_updates import installation_id
-from bashdock.update_helper import wait_for_health
+from bashdock.update_helper import retry, wait_for_health
+
+
+@contextmanager
+def temporary_work_directory(*, prefix):
+    directory = tempfile.TemporaryDirectory(prefix=prefix)
+    try:
+        yield Path(directory.name)
+    finally:
+        # Windows can briefly retain mapped Qt DLLs after the test processes
+        # exit. Retry cleanup, but fail if those locks do not clear.
+        retry(directory.cleanup, timeout=20)
 
 
 def verify_startup_health(executable, root, version):
@@ -61,7 +73,7 @@ def main():
     args = parser.parse_args()
     version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
     try:
-        with tempfile.TemporaryDirectory(prefix='BashDock startup check ') as folder:
+        with temporary_work_directory(prefix='BashDock startup check ') as folder:
             verify_startup_health(args.executable, Path(folder), version)
         result = dict(ok=True, version=version, channels=['public', 'local'])
     except Exception as error:

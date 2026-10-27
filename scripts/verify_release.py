@@ -3,17 +3,16 @@ import hashlib
 import json
 import os
 import subprocess
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
 if __package__:
     from .release_licenses import verify_notice_archive, NOTICE_ARCHIVE
-    from .check_startup_health import verify_startup_health
+    from .check_startup_health import temporary_work_directory, verify_startup_health
 else:
     from release_licenses import verify_notice_archive, NOTICE_ARCHIVE
-    from check_startup_health import verify_startup_health
+    from check_startup_health import temporary_work_directory, verify_startup_health
 
 
 def main():
@@ -25,7 +24,7 @@ def main():
     if actual != expected or filename != archive.name:
         raise ValueError("Release ZIP checksum does not match.")
     import zipfile
-    with tempfile.TemporaryDirectory(prefix="BashDock release test ") as folder:
+    with temporary_work_directory(prefix="BashDock release test ") as folder:
         root = Path(folder)
         with zipfile.ZipFile(archive) as bundle:
             required = ('LICENSE', 'COPYRIGHT', 'THIRD-PARTY-NOTICES.md', 'SOURCE.txt', 'bashdock-updater.exe',
