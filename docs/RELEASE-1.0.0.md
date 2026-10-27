@@ -1,7 +1,8 @@
-# BashDock 1.0.0 candidate
+# BashDock 1.0.0 release record
 
-Candidate selected with the owner on 2026-10-27. This is preparation for the
-first 1.0 release; it is not a publication or final acceptance record.
+Published with the owner's approval on 2026-10-27 at 23:13:29 UTC (16:13 PDT).
+The exact-package owner smoke and public asset checks passed. The remaining
+owner check is U1: visible waiting during a normal public update.
 
 ## Scope and retained evidence
 
@@ -76,11 +77,12 @@ create a dummy release or modify production signing keys for these checks.
 - Exact tested/tagged commit: `ec4348991b463c0e6bdeacb5a6ffe3008b733033`.
 - Main and tagged Windows package validation, update signing and draft creation
   passed in [the tag workflow](https://github.com/chrisbokitch/bashdock/actions/runs/40593899149).
-- Signed draft: [v1.0.0](https://github.com/chrisbokitch/bashdock/releases/tag/untagged-3521df38cf43ede33446), still unpublished.
+- Published latest stable release: [v1.0.0](https://github.com/chrisbokitch/bashdock/releases/tag/v1.0.0).
 - Exact application ZIP SHA-256:
   `71f89c4c10f7657779988d27fbaa62ffbe8f8be0aecd222f6088908daca2f54e`.
 - F2 owner smoke: **passed — owner confirmation, 2026-10-27**.
-- Publication approval and U1/U4/public-link results: pending.
+- Publication approved and completed; U4/public asset access and website links passed.
+- U1 visible-waiting owner check: pending.
 
 ## Focus-test follow-up
 
@@ -96,8 +98,8 @@ confirmed the local rerun passed. The focus-test publication hold is cleared.
 Application runtime/version files were unchanged by that follow-up, and the
 existing `v1.0.0` tag remains at `ec43489`. The published source snapshot, when
 approved, is the tagged revision; this later test-harness correction is on main.
-F2 exact-draft ZIP smoke subsequently passed as recorded below. Publication
-approval and U1/U4 remain pending.
+F2 exact-draft ZIP smoke subsequently passed as recorded below. Publication and
+U4/public-link checks are now complete; U1 remains pending.
 
 ## F2 exact-package result
 
@@ -119,6 +121,32 @@ and normal quit behavior.
 The draft's notes and required 12-asset inventory were reviewed: application
 ZIP/checksum/build info, combined checksums, application source, signed manifest
 and signature, Qt/PySide/pywinpty/truststore sources and Rust dependency sources.
-The application ZIP is 244,500,578 bytes. The release remains a draft; public
-recipient access, normal public-update waiting and public website/link checks
-remain U1/U4/F3 and cannot be claimed from the draft's existence.
+The application ZIP is 244,500,578 bytes. Publication and public recipient/website access subsequently passed as recorded
+below. Normal public-update waiting (U1) remains pending owner confirmation.
+
+## Publication and public access (U4/F3)
+
+**Completed, 2026-10-27**, after explicit owner approval. Published the existing
+reviewed draft as latest stable; no tags, binaries or asset contents were
+replaced. GitHub now reports `draft=false`, `prerelease=false`, tag `v1.0.0`.
+
+Using a fresh HTTP client without GitHub credentials/browser cookies:
+
+- The public latest-release API exposes 1.0.0.
+- All 12 uploaded assets returned successful byte-range download responses,
+  including application/source/checksum/build-info and signed-update assets.
+  This verifies access without downloading every large archive in full.
+- Production-public-key verification of the live RSA/SHA-256 update signature
+  passed; the signed ZIP hash matches the owner's tested ZIP.
+- The combined checksum list matches GitHub's uploaded asset digests for all
+  other assets. The checksum list intentionally does not checksum itself.
+- Live source discovery offers 1.0.0 to baseline 0.11.12 and offers no replay to
+  1.0.0. This is a source/API check, not the remaining compiled U1 handoff.
+
+Updated the website's pinned ZIP/checksum/source/release links, visible version
+labels, metadata, illustrative footer and checksum command in website commit
+`89a110a88b1b6c21db8f7bfd90b8965935f06c6a`. Its existing automatic deployment
+completed: `https://www.bashdock.com/` serves 1.0.0 download links with no stale
+0.11.12 or pre-1.0 labels. Existing CSS, JavaScript and older illustrative
+screenshots were retained; no new 1.0 screenshots are claimed. U4 and F3 are
+complete; keep issue #2 open for the U1 owner result/final gate closure.

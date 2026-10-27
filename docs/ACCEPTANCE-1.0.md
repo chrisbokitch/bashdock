@@ -539,7 +539,7 @@ owner's installed executable.
 | U1 | Signed local transaction waits for a simulated second instance, retries a temporary directory lock, completes and records healthy without terminating the new process. Existing timeout tests preserve the original installation. Native Windows status tests read the actual window label, verify its guidance updates, reject WM_CLOSE during a live transaction and verify teardown. Existing Windows process tests track only fixture-owned children. | Observe waiting and completion during a normal public signed update from 0.11.12 or later; combine with candidate asset checks below. No separate manual timeout/locked-file/forced-kill matrix is required. |
 | U2 | Real temporary installation/controller handoff receives an injected write-probe PermissionError before backup/spawn; guidance recommends a writable folder, no helper launches and installation/settings remain unchanged. | None for the automated failure contract. This is not a test of every Windows ACL or elevation configuration. |
 | U3 | Real restart dialog defaults to No. Cancel, failed save and failed helper launch leave both fake shells and the ready notice usable. Controller tests inject helper-copy, backup, DLL-reset and spawn failures; DLL lookup restores after spawn failure. Successful handoff uses detached flags, strips only bundled runtime PATH entries and archives the snapshot before spawn. | None for these deterministic failure paths; normal compiled handoff passed in the owner-confirmed local smoke below. |
-| U4 | Existing discovery tests reject equal/older versions, drafts/prereleases and mismatched signed metadata. Existing tamper/CNG/compiled-helper evidence is retained. | Anonymous application/source/license/update-asset access for the chosen public candidate, combined with U1/final publication. No duplicate manual replay/tamper matrix is required for unchanged filtering. |
+| U4 | Existing discovery tests reject equal/older versions, drafts/prereleases and mismatched signed metadata. Existing tamper/CNG/compiled-helper evidence is retained. | Passed — anonymous access to all 12 public 1.0.0 assets, production update-signature/ZIP-hash verification, checksum-list checks and live source discovery/version filtering verified on 2026-10-27. See the release record; no duplicate manual replay/tamper matrix is required. |
 | U5 | Mid-stream connection loss/cancellation remove only the partial pending directory, preserve an existing ready update and allow a clean retry. Check-without-download never fetches the ZIP or launches a helper. Real Qt preference actions persist disabled checks/downloads, preserve explicit manual checks and roll back failed preference saves. Existing source-preview tests confirm no implicit installation/local timer; the source UI does not create the automatic-check controller. | None for these automated routes. No deliberate network interruption of a working installation is needed. |
 | U6 | Existing extraction/startup and the new signed transaction fixtures use paths containing spaces. | Passed — owner confirmed the complete staged GUI update at `C:/Development/BashDock Update Test/bashdock`; see U6/U7 evidence below. |
 | U7 | Real fixture-key signed staging, controller discovery/deduplication, transaction success, consumed pointer, no old offer in a new controller and discovery of a different next build are exercised together. Existing tests cover newer-offer preservation, revocation, installation binding and startup rollback. | Passed — owner confirmed cancellation preserves shells/notice, successful restart restores configuration in fresh shells, and close/reopen does not resurrect the consumed offer. |
@@ -609,34 +609,34 @@ normal settings for this check.
    Record the installation path and the installed version/commit. A later offer
    is covered by automation; no dummy source change or second build is required.
 
-### Remaining check B: normal public update (U1 + U4)
+### Remaining check B: normal public update (U1; U4 complete)
 
-Use the next intended public candidate; do not create a dummy release solely
-for this check. Start from a published 0.11.12-or-later baseline with the newer
+Use published **1.0.0** as the target; no dummy release is needed. Start from a published 0.11.12-or-later baseline with the newer
 waiting-window helper. Use two idle instances from the same disposable
 installation, leaving one minimized. Confirm restart in the other, inspect the
 visible instructions to close other/minimized windows, then close the remaining
 instance normally. Verify completion and the new app's normal startup. Do not
 kill unrelated applications or deliberately run the one-minute timeout.
 
-For that same candidate, check its application ZIP, matching source, checksums,
-signed update metadata and required license/source assets are reachable without
-GitHub sign-in. Record the baseline/target identity and exact ZIP checksum; this
-asset check also supplies the relevant part of F3 rather than creating a second
-publication exercise.
+The candidate asset-access portion (U4/F3) was verified after publication:
+all 12 uploaded assets are anonymously downloadable, production update-signature
+verification passed, and the signed ZIP hash/checksum list match the release.
+No additional manual asset-download matrix is needed. Record the baseline/target
+identity and the U1 waiting/completion result.
 
-Only check B remains pending owner confirmation. Check A (U6/U7) passed as
-recorded above. The historical normal public update and compiled rollback/tamper
+Only check B's visible-waiting owner result (U1) remains pending. Its asset-access
+portion U4 passed after publication; see [RELEASE-1.0.0.md](RELEASE-1.0.0.md).
+Check A (U6/U7) passed as recorded above. The historical normal public update and compiled rollback/tamper
 milestones are already complete. Reassess
 only relevant paths if code/dependencies change; do not repeat completed cases
 merely because older lists were unchecked.
 
 ## Publisher confirmation and final candidate
 
-**1.0.0 candidate selected — 2026-10-27.** See
-[RELEASE-1.0.0.md](RELEASE-1.0.0.md) for the candidate procedure. Selection does
-not close F1: remaining public-update checks and the candidate-specific
-validation/publication results remain open.
+**1.0.0 published — 2026-10-27**, with owner approval. F2 exact-ZIP smoke and
+U4/F3 public assets/website verification passed. See
+[RELEASE-1.0.0.md](RELEASE-1.0.0.md). Final gate closure F1 awaits only the
+remaining U1 visible-waiting owner result.
 
 
 - [x] P1: Production update-signing private-key backup verified — owner
@@ -645,7 +645,9 @@ validation/publication results remain open.
   comparing it with the original. No private-key contents were supplied, and
   no key rotation was performed. This confirms the requested backup/restore
   check; it does not claim an additional offline backup.
-- [ ] F1: Resolve outstanding blockers and deliberately select 1.0.0 with the owner.
+- [ ] F1: Close the remaining U1 visible-waiting owner check and final readiness
+  gate. Version selection, exact-package validation and approved publication
+  are complete; no outstanding product defect is claimed by this pending check.
 - [x] F2: Exact 1.0.0 draft package smoke passed — owner confirmation,
   2026-10-27. Tag `v1.0.0`, commit `ec4348991b463c0e6bdeacb5a6ffe3008b733033`,
   ZIP SHA-256 `71f89c4c10f7657779988d27fbaa62ffbe8f8be0aecd222f6088908daca2f54e`.
@@ -653,8 +655,11 @@ validation/publication results remain open.
   restored tabs/folders/fresh shells and normal quit. GitHub's uploaded asset
   digest matches the supplied hash. See [RELEASE-1.0.0.md](RELEASE-1.0.0.md)
   for the evidence and remaining publication/public-update scope.
-- [ ] F3: Review notes and all application/source/checksum/update assets, verify
-  recipient access, publish the approved release, and update public website links.
+- [x] F3: Reviewed notes/assets and published the owner-approved 1.0.0 release
+  on 2026-10-27. All 12 uploaded assets are anonymously downloadable; production
+  signature/ZIP hash and checksum list verified. Website commit
+  `89a110a88b1b6c21db8f7bfd90b8965935f06c6a` is live with matching 1.0.0 links.
+  The separate U1 installed waiting-window check remains open.
 
 Optional package-size reduction and the post-1.0 feature roadmap are separate
 work; neither is newly made a release gate by this reconciliation.

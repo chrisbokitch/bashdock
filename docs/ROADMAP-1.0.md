@@ -36,25 +36,25 @@ launch is required.
 
 ## Remaining release gates
 
-The owner selected **1.0.0** as the next candidate on 2026-10-27.
-[RELEASE-1.0.0.md](RELEASE-1.0.0.md) tracks draft preparation, the exact ZIP
-smoke, publication approval and the remaining public-update checks.
+**1.0.0 was published with owner approval on 2026-10-27.**
+[RELEASE-1.0.0.md](RELEASE-1.0.0.md) records its exact ZIP smoke, signed/public
+asset verification and live website update. U1 remains the final owner check.
 
 
 - [x] Complete manual Windows acceptance M1–M9; owner results and package
       evidence are recorded in [ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md).
 - [x] Complete the local staged cancel/install/reopen smoke at a spaced path
       (U6/U7), owner-confirmed on 0.14.7 commit f085056.
-- [ ] Complete normal public signed-update waiting plus candidate asset access
-      (U1/U4) with the next intended public candidate. U2/U3/U5 failure and
+- [ ] Complete visible waiting during a normal public update to 1.0.0 (U1).
+      Public candidate asset access (U4) has passed. U2/U3/U5 failure and
       preference contracts are automated; preserve existing tamper/rollback
       evidence. See the acceptance record for coverage and limits.
 - [x] Verify the production signing-key backup (P1): owner confirmed secure
       vault storage and a restored copy matching the original, 2026-10-27.
-- [ ] Resolve blockers, deliberately choose 1.0.0 with the owner, and validate
-      the exact candidate ZIP and any change-based retests (F1–F2).
-- [ ] Review and publish the approved candidate with all required assets and
-      matching public website links (F3).
+- [x] Select 1.0.0 with the owner and validate the exact candidate ZIP (F2).
+      Final gate closure F1 awaits the remaining U1 owner result.
+- [x] Review and publish the approved candidate with all required assets and
+      matching live public website links (F3).
 
 A new candidate always needs its own identity/checksum/smoke evidence. This does
 not require repeating every historical acceptance exercise without a relevant
