@@ -16,7 +16,7 @@ Run these from the project folder in Git Bash or PowerShell:
 | Command | Action |
 | --- | --- |
 | `npm test` or `npm run test` | Run the Python test suite in `.venv`. |
-| `npm run go` | Run `git pull --ff-only`, then the test suite. A failed pull stops the command. |
+| `npm run test:with-pull` | Run `git pull --ff-only`, then the test suite. A failed pull stops the command. |
 | `npm run preview` | Launch the desktop app from source using `.venv`. Close and relaunch to pick up edits. |
 | `npm run compile` | Install optional build tools and package the Windows app with PyInstaller. |
 | `npm run package` | Compile and smoke-test the app, then create a portable ZIP, SHA-256 checksum, and build information in `release/`. |

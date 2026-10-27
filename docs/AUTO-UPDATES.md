@@ -246,7 +246,7 @@ signatures. On the source checkout, pull 0.14.0 or newer, then build/package:
 
 ```bash
 cd /c/Development/bashdock
-npm run go
+npm run test:with-pull
 npm run package
 ```
 
@@ -259,7 +259,7 @@ This is the final manual copy needed to introduce the capability.
 From the source checkout (including a shell inside the installed BashDock):
 
 ```bash
-npm run go
+npm run test:with-pull
 npm run stage-update -- "C:/Development/tools/bashdock"
 ```
 

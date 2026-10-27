@@ -15,7 +15,7 @@
     "prestage-update": "node scripts/sync-version.cjs --check",
     "setup": "node scripts/tasks.cjs setup",
     "test": "node scripts/tasks.cjs test",
-    "go": "git pull --ff-only && npm test",
+    "test:with-pull": "git pull --ff-only && npm test",
     "preview": "node scripts/tasks.cjs preview",
     "compile": "node scripts/tasks.cjs compile",
     "package": "npm run compile && node scripts/tasks.cjs package",

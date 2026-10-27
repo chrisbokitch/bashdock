@@ -38,7 +38,7 @@ if (task === 'setup') {
     run(windows ? 'py' : 'python3', windows ? ['-3', '-m', 'venv', '.venv'] : ['-m', 'venv', '.venv']);
   }
   run(python, ['-m', 'pip', 'install', '-e', '.']);
-  console.log('Ready. Use npm test, npm run go, npm run preview, or npm run compile.');
+  console.log('Ready. Use npm test, npm run test:with-pull, npm run preview, or npm run compile.');
   process.exit(0);
 }
 
