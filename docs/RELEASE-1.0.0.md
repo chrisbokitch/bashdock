@@ -73,7 +73,25 @@ create a dummy release or modify production signing keys for these checks.
 ## Status
 
 - Candidate version selected: **1.0.0**.
-- Exact tested/tagged commit: pending candidate commit and CI.
+- Exact tested/tagged commit: `ec4348991b463c0e6bdeacb5a6ffe3008b733033`.
+- Main and tagged Windows package validation passed; the tag's signing/draft job
+  is in progress as of this status update.
 - Signed draft and exact application ZIP checksum: pending tag workflow.
 - F2 owner smoke: pending.
 - Publication approval and U1/U4/public-link results: pending.
+
+## Focus-test follow-up
+
+On 2026-10-27, the owner reported a local focus regression test failing while
+establishing focus on the alternate input, before clicking the command button.
+Test-only commit `f9e718c171910e80f30732db749d9848b1802e09` waits for startup
+JavaScript, establishes Qt's active fixture window and clicks the alternate
+input; the button-focus and typing assertions remain intact. It also explicitly
+runs this regression with native Windows Qt in CI and disposes of the fixture.
+The full Windows suite and native focus case passed, and the owner subsequently
+confirmed the local rerun passed. The focus-test publication hold is cleared.
+
+Application runtime/version files were unchanged by that follow-up, and the
+existing `v1.0.0` tag remains at `ec43489`. The published source snapshot, when
+approved, is the tagged revision; this later test-harness correction is on main.
+F2 exact-draft ZIP smoke, publication approval and U1/U4 remain pending.
