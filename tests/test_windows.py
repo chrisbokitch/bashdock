@@ -496,6 +496,114 @@ class WindowsTests(unittest.TestCase):
                 app.processEvents()
             retry(temporary.cleanup, timeout=5)
 
+    @contextmanager
+    def owned_windows_process(self, pid):
+        """Track an exact test-owned process handle, avoiding PID reuse during cleanup."""
+        import ctypes
+        from ctypes import wintypes
+        from types import SimpleNamespace
+
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        kernel.WaitForSingleObject.restype = wintypes.DWORD
+        kernel.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+        kernel.TerminateProcess.restype = wintypes.BOOL
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        handle = kernel.OpenProcess(0x00100001, False, pid)  # SYNCHRONIZE | PROCESS_TERMINATE
+        self.assertTrue(handle, f'Cannot track test process {pid}: {ctypes.get_last_error()}')
+
+        def alive():
+            state = kernel.WaitForSingleObject(handle, 0)
+            self.assertIn(state, (0, 258), f'Cannot query test process {pid}')
+            return state == 258
+
+        try:
+            yield SimpleNamespace(pid=pid, alive=alive)
+        finally:
+            try:
+                if alive():
+                    # Only handles captured from this fixture may be stopped.
+                    kernel.TerminateProcess(handle, 1)
+                    kernel.WaitForSingleObject(handle, 5000)
+            finally:
+                kernel.CloseHandle(handle)
+
+    def test_m8_close_cancels_then_stops_embedded_processes_and_keeps_independent_process(self):
+        from contextlib import ExitStack
+        import subprocess
+        from unittest.mock import patch
+        from PySide6.QtWidgets import QApplication
+        from bashdock import config
+        from bashdock.app import MainWindow
+        from bashdock.update_helper import retry
+
+        app = QApplication.instance() or QApplication([])
+        temporary = tempfile.TemporaryDirectory(prefix='bashdock M8 ')
+        folder = Path(temporary.name).resolve()
+        settings = folder / 'settings.json'
+        data = config.defaults()
+        data['bash_path'] = find_bash()
+        data['tabs'] = [config.default_tab('First'), config.default_tab('Second')]
+        for tab in data['tabs']:
+            tab.update(startup_folder=str(folder), current_folder=str(folder))
+        config.save(data, settings)
+        window, independent = None, None
+
+        def wait(predicate):
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                if predicate():
+                    return
+                app.processEvents()
+                time.sleep(0.01)
+            self.fail('Shutdown did not reach the expected process/thread state')
+
+        try:
+            with patch('bashdock.config.config_path', return_value=settings), ExitStack() as owned:
+                window = MainWindow()
+                window.show()
+                tabs = [window.tabs.widget(i) for i in range(2)]
+                wait(lambda: all(t.terminal.ready and t.terminal.command_startup.ready for t in tabs))
+                processes = [owned.enter_context(self.owned_windows_process(t.terminal.process.pid)) for t in tabs]
+                readers = [t.terminal.reader for t in tabs]
+                init_files = [t.terminal.init_file for t in tabs]
+                independent = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                child_pid = folder / 'foreground.pid'
+                program = (f'from pathlib import Path; import os,time; '
+                           f'Path({str(child_pid)!r}).write_text(str(os.getpid()), encoding="ascii"); time.sleep(60)')
+                tabs[0].terminal.run_command(f'{shlex.quote(Path(sys.executable).as_posix())} -c {shlex.quote(program)}')
+                wait(lambda: child_pid.is_file() and child_pid.read_text(encoding='ascii').isdigit())
+                child = owned.enter_context(self.owned_windows_process(int(child_pid.read_text(encoding='ascii'))))
+                with patch.object(window, 'confirm_quit', return_value=(False, True)):
+                    self.assertFalse(window.close())
+                self.assertTrue(all(p.alive() for p in processes))
+                self.assertTrue(child.alive())
+                self.assertTrue(all(reader.is_alive() for reader in readers))
+                self.assertTrue(window.data['confirm_on_exit'])
+                with patch.object(window, 'confirm_quit', return_value=(True, False)):
+                    self.assertTrue(window.close())
+                wait(lambda: all(not p.alive() for p in processes) and not child.alive())
+                wait(lambda: all(not reader.is_alive() for reader in readers))
+                self.assertTrue(all(path is not None and not path.exists() for path in init_files))
+                self.assertIsNone(independent.poll(), 'Closing embedded terminals stopped an independent process')
+                self.assertEqual(['First', 'Second'], [t['name'] for t in config.read(settings)['tabs']])
+        finally:
+            if window is not None:
+                window.allow_save = False
+                window.data['confirm_on_exit'] = False
+                window.close()
+                window.deleteLater()
+                app.processEvents()
+            if independent is not None and independent.poll() is None:
+                independent.terminate()
+                independent.wait(timeout=10)
+            retry(temporary.cleanup, timeout=5)
+
     def test_saved_workspace_buttons_require_click_after_add_replace_and_reopen(self):
         from unittest.mock import patch
         from PySide6.QtTest import QTest

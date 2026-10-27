@@ -7,6 +7,56 @@ from bashdock import external_shell
 
 
 class ExternalShellTests(unittest.TestCase):
+    def test_m8_packaged_success_removes_only_runtime_paths_and_restores_parent_dll_lookup(self):
+        import os
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            bash = root / 'Git' / 'bin' / 'bash.exe'
+            bash.parent.mkdir(parents=True)
+            bash.touch()
+            (root / 'Git' / 'git-bash.exe').touch()
+            runtime = root / '_internal'
+            retained = root / '_internal-other'
+            original_path = os.pathsep.join(map(str, (runtime, runtime / 'Qt' / 'bin', retained, root)))
+            dll = Mock()
+            dll.SetDllDirectoryW.return_value = 1
+
+            def launch(arguments, **options):
+                self.assertEqual([call(None)], dll.SetDllDirectoryW.call_args_list)
+                self.assertEqual(os.pathsep.join(map(str, (retained, root))), options['env']['PATH'])
+                self.assertEqual('1', options['env']['CHERE_INVOKING'])
+                for stream in ('stdin', 'stdout', 'stderr'):
+                    self.assertEqual(external_shell.subprocess.DEVNULL, options[stream])
+                self.assertEqual(0x208, options['creationflags'])
+                self.assertTrue(options['close_fds'])
+
+            with patch.object(external_shell.sys, 'platform', 'win32'), \
+                    patch.object(external_shell.sys, '_MEIPASS', str(runtime), create=True), \
+                    patch.object(external_shell.ctypes, 'WinDLL', return_value=dll, create=True), \
+                    patch.dict(os.environ, PATH=original_path, CHERE_INVOKING='original'), \
+                    patch.object(external_shell.subprocess, 'Popen', side_effect=launch) as popen:
+                external_shell.open_external(str(bash), temp)
+                popen.assert_called_once()
+                self.assertEqual(original_path, os.environ['PATH'])
+                self.assertEqual('original', os.environ['CHERE_INVOKING'])
+            self.assertEqual([call(None), call(str(runtime))], dll.SetDllDirectoryW.call_args_list)
+
+    def test_m8_failed_dll_reset_aborts_external_launch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            bash = Path(temp) / 'bash.exe'
+            bash.touch()
+            dll = Mock()
+            dll.SetDllDirectoryW.return_value = 0
+            with patch.object(external_shell.sys, 'platform', 'win32'), \
+                    patch.object(external_shell.sys, '_MEIPASS', temp, create=True), \
+                    patch.object(external_shell.ctypes, 'WinDLL', return_value=dll, create=True), \
+                    patch.object(external_shell.subprocess, 'Popen') as launch:
+                with self.assertRaisesRegex(OSError, 'DLL search path'):
+                    external_shell.open_external(str(bash), temp)
+                launch.assert_not_called()
+                dll.SetDllDirectoryW.assert_called_once_with(None)
+
     def test_packaged_launch_restores_dll_lookup_even_when_process_creation_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             bash = Path(temp) / "bash.exe"

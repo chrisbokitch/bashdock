@@ -399,8 +399,63 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
 | M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
 | M6 | Installed appearance and native picker smoke | Inheritance/overrides, return to defaults, nested Save/Cancel, reset/save failure, settings/workspace persistence and live WebEngine appearance without shell restart are automated. Only visual comparison of inherited/custom tabs and actual font/colour picker usability remain below; no complete manual functional matrix is required. |
-| M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
+| M8 | Installed external terminal and quit presentation smoke | Launch arguments/current-folder routing/runtime environment and quit confirmation/opt-out/save ordering are automated. Windows process-handle tests cover embedded shells, a foreground child, reader/init-file cleanup and independent-process preservation. Only actual installed external-terminal interaction/survival and quit-dialog presentation remain below. |
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+
+### M8 automated coverage and remaining manual smoke
+
+Existing [external-shell tests](../tests/test_external_shell.py) cover the
+selected Git installation, paths containing spaces/Unicode, detached Git Bash
+launch flags, the new-console fallback, invalid paths, and restoring DLL lookup
+after launch failure. [Workspace tests](../tests/test_workspace.py) cover menu
+routing to the active shell/current directory, useful launch errors, remembered
+quit preferences and preserving shells when saving fails.
+
+Additional regressions cover:
+
+- `test_m8_packaged_success_removes_only_runtime_paths_and_restores_parent_dll_lookup`:
+  the child loses bundled runtime PATH entries but retains unrelated/similarly
+  named paths; parent environment is unchanged, launcher streams are detached,
+  and the app's DLL lookup is restored after successful process creation.
+- `test_m8_failed_dll_reset_aborts_external_launch`: failed runtime isolation
+  does not start an external process.
+- `test_m8_real_quit_dialog_cancel_save_failure_and_opt_out_stop_only_after_save`:
+  the actual dialog shows the running-shell count, defaults to No and offers
+  the opt-out checkbox. Cancellation and failed save preserve both fake shells
+  and the preference; successful opt-out saves before stopping either shell,
+  and repeated close does not stop them twice.
+- `test_m8_closing_without_running_shells_does_not_prompt_or_change_confirmation_preference`:
+  closing an empty session preserves the chosen confirmation setting.
+- `test_m8_close_cancels_then_stops_embedded_processes_and_keeps_independent_process`
+  in [test_windows.py](../tests/test_windows.py): real MainWindow/ConPTY sessions
+  survive cancelled quit. Accepted quit stops both embedded shells, a
+  test-started foreground Python child, reader threads and temporary init files,
+  while an independent test process stays alive. Kernel process handles identify
+  exactly the fixture-owned processes; cleanup never searches/kills by name.
+
+`npm test` includes these cases; the Windows workflow also runs the new dialogs
+and process lifecycle case with native Qt. Process creation is mocked in the
+external-launch tests: a real installed Git Bash/Mintty window and its keyboard
+interaction still require the short manual check below. The independent test
+process is not a claim that an actual external Git window has been accepted.
+
+Only these installed-app checks remain for M8; use **0.14.7**, with idle/test
+tabs rather than unfinished work. No app update is needed.
+
+1. **External terminal:** change an embedded tab to a recognisable folder
+   (preferably containing spaces), then choose Manage → Open external shell.
+   In the external window, run `pwd` to check the folder and confirm typing
+   works. Close BashDock, then run another harmless command in that external
+   window to confirm it stays usable. Close the external window afterward.
+2. **Quit presentation:** reopen with two idle tabs and quit. Check the shell
+   count, default No and opt-out checkbox are clear; cancel once and verify
+   the terminals remain usable. Then quit with Don't show this again selected.
+   Reopen and confirm another quit does not prompt. Re-enable quit confirmation
+   in Settings if that is your preferred setting.
+
+Both checks remain outstanding until an owner result is recorded. No separate
+manual process-killing/save-failure matrix is required; the automation uses
+only processes it created. Actual Windows display-scaling remains M9.
 
 ## Outstanding updater checks
 

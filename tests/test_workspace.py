@@ -1004,6 +1004,59 @@ class WorkspaceTests(unittest.TestCase):
         self.window.confirm_exit_action.setChecked(True)
         self.assertTrue(config.load(self.path)["confirm_on_exit"])
 
+    def test_m8_real_quit_dialog_cancel_save_failure_and_opt_out_stop_only_after_save(self):
+        from PySide6.QtCore import QTimer
+
+        first = self.window.current_tab()
+        self.ready(first)
+        self.window.new_tab()
+        second = self.window.current_tab()
+        self.ready(second)
+        self.assertTrue(self.window.persist())
+        for answer, locked in ((QMessageBox.StandardButton.No, False),
+                               (QMessageBox.StandardButton.Yes, True),
+                               (QMessageBox.StandardButton.Yes, False)):
+            with self.subTest(answer=answer, locked=locked):
+                observed = []
+
+                def respond():
+                    dialog = QApplication.activeModalWidget()
+                    observed.append((dialog.windowTitle(), dialog.text(),
+                                     dialog.standardButton(dialog.defaultButton()), dialog.checkBox().text()))
+                    dialog.checkBox().setChecked(True)
+                    dialog.button(answer).click()
+
+                QTimer.singleShot(0, respond)
+                real_save = config.save
+                stops_at_save = []
+
+                def save(*args, **kwargs):
+                    stops_at_save.append([first.terminal.stops, second.terminal.stops])
+                    if locked:
+                        raise PermissionError('locked')
+                    return real_save(*args, **kwargs)
+
+                with patch('bashdock.config.save', side_effect=save), \
+                        patch('bashdock.app.QMessageBox.warning') as warning:
+                    closed = self.window.close()
+                self.assertEqual([('Close BashDock?', 'Close 2 shell session(s) and quit?',
+                                   QMessageBox.StandardButton.No, "Don't show this again")], observed)
+                accepted = answer == QMessageBox.StandardButton.Yes and not locked
+                self.assertEqual(accepted, closed)
+                self.assertEqual(accepted, not self.window.data['confirm_on_exit'])
+                self.assertEqual(accepted, not config.read(self.path)['confirm_on_exit'])
+                self.assertEqual([int(accepted)] * 2, [first.terminal.stops, second.terminal.stops])
+                self.assertTrue(all(counts == [0, 0] for counts in stops_at_save))
+                self.assertEqual(1 if locked else 0, warning.call_count)
+        self.assertTrue(self.window.close())
+        self.assertEqual([1, 1], [first.terminal.stops, second.terminal.stops])
+
+    def test_m8_closing_without_running_shells_does_not_prompt_or_change_confirmation_preference(self):
+        with patch.object(self.window, 'confirm_quit') as confirm:
+            self.assertTrue(self.window.close())
+            confirm.assert_not_called()
+        self.assertTrue(config.read(self.path)['confirm_on_exit'])
+
     def test_terminal_preferences_save_apply_to_all_tabs_and_new_tabs_without_restart(self):
         self.window.new_tab()
         for index in range(self.window.tabs.count()):
