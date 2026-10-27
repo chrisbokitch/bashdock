@@ -301,6 +301,18 @@ class SettingsDialog(QDialog):
 
 class CommandScrollArea(QScrollArea):
     """Fit the button height, reserving scrollbar space only when needed."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.fit_timer = QTimer(self)
+        self.fit_timer.setSingleShot(True)
+        self.fit_timer.timeout.connect(self.fit_height)
+
+    def schedule_fit(self):
+        # Resizing the scroll area inside its child's Resize event can nest
+        # another resize before Qt lays out the original size. That leaves
+        # buttons positioned for the old height when a hidden tab is shown.
+        self.fit_timer.start(0)
+
     def fit_height(self):
         if self.widget() is None:
             return
@@ -312,13 +324,13 @@ class CommandScrollArea(QScrollArea):
             self.setFixedHeight(height)
 
     def eventFilter(self, watched, event):
-        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Resize):
-            self.fit_height()
+        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Resize, QEvent.Type.Show):
+            self.schedule_fit()
         return super().eventFilter(watched, event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.fit_height()
+        self.schedule_fit()
 
 
 class ShellTopBorder(QWidget):

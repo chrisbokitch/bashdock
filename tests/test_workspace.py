@@ -1154,6 +1154,42 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual("", footer.currentMessage())
         self.assertTrue(footer.version_label.isVisible())
 
+    def test_restoring_nonfirst_tab_keeps_command_buttons_inside_footer(self):
+        from bashdock.app import CommandScrollArea
+
+        self.window.new_tab()
+        self.window.show()
+        self.window.tabs.setCurrentIndex(1)
+        for _ in range(12):
+            self.app.processEvents()
+        self.window.close()
+        self.window = MainWindow(terminal_factory=FakeTerminal)
+        self.window.show()
+        for _ in range(12):
+            self.app.processEvents()
+        self.assertEqual(1, self.window.tabs.currentIndex())
+
+        for long_labels in (False, True):
+            first = self.window.tabs.widget(0)
+            if long_labels:
+                for button in first.command_buttons:
+                    button.setText('A longer configured command button')
+            for width in (1120, 600, 1120):
+                self.window.resize(width, 760)
+                for index in (1, 0, 1, 0):
+                    self.window.tabs.setCurrentIndex(index)
+                    for _ in range(12):
+                        self.app.processEvents()
+                    tab = self.window.current_tab()
+                    scroll = tab.findChild(CommandScrollArea)
+                    for button in tab.command_buttons:
+                        with self.subTest(long_labels=long_labels, width=width, tab=index):
+                            self.assertGreaterEqual(button.height(), button.sizeHint().height())
+                            self.assertTrue(tab.bar.rect().contains(button.geometry()),
+                                            f'{button.geometry()} outside {tab.bar.rect()}')
+                            bottom = button.mapTo(scroll.viewport(), button.rect().bottomLeft()).y()
+                            self.assertLess(bottom, scroll.viewport().height())
+
     def test_new_tab_button_is_not_squeezed_by_corner_padding(self):
         from PySide6.QtCore import QPoint
         from PySide6.QtWidgets import QPushButton, QProxyStyle, QStyle, QStyleFactory
