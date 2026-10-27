@@ -61,8 +61,12 @@ new QWebChannel(qt.webChannelTransport, channel => {
   }));
   // Buttons represent typed commands, not clipboard pastes. Send the command
   // and Enter together so stale bracketed-paste mode cannot add escape markers.
-  bridge.paste.connect((commandId, command) =>
-    bridge.commandInput(commandId, command.replace(/\r?\n/g, '\r') + '\r'));
+  bridge.paste.connect((commandId, command) => {
+    // Finish focus reporting before injecting text. A focus transition after
+    // the command write can interleave ConPTY's input handling with that text.
+    terminal.focus();
+    bridge.commandInput(commandId, command.replace(/\r?\n/g, '\r') + '\r');
+  });
   bridge.clipboardPaste.connect(text => terminal.paste(text));
   bridge.focus.connect(() => terminal.focus());
   terminal.attachCustomKeyEventHandler(event => {

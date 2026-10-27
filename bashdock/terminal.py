@@ -219,8 +219,8 @@ class Terminal(QWebEngineView):
 
     def dispatch_command(self, command_id, command):
         self.trace.record('command_dispatched', command=command_id)
-        self.bridge.paste.emit(command_id, command)
         self.focus_terminal()
+        self.bridge.paste.emit(command_id, command)
 
     def focus_terminal(self):
         # Focusing xterm's textarea alone does not transfer native Qt focus
