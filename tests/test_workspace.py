@@ -1900,6 +1900,63 @@ class WorkspaceTests(unittest.TestCase):
         footer.show_update('0.14.0', local=True)
         self.assertEqual('Local build 0.14.0 is ready — Restart to update', footer.update_button.text())
 
+    def test_m9_update_notice_and_controls_remain_accessible_after_resize_maximize_and_restore(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from bashdock.app import CommandScrollArea
+
+        self.window.new_tab()
+        self.window.tabs.setCurrentIndex(1)
+        self.window.show()
+        self.app.processEvents()
+        self.reopen_window()
+        self.window.show()
+        self.assertEqual(1, self.window.tabs.currentIndex())
+        requested = []
+        footer = self.window.statusBar()
+        footer.update_requested.connect(lambda: requested.append(True))
+        processes = [self.window.tabs.widget(i).terminal.process for i in range(2)]
+
+        for ready, local in ((False, False), (True, False), (True, True)):
+            footer.show_update('0.14.7', ready=ready, local=local)
+            footer.showMessage('A status message while an update notice is visible')
+            for mode in ('wide', 'narrow', 'maximized', 'normal'):
+                if mode == 'maximized':
+                    self.window.showMaximized()
+                elif mode == 'normal':
+                    self.window.showNormal()
+                else:
+                    self.window.resize(1120 if mode == 'wide' else 600, 760)
+                for index in (0, 1):
+                    self.window.tabs.setCurrentIndex(index)
+                    for _ in range(12):
+                        self.app.processEvents()
+                    with self.subTest(ready=ready, local=local, mode=mode, tab=index):
+                        for widget in (footer.version_label, footer.update_button):
+                            self.assertTrue(widget.isVisible())
+                            self.assertTrue(footer.rect().contains(widget.geometry()))
+                            self.assertGreaterEqual(widget.width(), widget.sizeHint().width())
+                            self.assertGreaterEqual(widget.height(), widget.sizeHint().height())
+                        self.assertLess(footer.version_label.geometry().right(),
+                                        footer.update_button.geometry().left())
+                        tab = self.window.current_tab()
+                        scroll = tab.findChild(CommandScrollArea)
+                        for button in tab.command_buttons:
+                            bottom = button.mapTo(scroll.viewport(), button.rect().bottomLeft()).y()
+                            self.assertLess(bottom, scroll.viewport().height())
+                            self.assertGreaterEqual(button.height(), button.sizeHint().height())
+                        gear = tab.findChild(QPushButton, 'configureTab')
+                        new_tab = self.window.findChild(QPushButton, 'newTab')
+                        for control in (gear, new_tab):
+                            self.assertTrue(control.isVisible())
+                            self.assertTrue(control.parentWidget().rect().contains(control.geometry()))
+                            self.assertGreaterEqual(control.height(), control.sizeHint().height())
+                        before = len(requested)
+                        QTest.mouseClick(footer.update_button, Qt.MouseButton.LeftButton)
+                        self.assertEqual(before + 1, len(requested))
+                        self.assertIs(processes[index], tab.terminal.process)
+                        self.assertEqual(0, tab.terminal.stops)
+
     def test_local_update_confirmation_pins_the_build_even_if_newer_staging_finishes(self):
         from types import SimpleNamespace
         from unittest.mock import Mock

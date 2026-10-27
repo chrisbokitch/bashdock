@@ -453,12 +453,50 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | ID | Check to finish | Existing evidence / result still needed |
 | --- | --- | --- |
 | M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
-| M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
-| M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
-| M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
-| M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
-| M6 | Installed appearance and native picker smoke | Inheritance/overrides, return to defaults, nested Save/Cancel, reset/save failure, settings/workspace persistence and live WebEngine appearance without shell restart are automated. Only visual comparison of inherited/custom tabs and actual font/colour picker usability remain below; no complete manual functional matrix is required. |
-| M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+| M9 | Actual Windows display scaling | Menu/tab geometry and combined update-notice/window-transition tests run at Qt scale factors 1, 1.25 and 1.5. Only the installed-app visual checks at actual Windows 100%/125%/150% scaling remain below. |
+
+### M9 automated coverage and remaining manual smoke
+
+Existing menu, tab, restored-footer and geometry tests cover popup padding,
+submenu resizing, close/new-tab controls, switching restored tabs, command-button
+vertical bounds, saved normal geometry and maximized restoration. The Windows
+workflow runs the popup/tab checks with native Qt at scale factors 1, 1.25 and
+1.5.
+
+`test_m9_update_notice_and_controls_remain_accessible_after_resize_maximize_and_restore`
+in [test_workspace.py](../tests/test_workspace.py) adds a combined regression:
+restore the second tab, switch both tabs through wide/narrow/maximized/normal
+window states, and show public download, public ready and local ready notices
+alongside a status message. It verifies the complete notice/version fit their
+footer, the notice remains clickable, command buttons are not vertically clipped,
+gear/new-tab controls remain inside their parents, and neither shell is stopped
+or replaced. This uses fake terminal processes and intercepts update requests;
+it does not download or install anything. The Windows workflow also runs this
+case with native Qt at all three scale factors.
+
+Qt scale-factor checks do not change the Windows display setting or establish
+visual sharpness, real monitor transitions or installed WebEngine rendering.
+Only these visual checks remain for M9, using the installed **0.14.7** app:
+
+1. **At each actual Windows scale (100%, 125%, 150%):** choose the scale in
+   Windows Settings → System → Display, then launch/relaunch BashDock. With two
+   tabs, resize narrower/wider and maximize/restore. Inspect terminal text,
+   command buttons, gear/new-tab/close controls and footer for clipping, overlap
+   or unreadable text. Open Manage → Workspaces, Settings → Updates and Help;
+   inspect popup/submenu text, spacing and placement. Click the second tab,
+   close/reopen the app and switch to the first tab; verify the restored footer
+   and controls still fit. Existing tab overflow/command horizontal scrolling
+   are expected; this does not require post-1.0 compact tabs or wrapped buttons.
+2. **Update notice at each scale:** with a local update staged, inspect the
+   ready notice beside the version at normal/narrow and maximized sizes. Check
+   its full text is readable and other footer content does not overlap. You can
+   use the existing `npm run stage-update -- "C:/Development/tools/bashdock"`
+   command once to produce the notice; leave it pending throughout the three
+   scale checks. Installing it is not required for M9. Return Windows scaling
+   to your preferred value afterward.
+
+Both checks remain pending owner confirmation. Record the scale(s) exercised;
+no additional app update is needed for these test/documentation changes.
 
 ## Outstanding updater checks
 
