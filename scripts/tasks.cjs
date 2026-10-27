@@ -23,12 +23,12 @@ function run(executable, args, options = {}) {
   }
 }
 
-if (!['setup', 'test', 'preview', 'compile', 'package', 'package-check', 'update-keygen'].includes(task)) {
+if (!['setup', 'test', 'preview', 'compile', 'package', 'package-check', 'update-keygen', 'stage-update'].includes(task)) {
   console.error('Use npm run setup, npm test, npm run preview, npm run compile, or npm run package.');
   process.exit(1);
 }
 
-if (['preview', 'compile', 'package', 'package-check'].includes(task) && !windows) {
+if (['preview', 'compile', 'package', 'package-check', 'stage-update'].includes(task) && !windows) {
   console.error(`${task} requires Windows. Build Windows executables on Windows.`);
   process.exit(1);
 }
@@ -47,11 +47,23 @@ if (!existsSync(python)) {
   process.exit(1);
 }
 
-if (task === 'update-keygen') {
+if (task === 'stage-update') {
+  const args = process.argv.slice(3);
+  if (!args.includes('--disable')) {
+    // Validate the installation before spending time compiling/packaging.
+    run(python, ['scripts/stage_update.py', ...args, '--check-target']);
+    if (!args.includes('--reuse-package')) {
+      run(process.execPath, [__filename, 'package-check']);
+      run(process.execPath, [__filename, 'compile']);
+      run(process.execPath, [__filename, 'package']);
+    }
+  }
+  run(python, ['scripts/stage_update.py', ...args]);
+} else if (task === 'update-keygen') {
   run(python, ['scripts/update_keys.py']);
 } else if (task === 'test') {
   run(python, ['-m', 'unittest', 'discover', '-s', 'tests', '-v']);
-  run(process.execPath, ['--test', 'tests/terminal-settings.test.cjs']);
+  run(process.execPath, ['--test', 'tests/terminal-settings.test.cjs', 'tests/stage-update.test.cjs']);
 } else if (task === 'preview') {
   run(python, ['-m', 'bashdock']);
 } else if (task === 'compile') {

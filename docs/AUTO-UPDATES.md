@@ -217,3 +217,95 @@ is running in the copy. It tests an OS launch failure, not every possible crash
 or hang after a successful launch. Normal GUI handoff, second-instance feedback,
 and real two-release updating still need their separate VM checks. It does not
 weaken signature verification or add a failure switch to normal app startup.
+
+## Local development updates
+
+Starting with **0.14.0**, an installed Windows copy can accept a package built from
+another source checkout on the same machine/user account. This is a separate,
+explicitly enrolled local development channel. Public downloads still require
+the embedded publisher key; local keys are never tried as a fallback for public
+updates. Source/preview runs never watch an installed copy's inbox.
+
+### One-time bootstrap
+
+Older installations cannot discover local staged builds or verify their separate
+signatures. On the source checkout, pull 0.14.0 or newer, then build/package:
+
+```bash
+cd /c/Development/bashdock
+npm run go
+npm run package
+```
+
+Open an external Git Bash, close the installed BashDock, and run the existing
+ignored `./copy.sh` once. Reopen `C:\Development\tools\bashdock\bashdock.exe`.
+This is the final manual copy needed to introduce the capability.
+
+### Everyday workflow
+
+From the source checkout (including a shell inside the installed BashDock):
+
+```bash
+npm run go
+npm run stage-update -- "C:/Development/tools/bashdock"
+```
+
+The command validates the installed target, builds and smoke-tests the compiled
+application/helper, creates the normal package with its source/licensing assets,
+and stages it without replacing any running installation files. Packaging still
+requires a clean, committed checkout. Do not point it at `dist/bashdock`.
+
+The installed app polls its local inbox every two seconds, independently of the
+public automatic-check preference. Signature, checksum and archive checks run in
+the background; after validation the footer offers **Local build X is ready —
+Restart to update**. Finish running work, click the notice and confirm the restart.
+Cancellation leaves the running shells open. Settings backups, waiting for other
+instances/locked files, application replacement, startup health checks and rollback
+use the same transaction as public updates. The independent helper verifies the
+local signature and package again before modifying the installation.
+
+To stage an existing package without rebuilding it:
+
+```bash
+npm run stage-update -- "C:/Development/tools/bashdock" --reuse-package
+```
+
+That package must match the checkout's exact version and HEAD commit. Older
+versions, stale packages, and a version/commit already installed are rejected.
+A different commit with the same version is allowed for local development; a
+version downgrade is not. A second staging command publishes a fresh offer
+atomically. An update already confirmed installs the build named in its dialog,
+even if another build is staged meanwhile.
+
+### Local trust and revocation
+
+Running `stage-update` explicitly enrolls only the named installation. The command
+creates/reuses `.secrets/local-update-signing-key.pem` in the source checkout,
+separate from the public release signing key. It is ignored by Git and must not
+be committed or shared. The trusted public key and staged packages live under
+`%LOCALAPPDATA%\BashDock\local-updates\<installation-id>`. Signed metadata binds the
+package to that installation; packages cannot be redirected to another target.
+Public-key enrollment survives application replacement because it is outside the
+installation folder. A different development key cannot silently replace it.
+
+Disable local staging for that target with:
+
+```bash
+npm run stage-update -- "C:/Development/tools/bashdock" --disable
+```
+
+This revokes its local public key and removes the offer, without rebuilding,
+closing the app, changing settings, or disabling public updates. Already-confirmed
+transactions may be in progress. To enroll a replacement development key, disable
+first, then stage again. Old staging directories and retained previous installations
+are left for inspection/manual cleanup; revocation does not delete them.
+
+### Windows validation
+
+After bootstrapping, validate a subsequent committed build against the running
+installed copy: stage it, cancel once (shells must remain usable), then confirm.
+Check version/About, tabs, commands, colours, settings and a normal second launch.
+Confirm the staged notice is consumed and a new staging command is detected.
+The automated suite checks real local signatures (Windows CNG on Windows), target
+binding, tampering, atomic publication, isolation from the public trust path, and
+transactional startup rollback with disposable installation/settings fixtures.

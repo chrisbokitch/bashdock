@@ -20,6 +20,7 @@ Run these from the project folder in Git Bash or PowerShell:
 | `npm run preview` | Launch the desktop app from source using `.venv`. Close and relaunch to pick up edits. |
 | `npm run compile` | Install optional build tools and package the Windows app with PyInstaller. |
 | `npm run package` | Compile and smoke-test the app, then create a portable ZIP, SHA-256 checksum, and build information in `release/`. |
+| `npm run stage-update -- "C:/Development/tools/bashdock"` | Build/package and offer a local update in that installed copy, without closing it first. Requires a one-time installation of 0.14.0 or newer; see [local development updates](docs/AUTO-UPDATES.md#local-development-updates). |
 | `npm run setup` | Create `.venv` if missing and install/update the Python project and dependencies. |
 
 Your existing `.venv` works with these commands. No activation or `npm install` is required: there are no JavaScript dependencies. For a fresh clone, run `npm run setup` once, then `npm run preview`.

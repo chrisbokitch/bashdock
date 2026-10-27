@@ -149,8 +149,9 @@ class FooterBar(QStatusBar):
         self.clear_timer.setSingleShot(True)
         self.clear_timer.timeout.connect(self.clearMessage)
 
-    def show_update(self, version, ready=True):
-        text = f"Version {version} is ready — Restart to update" if ready else f"Version {version} is available — Download update"
+    def show_update(self, version, ready=True, local=False):
+        label = 'Local build' if local else 'Version'
+        text = f"{label} {version} is ready — Restart to update" if ready else f"{label} {version} is available — Download update"
         self.update_button.setText(text)
         self.update_button.setToolTip("Save your workspace and restart to install the update." if ready else "Download the verified update in the background.")
         self.update_button.setAccessibleName(text)
@@ -789,8 +790,11 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(messages[state])
         if state == "downloading":
             self.statusBar().update_button.hide()
-        if state in ("ready", "available"):
-            self.statusBar().show_update(value, ready=state == "ready")
+        if state == 'local-disabled':
+            self.statusBar().update_button.hide()
+            self.statusBar().clearMessage()
+        if state in ("ready", "available", "local-ready"):
+            self.statusBar().show_update(value, ready=state != "available", local=state == "local-ready")
             self.statusBar().clearMessage()
         if state == "error":
             self.statusBar().showMessage(f"Update check: {value}")
@@ -802,9 +806,12 @@ class MainWindow(QMainWindow):
         if self.updater.ready is None:
             self.updater.download()
             return
-        version = self.updater.ready.manifest["version"]
+        chosen = self.updater.ready
+        version = chosen.manifest["version"]
+        local = chosen.manifest.get('channel') == 'local-development'
+        label = 'locally built BashDock' if local else 'BashDock'
         if QMessageBox.question(self, "Restart to update?",
-                f"Install BashDock {version} and restart?\n\n"
+                f"Install {label} {version} and restart?\n\n"
                 "Running commands and shell sessions will close. Tabs, folders, settings, and window position "
                 "will be saved, then reopened in fresh shells. Finish any running work first.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -813,6 +820,9 @@ class MainWindow(QMainWindow):
         if not self.allow_save:
             QMessageBox.warning(self, "Cannot update yet", "Recover your settings before restarting to update.")
             return
+        # A local staging worker may finish while the confirmation dialog is
+        # open. Install exactly the build named in that confirmation.
+        self.updater.install_choice = chosen
         self.update_restart = True
         if not self.close():
             self.update_restart = False

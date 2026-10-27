@@ -1,6 +1,6 @@
 {
   "name": "bashdock",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "private": true,
   "description": "Development shortcuts for the bashdock Python desktop app",
   "engines": {
@@ -12,12 +12,14 @@
     "prepreview": "node scripts/sync-version.cjs --check",
     "precompile": "node scripts/sync-version.cjs --check",
     "prepackage": "node scripts/sync-version.cjs --check && node scripts/tasks.cjs package-check",
+    "prestage-update": "node scripts/sync-version.cjs --check",
     "setup": "node scripts/tasks.cjs setup",
     "test": "node scripts/tasks.cjs test",
     "go": "git pull --ff-only && npm test",
     "preview": "node scripts/tasks.cjs preview",
     "compile": "node scripts/tasks.cjs compile",
     "package": "npm run compile && node scripts/tasks.cjs package",
+    "stage-update": "node scripts/tasks.cjs stage-update",
     "updates:keygen": "node scripts/tasks.cjs update-keygen"
   },
   "license": "GPL-3.0-only"

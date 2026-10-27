@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 from .updates import parse_manifest, digest_file, extract_package
 from .update_security import load_key
+from . import local_updates
 
 
 def wait_for_pid(pid, timeout=120):
@@ -138,8 +139,14 @@ def install(plan, key, *, verify=None, wait=wait_for_pid, other_processes=proces
     if target == target.parent or target == Path.home().resolve() or not (target / 'bashdock.exe').is_file() or not (target / '_internal').is_dir():
         raise ValueError('The update target is not a BashDock installation.')
     arguments = {} if verify is None else {'verify': verify}
-    manifest = parse_manifest((pending / 'manifest.json').read_bytes(),
-                              (pending / 'manifest.sig').read_bytes(), key, **arguments)
+    channel = plan.get('channel', 'public')
+    if channel == local_updates.CHANNEL:
+        manifest = local_updates.verify_pending(target, pending, **arguments).manifest
+    elif channel == 'public':
+        manifest = parse_manifest((pending / 'manifest.json').read_bytes(),
+                                  (pending / 'manifest.sig').read_bytes(), key, **arguments)
+    else:
+        raise ValueError('Unknown update channel.')
     archive = pending / 'package.zip'
     if archive.stat().st_size != manifest['size'] or digest_file(archive) != manifest['sha256']:
         raise ValueError('The pending update changed. Nothing has been installed.')
@@ -187,6 +194,11 @@ def install(plan, key, *, verify=None, wait=wait_for_pid, other_processes=proces
         if not healthy(process, health, plan['token'], manifest['version']):
             raise OSError('The new version did not start successfully.')
         record('healthy')
+        if channel == local_updates.CHANNEL:
+            try:
+                local_updates.acknowledge(target, pending)
+            except (OSError, ValueError):
+                pass  # A healthy installed build must not roll back over inbox cleanup.
         status('Update complete.')
         return {'ok': True, 'version': manifest['version'], 'previous': str(old)}
     except BaseException:
@@ -263,12 +275,15 @@ def main():
         if lock:
             kernel.CloseHandle(lock)
         raise SystemExit('Another BashDock update is already running.')
-    cache = args.install.parent.parent
+    from .updates import cache_directory
+    cache = cache_directory()
+    cache.mkdir(parents=True, exist_ok=True)
     result_path = cache / 'result.json'
     try:
         from .update_status import UpdateStatus
         with UpdateStatus() as status:
-            result = install(plan, load_key(), status=status.set_text)
+            key = None if plan.get('channel') == local_updates.CHANNEL else load_key()
+            result = install(plan, key, status=status.set_text)
         result_path.write_text(json.dumps(result), encoding='utf-8')
     except Exception as error:
         result_path.write_text(json.dumps({'ok': False, 'message': str(error)}), encoding='utf-8')

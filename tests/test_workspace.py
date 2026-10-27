@@ -1307,6 +1307,25 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual([True], requested)
         footer.clearMessage()
         self.assertTrue(footer.update_button.isVisible())
+        footer.show_update('0.14.0', local=True)
+        self.assertEqual('Local build 0.14.0 is ready — Restart to update', footer.update_button.text())
+
+    def test_local_update_confirmation_pins_the_build_even_if_newer_staging_finishes(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        chosen = SimpleNamespace(manifest={'version': '0.14.0', 'channel': 'local-development'})
+        newer = SimpleNamespace(manifest={'version': '0.14.1', 'channel': 'local-development'})
+        updater = Mock()
+        updater.ready = chosen
+        self.window.updater = updater
+        def confirm(*args):
+            self.assertIn('locally built BashDock 0.14.0', args[2])
+            updater.ready = newer
+            return QMessageBox.StandardButton.Yes
+        with patch('bashdock.app.QMessageBox.question', side_effect=confirm), \
+                patch.object(self.window, 'close', return_value=False):
+            self.window.restart_for_update()
+        self.assertIs(chosen, updater.install_choice)
 
     def test_update_restart_cancel_or_save_failure_does_not_stop_shells_or_launch_helper(self):
         from types import SimpleNamespace
