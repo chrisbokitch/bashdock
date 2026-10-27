@@ -582,7 +582,13 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self.tab_changed)
         self.tabs.tabBar().tabMoved.connect(self.schedule_save)
         self.tabs.tabBar().tabMoved.connect(self.refresh_tab_colors)
-        add = QPushButton("+ New tab")
+        add = QPushButton()
+        add.setObjectName("newTab")
+        add.setIcon(QIcon(str(APP_ICON.parent / "tab-add.svg")))
+        add.setIconSize(QSize(18, 18))
+        add.setFixedWidth(36)
+        add.setToolTip("New tab")
+        add.setAccessibleName("New tab")
         add.clicked.connect(self.new_tab)
         corner = QWidget()
         corner_layout = QHBoxLayout(corner)
@@ -689,7 +695,7 @@ class MainWindow(QMainWindow):
             QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
             QPushButton:hover { border-color:#70dcc2; }
             QPushButton:disabled { color:#77818f; }
-            QPushButton#configureTab { background:#111b2b;padding:6px; }
+            QPushButton#configureTab,QPushButton#newTab { background:#111b2b;padding:6px; }
             QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
             QLineEdit { padding:6px; }
             QStatusBar { background:#111b2b;border-top:1px solid #27384d; }

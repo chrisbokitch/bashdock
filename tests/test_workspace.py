@@ -1143,7 +1143,7 @@ class WorkspaceTests(unittest.TestCase):
                     self.window.resize(width, 760)
                     for _ in range(4):
                         self.app.processEvents()
-                    button = next(b for b in self.window.findChildren(QPushButton) if b.text() == "+ New tab")
+                    button = self.window.findChild(QPushButton, "newTab")
                     self.assertGreaterEqual(button.height(), button.sizeHint().height())
                     self.assertEqual(3, button.parentWidget().height() - button.geometry().bottom() - 1)
                     bar = self.window.tabs.tabBar()
