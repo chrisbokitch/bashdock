@@ -73,7 +73,12 @@ class WindowsTests(unittest.TestCase):
 
         def receipt(name, expected):
             path = folder / name
-            wait(lambda: path.is_file() and path.read_text(encoding='utf-8') == expected)
+            try:
+                wait(lambda: path.is_file() and path.read_text(encoding='utf-8') == expected)
+            except AssertionError:
+                self.fail(f'{name}: expected {expected!r}; '
+                          f'file={path.read_text(encoding="utf-8") if path.exists() else None!r}; '
+                          f'focus={QApplication.focusWidget()!r}; screen={screen()!r}')
             prompt()
 
         try:
@@ -215,7 +220,12 @@ class WindowsTests(unittest.TestCase):
             s.key(s.qt.Key.Key_C, s.qt.KeyboardModifier.ControlModifier | s.qt.KeyboardModifier.ShiftModifier)
             s.wait(lambda: clipboard.text() == text)
             t.apply_settings(dict(t.preferences, copy_on_select=True, right_click_paste=True))
+            s.evaluate("globalThis.m5Selections = []; terminal.onSelectionChange(() => m5Selections.push(terminal.getSelection()))")
             s.evaluate('terminal.clearSelection()')
+            # xterm batches selection notifications on animation frames;
+            # clear/reselect in one frame can retain the same selection and
+            # legitimately emit no change, unlike a physical mouse gesture.
+            s.wait(lambda: s.evaluate("m5Selections.includes('')"))
             clipboard.setText('pending copy')
             self.assertTrue(s.evaluate(select))
             s.wait(lambda: clipboard.text() == text)

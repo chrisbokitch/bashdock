@@ -59,6 +59,19 @@ jobs:
           .venv/Scripts/python.exe -m pip check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git --version
+      - name: Check native clipboard, paste confirmation, and mouse preferences
+        shell: pwsh
+        run: |
+          $previousPlatform = $env:QT_QPA_PLATFORM
+          try {
+            $env:QT_QPA_PLATFORM = "windows"
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_clipboard.py -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k m5 -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            $env:QT_QPA_PLATFORM = $previousPlatform
+          }
       - name: Run Python, Windows shell, WebEngine, and JavaScript tests
         run: npm test
       - name: Check popup shadows with native Windows and headless rendering
@@ -117,19 +130,6 @@ jobs:
           try {
             $env:QT_QPA_PLATFORM = "windows"
             .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k m4 -v
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          } finally {
-            $env:QT_QPA_PLATFORM = $previousPlatform
-          }
-      - name: Check native clipboard, paste confirmation, and mouse preferences
-        shell: pwsh
-        run: |
-          $previousPlatform = $env:QT_QPA_PLATFORM
-          try {
-            $env:QT_QPA_PLATFORM = "windows"
-            .venv/Scripts/python.exe -m unittest discover -s tests -p test_clipboard.py -v
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k m5 -v
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } finally {
             $env:QT_QPA_PLATFORM = $previousPlatform
