@@ -36,9 +36,10 @@ class ShellIntegrationTests(unittest.TestCase):
             # Don't load the host's system profile in an isolated test.
             rc.write_text(INIT_SCRIPT.replace("source /etc/profile", ":"))
             result = subprocess.run([BASH, "--noprofile", "--rcfile", rc.as_posix(), "-ic",
-                'cd -- "$HOME/child"; for hook in "${PROMPT_COMMAND[@]}"; do eval "$hook"; done'],
-                env=dict(os.environ, HOME=root.as_posix()), capture_output=True, text=True,
+                'cd -- "$HOME/child"; for i in 1 2; do for hook in "${PROMPT_COMMAND[@]}"; do eval "$hook"; done; done'],
+                env=dict(os.environ, HOME=root.as_posix(), BASHDOCK_SESSION="session-test"), capture_output=True, text=True,
                 encoding="utf-8", timeout=10)
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("USER_HOOK", result.stdout)
+            self.assertEqual(1, result.stdout.count("\x1b]777;bashdock-ready;session-test\x07"))
             self.assertIn(f"\x1b]777;bashdock-cwd;{(root / 'child').as_posix()}\x07", result.stdout)

@@ -24,6 +24,10 @@ __bashdock_report_cwd() {
     history -a 2>/dev/null || :
     __bashdock_path=$(cygpath -am -- "$PWD" 2>/dev/null) || __bashdock_path=$PWD
     printf '\033]777;bashdock-cwd;%s\007' "$__bashdock_path"
+    if [[ -n ${BASHDOCK_SESSION-} ]]; then
+        printf '\033]777;bashdock-ready;%s\007' "$BASHDOCK_SESSION"
+        unset BASHDOCK_SESSION
+    fi
     return "$__bashdock_status"
 }
 PROMPT_COMMAND+=(__bashdock_report_cwd)

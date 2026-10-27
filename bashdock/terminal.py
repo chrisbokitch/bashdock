@@ -12,6 +12,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMessageBox
 from .shell_integration import valid_reported_directory
 from .shell_backend import spawn_shell
+from .command_startup import CommandStartup
 from . import terminal_preferences
 
 
@@ -45,6 +46,10 @@ class Bridge(QObject):
     @Slot(str)
     def input(self, data):
         self.terminal.write(data)
+
+    @Slot(str)
+    def shellReady(self, session_id):
+        self.terminal.shell_ready(session_id)
 
     @Slot(str)
     def directory(self, path):
@@ -92,6 +97,7 @@ class Terminal(QWebEngineView):
         self.stopping = threading.Event()
         self.reader = None
         self.init_file = None
+        self.command_startup = CommandStartup()
         self.preferences = terminal_preferences.defaults()
         self.setPage(LocalPage(self))
         self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False)
@@ -116,7 +122,9 @@ class Terminal(QWebEngineView):
             raise RuntimeError("The previous shell is still closing. Try again shortly.")
         self.stopping.clear()
         self.cleanup_init_file()
-        self.process, self.init_file = spawn_shell(bash_path, folder, self.dimensions)
+        session_id = self.command_startup.begin()
+        self.process, self.init_file = spawn_shell(
+            bash_path, folder, self.dimensions, session_id=session_id)
         self.reader = threading.Thread(target=self.read_loop, args=(self.process,), daemon=True)
         self.reader.start()
 
@@ -158,6 +166,7 @@ class Terminal(QWebEngineView):
                 self.problem.emit(data)
             else:
                 self.process = None
+                self.command_startup.reset()
                 self.cleanup_init_file()
                 self.ended.emit(data)
         if chunks:
@@ -173,8 +182,19 @@ class Terminal(QWebEngineView):
     def run_command(self, command):
         # The button-command signal sends plain input plus Enter, not a clipboard paste.
         if self.process:
+            if not self.command_startup.submit(command):
+                self.bridge.focus.emit()
+                return
             self.bridge.paste.emit(command)
             self.bridge.focus.emit()
+
+    def shell_ready(self, session_id):
+        # A late browser callback from a stopped shell cannot release a new
+        # shell's commands. Terminal-generated replies still bypass this queue.
+        if not self.process:
+            return
+        for command in self.command_startup.release(session_id):
+            self.run_command(command)
 
     def cleanup_init_file(self):
         if self.init_file:
@@ -185,6 +205,7 @@ class Terminal(QWebEngineView):
             self.init_file = None
 
     def stop(self):
+        self.command_startup.reset()
         self.stopping.set()
         process, self.process = self.process, None
         if process:

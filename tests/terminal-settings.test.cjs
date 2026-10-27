@@ -4,22 +4,27 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function setup() {
+function setup(TerminalClass) {
   const signal = () => ({connect(fn) {this.handler = fn;}, emit(value) {this.handler(value);}});
   const initial = {font_family: 'Cascadia Mono', font_size: 15, scrollback: 10000,
     cursor_style: 'block', cursor_blink: true, foreground: '#dde4ef', background: '#10141c',
     cursor_color: '#70dcc2', selection_color: '#365e66', copy_on_select: false, right_click_paste: false};
   const bridge = {output: signal(), paste: signal(), clipboardPaste: signal(), focus: signal(),
     settingsChanged: signal(), inputs: [], input(text) {this.inputs.push(text);}, resize() {}, directory() {}, ready() {},
+    readySessions: [], shellReady(token) {this.readySessions.push(token);},
     copies: [], copy(text) {this.copies.push(text);}, pastes: 0, requestPaste() {this.pastes++;},
     requestSettings() {this.settingsChanged.emit(JSON.stringify(initial));}};
   const host = {clientWidth: 800, clientHeight: 600, events: {}, addEventListener(name, fn) {this.events[name] = fn;}};
   let terminal, fits = 0;
   const context = vm.createContext({
-    Terminal: class {
+    Terminal: TerminalClass ? class extends TerminalClass {
+      constructor(options) {super(options); terminal = this;}
+      open() {} loadAddon() {} focus() {}
+    } : class {
       constructor(options) {terminal = this; this.options = options; this.cols = 80; this.rows = 24;
         this.modes = {mouseTrackingMode: 'none', bracketedPasteMode: false}; this.selection = ''; this.pasteCalls = [];}
-      loadAddon() {} open() {} write() {} focus() {}
+      outputWrites = [];
+      loadAddon() {} open() {} write(data, callback) {this.outputWrites.push({data, callback});} focus() {}
       paste(text) {
         this.pasteCalls.push(text);
         this.data(this.modes.bracketedPasteMode ? `\x1b[200~${text}\x1b[201~` : text);
@@ -27,7 +32,7 @@ function setup() {
       onData(fn) {this.data = fn;} onResize() {} attachCustomKeyEventHandler(fn) {this.key = fn;}
       onSelectionChange(fn) {this.selectionChanged = fn;}
       getSelection() {return this.selection;} hasSelection() {return this.selection.length > 0;}
-      parser = {registerOscHandler() {}};
+      parser = {registerOscHandler(_, fn) {terminal.osc = fn;}};
     },
     FitAddon: {FitAddon: class {fit() {fits++;}}},
     ResizeObserver: class {observe() {}},
@@ -134,4 +139,37 @@ test('clipboard input still uses bracketed paste without adding Enter', () => {
   s.bridge.clipboardPaste.emit('clipboard text');
   assert.deepEqual(s.terminal.pasteCalls, ['clipboard text']);
   assert.deepEqual(s.bridge.inputs, ['\x1b[200~clipboard text\x1b[201~']);
+});
+
+test('readiness waits for output completion while control replies remain immediate', () => {
+  const s = setup();
+  s.bridge.output.emit('\x1b]777;bashdock-ready;session-1\x07');
+  assert.deepEqual(s.bridge.readySessions, []);
+  assert.equal(s.terminal.osc('bashdock-ready;session-1'), true);
+  assert.deepEqual(s.bridge.readySessions, []);
+  s.terminal.data('\x1b[1;1R');
+  assert.deepEqual(s.bridge.inputs, ['\x1b[1;1R']);
+  s.terminal.outputWrites[0].callback();
+  assert.deepEqual(s.bridge.readySessions, ['session-1']);
+  s.bridge.output.emit('later output');
+  s.terminal.outputWrites[1].callback();
+  assert.deepEqual(s.bridge.readySessions, ['session-1']);
+});
+
+test('bundled xterm parses a split startup marker and answers queries before readiness', async () => {
+  global.self = global;
+  const {Terminal} = require('../bashdock/assets/xterm.js');
+  const s = setup(Terminal);
+  const parsed = () => new Promise(resolve => s.terminal.write('', resolve));
+  try {
+    s.bridge.output.emit('\x1b[6n\x1b]777;bashdock-rea');
+    await parsed();
+    assert.deepEqual(s.bridge.inputs, ['\x1b[1;1R']);
+    assert.deepEqual(s.bridge.readySessions, []);
+    s.bridge.output.emit('dy;session-1\x07');
+    await parsed();
+    assert.deepEqual(s.bridge.readySessions, ['session-1']);
+  } finally {
+    s.terminal.dispose();
+  }
 });

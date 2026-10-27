@@ -20,7 +20,13 @@ terminal.open(document.getElementById('terminal'));
 new QWebChannel(qt.webChannelTransport, channel => {
   const bridge = channel.objects.bridge;
   let preferences = {copy_on_select: false, right_click_paste: false};
+  const readySessions = [];
   terminal.parser.registerOscHandler(777, data => {
+    const readyPrefix = 'bashdock-ready;';
+    if (data.startsWith(readyPrefix)) {
+      readySessions.push(data.slice(readyPrefix.length));
+      return true;
+    }
     const prefix = 'bashdock-cwd;';
     if (!data.startsWith(prefix)) return false;
     bridge.directory(data.slice(prefix.length));
@@ -28,7 +34,11 @@ new QWebChannel(qt.webChannelTransport, channel => {
   });
   terminal.onData(data => bridge.input(data));
   terminal.onResize(size => bridge.resize(size.cols, size.rows));
-  bridge.output.connect(data => terminal.write(data));
+  bridge.output.connect(data => terminal.write(data, () => {
+    // xterm parses output asynchronously. Release queued buttons only after
+    // startup output (including terminal queries) has actually been processed.
+    while (readySessions.length) bridge.shellReady(readySessions.shift());
+  }));
   // Buttons represent typed commands, not clipboard pastes. Send the command
   // and Enter together so stale bracketed-paste mode cannot add escape markers.
   bridge.paste.connect(command => bridge.input(command.replace(/\r?\n/g, '\r') + '\r'));

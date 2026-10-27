@@ -40,7 +40,8 @@ class BackendTests(unittest.TestCase):
             with patch.dict(sys.modules, winpty=fake), \
                     patch.object(shell_backend.sys, "platform", "win32"), \
                     patch.object(shell_backend.sys, "frozen", False, create=True):
-                process, init = shell_backend.spawn_shell("C:/Git/bin/bash.exe", folder, (30, 100))
+                process, init = shell_backend.spawn_shell("C:/Git/bin/bash.exe", folder, (30, 100),
+                                                         session_id="test-session")
                 try:
                     self.assertIs(process, fake.PtyProcess.spawn.return_value)
                     args, kwargs = fake.PtyProcess.spawn.call_args
@@ -48,6 +49,7 @@ class BackendTests(unittest.TestCase):
                     self.assertEqual(folder, kwargs["cwd"])
                     self.assertEqual((30, 100), kwargs["dimensions"])
                     self.assertEqual(Path(folder).as_posix(), kwargs["env"]["BASHDOCK_START_DIR"])
+                    self.assertEqual("test-session", kwargs["env"]["BASHDOCK_SESSION"])
                 finally:
                     init.unlink()
 

@@ -14,6 +14,54 @@ from bashdock.shell_integration import create_init_file
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(unittest.TestCase):
+    def test_first_button_waits_out_startup_input_probe_including_after_restart(self):
+        from unittest.mock import patch
+        from PySide6.QtWidgets import QApplication
+        from bashdock.terminal import Terminal
+        from bashdock import shell_backend
+
+        app = QApplication.instance() or QApplication([])
+        terminal = Terminal()
+        terminal.resize(900, 600)
+        terminal.show()
+        output = []
+        terminal.bridge.output.connect(output.append)
+
+        def wait_for(predicate):
+            deadline = time.monotonic() + 20
+            while not predicate() and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(predicate(), repr(''.join(output)[-4000:]))
+
+        def slow_init():
+            init = create_init_file()
+            # Simulate startup code probing terminal input. Sending a button
+            # before this completes would lose the command's first character.
+            init.write_text("IFS= read -r -t 0.4 -n 1 __bashdock_probe || :\n" +
+                            init.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+            return init
+
+        try:
+            wait_for(lambda: terminal.ready)
+            with tempfile.TemporaryDirectory(prefix="bashdock first button ") as folder:
+                for attempt in range(2):
+                    output.clear()
+                    with patch.object(shell_backend, "create_init_file", side_effect=slow_init):
+                        terminal.start(find_bash(), folder)
+                    terminal.run_command("printf 'BUTTON_%s\\n' PRESERVED")
+                    self.assertFalse(terminal.command_startup.ready)
+                    self.assertEqual(1, len(terminal.command_startup.pending))
+                    wait_for(lambda: "BUTTON_PRESERVED" in ''.join(output))
+                    self.assertTrue(terminal.command_startup.ready)
+                    self.assertEqual([], terminal.command_startup.pending)
+                    self.assertNotIn("command not found", ''.join(output))
+                    terminal.stop()
+                    wait_for(lambda: not terminal.reader.is_alive())
+        finally:
+            terminal.stop()
+            terminal.close()
+
     def test_command_button_uses_plain_input_with_real_xterm_bracketed_paste_enabled(self):
         from unittest.mock import Mock
         from PySide6.QtWidgets import QApplication
@@ -35,6 +83,7 @@ class WindowsTests(unittest.TestCase):
         try:
             wait_for(lambda: terminal.ready)
             terminal.process = Mock()
+            terminal.shell_ready(terminal.command_startup.begin())
             terminal.process.write.side_effect = writes.append
             # Simulate output enabling paste mode, as Readline does at a prompt.
             terminal.bridge.output.emit("\x1b[?2004h")
