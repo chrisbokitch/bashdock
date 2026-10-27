@@ -157,12 +157,15 @@ class WindowsTests(unittest.TestCase):
             const button = document.getElementById('scroll-to-bottom');
             const rect = button.getBoundingClientRect();
             const frame = document.getElementById('terminal-frame').getBoundingClientRect();
+            const viewport = document.querySelector('.xterm-viewport');
             return {hidden:button.hidden, viewport:terminal.buffer.active.viewportY,
                 base:terminal.buffer.active.baseY, type:terminal.buffer.active.type,
                 focused:document.activeElement.classList.contains('xterm-helper-textarea'),
                 right:rect.right, bottom:rect.bottom, width:rect.width,
                 frameRight:frame.right, frameBottom:frame.bottom,
-                color:getComputedStyle(button).color};
+                color:getComputedStyle(button).color,
+                viewportTop:viewport.scrollTop,
+                viewportBottom:viewport.scrollHeight - viewport.clientHeight};
         })())"""
 
         def wait_for(predicate):
@@ -202,6 +205,10 @@ class WindowsTests(unittest.TestCase):
             # No new output: native viewport scrolling suppresses xterm's
             # public onScroll notification, including after a button click.
             for attempt in range(3):
+                # scrollToBottom updates the buffer before the native DOM
+                # viewport catches up on its animation frame. Wait for both
+                # before simulating a user's next scrollbar movement.
+                wait_for(lambda s: abs(s['viewportTop'] - s['viewportBottom']) <= 1)
                 evaluate("document.querySelector('.xterm-viewport').scrollTop -= 120")
                 wait_for(lambda s: not s['hidden'] and s['viewport'] < s['base'])
                 evaluate("document.getElementById('scroll-to-bottom').click()")
