@@ -34,7 +34,7 @@ def exercise(executable, profile, *, launch=subprocess.run):
              'Close this disposable BashDock window when finished.')
     # Never damage a file until this isolated app has produced both valid files.
     config.read(settings)
-    config.read(backup)
+    backup_data = config.read(backup)
     backup_bytes = backup.read_bytes()
     settings.write_bytes(DAMAGED)
     open_app('2. Recovery cancellation: choose Cancel in Recover settings, then close BashDock '
@@ -43,11 +43,13 @@ def exercise(executable, profile, *, launch=subprocess.run):
         raise RuntimeError('Cancelling recovery changed the damaged settings or its backup.')
     open_app('3. Recovery restore: choose Restore backup, confirm replacement, inspect the recovered '
              'tabs/settings and dialog presentation, then close BashDock.')
-    config.read(settings)
+    restored = config.read(settings)
+    if [tab['id'] for tab in restored['tabs']] != [tab['id'] for tab in backup_data['tabs']]:
+        raise RuntimeError('The recovered tab identities do not match the backup; use Restore backup, not Start fresh.')
     archives = list((settings.parent / 'backups').glob('settings-damaged-*.json'))
     if not any(path.read_bytes() == DAMAGED for path in archives):
         raise RuntimeError('Recovery did not preserve the original damaged bytes.')
-    print('\nFile checks passed: cancellation preserved both files; recovery produced valid settings '
+    print('\nFile checks passed: cancellation preserved both files; recovery restored backup tab identities '
           'and archived the damaged bytes. Confirm the visual/manual results separately.\n'
           f'Evidence is kept in: {profile}', flush=True)
 

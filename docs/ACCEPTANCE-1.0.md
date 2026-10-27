@@ -394,7 +394,8 @@ files before validating the disposable backup are tested in
    then close. Check that both dialogs are readable and choices are clear.
 
 The helper checks cancellation leaves the damaged primary and backup bytes
-unchanged, recovery produces valid settings, and an archive preserves the
+unchanged, recovery restores the backup's tab identities in valid settings,
+and an archive preserves the
 original damaged bytes. Its successful exit verifies those file checks, not
 the owner's visual/manual result. Report the two checks separately; both are
 outstanding until an owner result is recorded. No full manual failure/start-fresh

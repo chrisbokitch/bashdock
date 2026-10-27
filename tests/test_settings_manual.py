@@ -41,6 +41,23 @@ class SettingsManualTests(unittest.TestCase):
             self.assertEqual(3, len(calls))
             self.assertEqual(before, original.read_bytes())
 
+    def test_m7_launcher_rejects_start_fresh_in_place_of_backup_restore(self):
+        with tempfile.TemporaryDirectory() as folder, patch('builtins.print'):
+            root = Path(folder).resolve()
+            disposable = root / 'disposable'
+            settings = disposable / 'bashdock' / 'settings.json'
+            launches = []
+
+            def launch(arguments, **kwargs):
+                launches.append(arguments)
+                if len(launches) != 2:
+                    config.save(config.defaults(), settings)
+                return subprocess.CompletedProcess(arguments, 0)
+
+            with self.assertRaisesRegex(RuntimeError, 'tab identities'):
+                exercise(root / 'bashdock.exe', disposable, launch=launch)
+            self.assertEqual(3, len(launches))
+
     def test_m7_launcher_refuses_existing_profile_or_invalid_backup_before_damaging_any_file(self):
         with tempfile.TemporaryDirectory() as folder, patch('builtins.print'):
             root = Path(folder).resolve()
