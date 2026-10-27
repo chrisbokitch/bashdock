@@ -749,7 +749,7 @@ class WindowsTests(unittest.TestCase):
 
     def test_command_button_restores_native_and_terminal_focus_for_typing(self):
         from unittest.mock import Mock
-        from PySide6.QtCore import Qt
+        from PySide6.QtCore import QEvent, Qt
         from PySide6.QtTest import QTest
         from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton
         from bashdock.terminal import Terminal
@@ -771,18 +771,35 @@ class WindowsTests(unittest.TestCase):
 
         def wait_for(predicate):
             deadline = time.monotonic() + 20
-            while not predicate() and time.monotonic() < deadline:
+            while time.monotonic() < deadline:
+                if predicate():
+                    return
                 app.processEvents()
                 time.sleep(0.01)
-            self.assertTrue(predicate(), repr(writes))
+            focus = QApplication.focusWidget()
+            self.fail(repr({'writes': writes, 'window_active': window.isActiveWindow(),
+                            'focus_widget': type(focus).__name__ if focus else None,
+                            'other_focused': other.hasFocus()}))
 
         try:
             wait_for(lambda: terminal.ready)
+            # Bridge.ready is emitted before JavaScript's final startup focus.
+            # Fence that task before deliberately moving focus away from xterm.
+            loaded = []
+            terminal.page().runJavaScript('document.readyState', loaded.append)
+            wait_for(lambda: bool(loaded))
             terminal.process = Mock()
             terminal.process.write.side_effect = writes.append
             terminal.shell_ready(terminal.command_startup.begin())
             for attempt in range(2):
-                other.setFocus()
+                # show()/activateWindow() before asynchronous WebEngine loading
+                # does not establish Qt activation at this later point, notably
+                # when a parent BashDock button launches the test process.
+                # QTest sends events directly; establish its active window first.
+                window.raise_()
+                window.activateWindow()
+                QApplication.setActiveWindow(window)
+                QTest.mouseClick(other, Qt.MouseButton.LeftButton)
                 wait_for(other.hasFocus)
                 QTest.mouseClick(button, Qt.MouseButton.LeftButton)
                 wait_for(lambda: len(writes) > attempt * 2)
@@ -797,6 +814,9 @@ class WindowsTests(unittest.TestCase):
         finally:
             terminal.stop()
             window.close()
+            window.deleteLater()
+            app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+            app.processEvents()
 
     def test_scroll_to_bottom_button_preserves_scrollback_and_restores_focus(self):
         from PySide6.QtWidgets import QApplication

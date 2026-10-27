@@ -69,6 +69,8 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k m5 -v
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k command_button_restores_native -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           } finally {
             $env:QT_QPA_PLATFORM = $previousPlatform
           }
