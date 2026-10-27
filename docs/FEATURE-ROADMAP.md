@@ -1,21 +1,86 @@
 # BashDock feature roadmap
 
-Proposed work after the 1.0 release. This is an investigation and sequencing
-document, not a commitment to dates or release numbers. The current release and
-automatic-update validation remain the immediate priority.
+BashDock 1.0 is released and its acceptance checks are complete. The owner
+prioritized the smaller UI quality-of-life improvements first on 2026-10-27.
+This is an investigation and sequencing document, not a commitment to dates or
+release numbers.
 
 ## Suggested sequence
 
 | Order | Feature | Scope |
 | --- | --- | --- |
-| 1 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
-| 2 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
-| 3 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
-| 4 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
+| 1 | Workspace submenu: Replace current toggle | Expose the existing add/replace behavior directly in the submenu. |
+| 2 | Wrapping command buttons | Wrap the command bar into additional rows as the window narrows. |
+| 3 | Tab icons and compact overflow | Optional tab icons, with an icon-only treatment when labels no longer fit. |
+| 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
+| 5 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
+| 6 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
+| 7 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
 
-Investigate shell support early because quoting and command submission affect
-templates, but ship it after its broader compatibility work is validated.
-Changes to the data model should account for all four features.
+Start with the workspace toggle because the replacement confirmation and backup
+behavior already exist. Button wrapping follows; tab icons/compact overflow
+need decisions about icon selection and label fallback before implementation.
+Deliver each UI enhancement separately with focused regression checks and a
+short owner visual check.
+
+Investigate shell support before implementing command templates because quoting
+and command submission affect their design, but ship it after the UI and broader
+compatibility work. Data-model changes should account for the remaining command
+editor/template/shell features.
+
+## Workspace submenu: Replace current toggle
+
+Post-1.0 request: add a checkable **Replace current** item at the bottom of
+**Manage → Workspaces**, separated from the saved workspace entries by a separator.
+
+- Unchecked: choosing a saved workspace adds its missing tabs, preserving the
+  current behavior for overlapping tab identities.
+- Checked: choosing a saved workspace replaces the current workspace instead of
+  adding tabs, using the existing replacement confirmation and backup behavior.
+- Toggling the item only changes the opening mode; it does not immediately open
+  a workspace or close any tabs.
+- Start with the existing additive behavior by default. Decide whether the mode
+  persists across app launches when implementing the enhancement.
+
+Acceptance: submenu entries respect the selected mode; the checked state is
+clear; cancelling replacement preserves current shells and settings.
+
+## Wrapping command buttons
+
+When a window is too narrow for all command buttons, wrap them onto a second or
+subsequent row instead of requiring horizontal scrolling.
+
+- Keep button order and each tab's independent command bar.
+- Grow the footer to fit complete rows and return space to the terminal when
+  the window widens. Keep Configure tab accessible beside the command area.
+- Refit the terminal as the footer height changes, preserving the running shell,
+  directory, environment and scrollback.
+- Cover restored hidden tabs, tab switches, long labels, window resizing and
+  fractional display scaling; avoid reintroducing the clipped-footer regression.
+- Decide how exceptionally long labels and very short windows behave while
+  retaining usable terminal space.
+
+Acceptance: buttons remain fully visible/clickable across row changes, order and
+focus restoration are preserved, and narrowing/widening does not restart shells
+or submit commands.
+
+## Tab icons and compact overflow
+
+Support optional icons for tabs. When the window is too narrow for the full tab
+labels, explore switching to icons so more tabs fit.
+
+- Decide the initial icon set/selection UI and the fallback for tabs without an
+  icon. Avoid requiring every existing tab to be configured before it can fit.
+- Keep the tab name available through tooltips and accessible labels in compact
+  mode; active-tab identity and close controls must remain clear.
+- Define when compact mode begins and how labels return as space becomes
+  available. Retain a usable overflow treatment if icons alone still do not fit.
+- Preserve tab identities, order, icons and selected state through settings,
+  saved workspaces, export/import and recovery, with backward-compatible defaults.
+
+Acceptance: resizing changes the presentation without changing the selected tab
+or shell; rename/reorder/close remain usable, and old settings without icons
+continue to restore normally.
 
 ## Multiline commands attached to buttons
 
@@ -139,23 +204,6 @@ Investigation areas:
   without unexpectedly changing saved workspaces.
 - Add actual Windows acceptance tests for each shell: typing, Ctrl+C, Unicode,
   resizing, multiline buttons, templates, directory restoration and external launch.
-
-## Workspace submenu: Replace current toggle
-
-Post-1.0 request: add a checkable **Replace current** item at the bottom of
-**Manage → Workspaces**, separated from the saved workspace entries by a separator.
-
-- Unchecked: choosing a saved workspace adds its missing tabs, preserving the
-  current behavior for overlapping tab identities.
-- Checked: choosing a saved workspace replaces the current workspace instead of
-  adding tabs, using the existing replacement confirmation and backup behavior.
-- Toggling the item only changes the opening mode; it does not immediately open
-  a workspace or close any tabs.
-- Start with the existing additive behavior by default. Decide whether the mode
-  persists across app launches when implementing the enhancement.
-
-Acceptance: submenu entries respect the selected mode; the checked state is
-clear; cancelling replacement preserves current shells and settings.
 
 ## Shared foundations and release boundaries
 
