@@ -166,12 +166,50 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
 | M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
 | M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
-| M4 | Remaining terminal interactions | Arrows/history/completion, Ctrl+C, Unicode, pager behavior, persistent directory/environment and resize behavior. Basic typing/buttons already passed (E2), and clipping is confirmed resolved (E8); finish only the remaining interactions. |
+| M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
 | M5 | Clipboard and optional mouse preferences | Selection/copy, paste, multiline confirmation/cancel, copy-on-select and right-click paste, including mouse-aware programs. JavaScript/Qt coverage is not a recorded manual clipboard result. |
 | M6 | Terminal defaults and per-tab overrides | Inheritance, returning to defaults, cancel/save failure behavior, preservation through workspaces/settings, and applying appearance without restarting shells. Appearance restoration has focused owner evidence; this complete scenario is unrecorded. |
 | M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
 | M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+
+### M4 automated coverage and remaining manual smoke
+
+[test_windows.py](../tests/test_windows.py) adds real Qt/WebEngine/xterm/ConPTY
+regressions, included in `npm test` on Windows and run separately with native
+Windows Qt in CI:
+
+- `test_m4_history_editing_completion_interrupt_and_unicode`: Qt key events
+  exercise Up/Down history, Home/End/Right/Delete editing and unique filename
+  completion. File receipts verify execution; Ctrl+C interrupts a foreground
+  `sleep` and the next command succeeds. Unicode travels through xterm's input
+  API and WebChannel into Bash, is verified as UTF-8 file content, then appears
+  as a rendered terminal-buffer line. This Unicode path does not simulate a
+  native keyboard layout or IME composition. The fixture uses standard Emacs
+  Readline mode and an isolated history file/prompt.
+- `test_m4_real_pager_navigation_resize_exit_preserves_shell_state`: real `less`
+  enters the alternate screen, pages forward/back, survives a resize, accepts
+  navigation and exits to the normal buffer. A subsequent file receipt verifies
+  the same shell retains its exported variable and changed working directory.
+
+Existing tests cover persistent shell environment/directory and reported
+terminal size, application cwd reports, visible row bounds after resize,
+button routing/focus, and startup/hidden-tab button input. Their automated
+results do not inspect native font glyphs or the installed app's visual output.
+
+For M4, only these installed-app checks remain; record the app version:
+
+1. Enter a few non-ASCII characters using your normal Windows input method
+   (for example accented text, or IME input if you use it), and run a harmless
+   `printf`/`echo` command containing them. Check that entry and output look right
+   with your configured font. Native composition and glyph appearance are the
+   focus; no separate manual history/completion/Ctrl+C matrix is required.
+2. Open a long text file in `less` (or use your usual Git pager), page through it,
+   narrow/widen the window, and press `q`. Check for broken drawing, overlap or
+   a damaged prompt; run a simple command afterward to confirm normal input.
+
+Both checks remain outstanding until an owner result is recorded. Clipboard
+behavior stays in M5; actual Windows display-scaling checks stay in M9.
 
 ## Outstanding updater checks
 

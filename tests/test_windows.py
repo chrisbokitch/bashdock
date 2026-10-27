@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
 
 from bashdock.config import find_bash
@@ -16,6 +17,159 @@ from bashdock.shell_integration import create_init_file
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(unittest.TestCase):
+    @contextmanager
+    def m4_session(self):
+        """Real xterm/ConPTY session with a predictable prompt and file receipts."""
+        from types import SimpleNamespace
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QApplication
+        from bashdock.terminal import Terminal
+        from bashdock.update_helper import retry
+
+        app = QApplication.instance() or QApplication([])
+        temporary = tempfile.TemporaryDirectory(prefix='bashdock M4 ')
+        folder = Path(temporary.name)
+        terminal = Terminal()
+        terminal.resize(900, 600)
+        terminal.show()
+        terminal.activateWindow()
+
+        def wait(predicate):
+            deadline = time.monotonic() + 20
+            while not predicate() and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(predicate(), 'Interactive terminal did not reach expected state')
+
+        def evaluate(script):
+            result = []
+            terminal.page().runJavaScript(script, result.append)
+            wait(lambda: bool(result))
+            return result[0]
+
+        def screen():
+            return evaluate("""(() => {
+                const b = terminal.buffer.active;
+                return Array.from({length: terminal.rows}, (_, i) =>
+                    b.getLine(b.viewportY + i)?.translateToString(true) || '').join('\\n');
+            })()""")
+
+        def prompt():
+            wait(lambda: evaluate("terminal.modes.bracketedPasteMode") and
+                 screen().rstrip().endswith('M4>'))
+
+        def key(code, modifiers=Qt.KeyboardModifier.NoModifier):
+            QTest.keyClick(QApplication.focusWidget() or terminal.focusProxy() or terminal,
+                           code, modifiers)
+
+        def type_text(text):
+            self.assertTrue(text.isascii(), 'QTest.keyClicks only supports ASCII here')
+            QTest.keyClicks(QApplication.focusWidget() or terminal.focusProxy() or terminal, text)
+
+        def command(text):
+            type_text(text)
+            key(Qt.Key.Key_Return)
+
+        def receipt(name, expected):
+            path = folder / name
+            wait(lambda: path.is_file() and path.read_text(encoding='utf-8') == expected)
+            prompt()
+
+        try:
+            wait(lambda: terminal.ready)
+            terminal.start(find_bash(), str(folder))
+            wait(lambda: terminal.command_startup.ready)
+            # Avoid changing the runner's history. Use standard Emacs Readline
+            # bindings and a short prompt so assertions do not depend on PS1.
+            terminal.run_command("HISTFILE=/dev/null; HISTCONTROL=; set -o emacs; "
+                                 "PS1='M4> '; printf ready > setup.txt")
+            receipt('setup.txt', 'ready')
+            terminal.focus_terminal()
+            wait(lambda: evaluate("document.activeElement.classList.contains('xterm-helper-textarea')"))
+            yield SimpleNamespace(terminal=terminal, folder=folder, wait=wait, evaluate=evaluate,
+                                  screen=screen, prompt=prompt, key=key, type=type_text,
+                                  command=command, receipt=receipt, qt=Qt)
+        finally:
+            terminal.stop()
+            terminal.close()
+            terminal.deleteLater()
+            app.processEvents()
+            retry(temporary.cleanup, timeout=5)
+
+    def test_m4_history_editing_completion_interrupt_and_unicode(self):
+        with self.m4_session() as s:
+            key, qt = s.key, s.qt
+            s.command("printf '%s' first > history.txt")
+            s.receipt('history.txt', 'first')
+            key(qt.Key.Key_Up)
+            key(qt.Key.Key_Home)
+            for _ in "printf '%s' ":
+                key(qt.Key.Key_Right)
+            for _ in 'first':
+                key(qt.Key.Key_Delete)
+            s.type('second')
+            key(qt.Key.Key_End)
+            key(qt.Key.Key_Return)
+            s.receipt('history.txt', 'second')
+            # Down restores the unfinished line after visiting history.
+            s.type('printf third > history.txt')
+            key(qt.Key.Key_Up)
+            key(qt.Key.Key_Down)
+            key(qt.Key.Key_Return)
+            s.receipt('history.txt', 'third')
+
+            (s.folder / 'bashdock-completion-target').write_text('completed', encoding='utf-8')
+            s.type('cat bashdock-completion-')
+            key(qt.Key.Key_Tab)
+            s.type(' > completion.txt')
+            key(qt.Key.Key_Return)
+            s.receipt('completion.txt', 'completed')
+
+            s.command('printf running > started.txt; sleep 30; printf bad > not-interrupted.txt')
+            s.wait(lambda: (s.folder / 'started.txt').exists())
+            key(qt.Key.Key_C, qt.KeyboardModifier.ControlModifier)
+            s.prompt()
+            self.assertFalse((s.folder / 'not-interrupted.txt').exists())
+            s.command('printf recovered > interrupt.txt')
+            s.receipt('interrupt.txt', 'recovered')
+
+            value = 'caf\u00e9 \u03bb \u4e2d\u6587 \U0001f600'
+            # xterm's public input API exercises onData/WebChannel/ConPTY UTF-8.
+            # Native keyboard layouts and IME composition remain manual checks.
+            s.evaluate('terminal.input(' + json.dumps(f"printf '%s' '{value}' > unicode.txt\r") + ')')
+            s.receipt('unicode.txt', value)
+            s.command('cat unicode.txt; echo')
+            s.prompt()
+            s.wait(lambda: value in s.screen().splitlines())
+
+    def test_m4_real_pager_navigation_resize_exit_preserves_shell_state(self):
+        with self.m4_session() as s:
+            key, qt = s.key, s.qt
+            (s.folder / 'pager.txt').write_text(
+                ''.join(f'PAGE-{i:03d} pager content\n' for i in range(1, 151)), encoding='utf-8')
+            s.command('export BASHDOCK_M4=kept; mkdir child; cd child; '
+                      "printf '%s' \"$BASHDOCK_M4\" > ../state.txt")
+            s.receipt('state.txt', 'kept')
+            s.command('less -R ../pager.txt')
+            s.wait(lambda: s.evaluate("terminal.buffer.active.type === 'alternate'") and
+                   'PAGE-001' in s.screen())
+            key(qt.Key.Key_Space)
+            s.wait(lambda: 'PAGE-001' not in s.screen() and 'pager content' in s.screen())
+            s.type('b')
+            s.wait(lambda: 'PAGE-001' in s.screen())
+            s.terminal.resize(713, 419)
+            s.wait(lambda: s.evaluate("""terminal.buffer.active.type === 'alternate' &&
+                terminal.cols === fit.proposeDimensions().cols &&
+                terminal.rows === fit.proposeDimensions().rows"""))
+            key(qt.Key.Key_Down)
+            s.type('q')
+            s.wait(lambda: s.evaluate("terminal.buffer.active.type === 'normal'"))
+            s.prompt()
+            s.command("printf '%s' \"$BASHDOCK_M4\" > ../after-pager.txt; "
+                      "[[ $PWD == */child ]] && printf cwd >> ../after-pager.txt")
+            s.receipt('after-pager.txt', 'keptcwd')
+
     def test_saved_workspace_buttons_require_click_after_add_replace_and_reopen(self):
         from unittest.mock import patch
         from PySide6.QtTest import QTest

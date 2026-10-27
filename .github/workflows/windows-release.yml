@@ -110,6 +110,17 @@ jobs:
           } finally {
             $env:QT_QPA_PLATFORM = $previousPlatform
           }
+      - name: Check interactive terminal keys and pager with native Windows
+        shell: pwsh
+        run: |
+          $previousPlatform = $env:QT_QPA_PLATFORM
+          try {
+            $env:QT_QPA_PLATFORM = "windows"
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k m4 -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            $env:QT_QPA_PLATFORM = $previousPlatform
+          }
       - name: Compile, test executable, and create portable ZIP
         run: npm run package
       - name: Verify ZIP checksum and run extracted executable
