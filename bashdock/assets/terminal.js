@@ -23,6 +23,9 @@ const updateScrollButton = () => {
   scrollToBottom.hidden = buffer.type !== 'normal' || buffer.viewportY >= buffer.baseY;
 };
 terminal.onScroll(updateScrollButton);
+// xterm suppresses onScroll for native viewport scrolling to avoid feedback
+// loops. Rendering runs after that viewport position has been applied.
+terminal.onRender(updateScrollButton);
 terminal.onWriteParsed(updateScrollButton);
 terminal.onResize(updateScrollButton);
 terminal.buffer.onBufferChange(updateScrollButton);

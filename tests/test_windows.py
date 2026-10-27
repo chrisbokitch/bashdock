@@ -79,6 +79,13 @@ class WindowsTests(unittest.TestCase):
             wait_for(lambda s: s['type'] == 'normal' and not s['hidden'])
             evaluate("document.getElementById('scroll-to-bottom').click()")
             wait_for(lambda s: s['hidden'] and s['viewport'] == s['base'] and s['focused'])
+            # No new output: native viewport scrolling suppresses xterm's
+            # public onScroll notification, including after a button click.
+            for attempt in range(3):
+                evaluate("document.querySelector('.xterm-viewport').scrollTop -= 120")
+                wait_for(lambda s: not s['hidden'] and s['viewport'] < s['base'])
+                evaluate("document.getElementById('scroll-to-bottom').click()")
+                wait_for(lambda s: s['hidden'] and s['viewport'] == s['base'] and s['focused'])
         finally:
             terminal.stop()
             terminal.close()

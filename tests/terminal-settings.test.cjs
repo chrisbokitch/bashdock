@@ -31,6 +31,7 @@ function setup(TerminalClass) {
       loadAddon() {} open() {} write(data, callback) {this.outputWrites.push({data, callback});}
       focus() {this.focusCalls++;}
       onScroll(fn) {this.scrolled = fn;} onWriteParsed(fn) {this.parsed = fn;}
+      onRender(fn) {this.rendered = fn;}
       scrollToBottom() {this.buffer.active.viewportY = this.buffer.active.baseY; this.scrolled();}
       paste(text) {
         this.pasteCalls.push(text);
@@ -90,6 +91,23 @@ test('scroll button follows each tab viewport, hides in alternate screen and res
   assert.equal(first.terminal.buffer.active.viewportY, 40);
   assert.equal(first.scrollButton.hidden, true);
   assert.equal(first.terminal.focusCalls, focusCalls + 1);
+});
+
+test('scroll button reappears after repeated native scrolls without output or onScroll events', () => {
+  const s = setup();
+  s.terminal.buffer.active.baseY = 80;
+  s.terminal.buffer.active.viewportY = 80;
+  s.terminal.parsed();
+  for (let i = 0; i < 3; i++) {
+    assert.equal(s.scrollButton.hidden, true);
+    // Native viewport scrolling suppresses xterm's public onScroll event.
+    s.terminal.buffer.active.viewportY = 60;
+    s.terminal.rendered();
+    assert.equal(s.scrollButton.hidden, false);
+    s.scrollButton.events.click();
+    assert.equal(s.terminal.buffer.active.viewportY, 80);
+    assert.equal(s.scrollButton.hidden, true);
+  }
 });
 
 test('scrollbars follow each terminal background on startup and live theme changes', () => {
