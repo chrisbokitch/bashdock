@@ -200,6 +200,25 @@ test('button input follows focus-generated terminal replies', () => {
   assert.deepEqual(s.bridge.inputs, ['\x1b[I', 'printf intact\r']);
 });
 
+test('Bash prompt filters only focus reports and programs receive them again', () => {
+  const s = setup();
+  s.terminal.osc('bashdock-prompt');
+  s.terminal.data('\x1b[O');
+  s.terminal.data('\x1b[I');
+  s.terminal.data('p');
+  s.terminal.data('\x1b[A');
+  s.terminal.data('\x1b[1;1R');
+  s.bridge.paste.emit(1, 'printf intact');
+  assert.deepEqual(s.bridge.inputs, ['p', '\x1b[A', '\x1b[1;1R', 'printf intact\r']);
+  s.terminal.osc('bashdock-command');
+  s.terminal.data('\x1b[O');
+  s.terminal.data('\x1b[I');
+  assert.deepEqual(s.bridge.inputs.slice(-2), ['\x1b[O', '\x1b[I']);
+  s.terminal.osc('bashdock-prompt');
+  s.terminal.data('\x1b[O');
+  assert.equal(s.bridge.inputs.length, 6);
+});
+
 test('clipboard input still uses bracketed paste without adding Enter', () => {
   const s = setup();
   s.terminal.modes.bracketedPasteMode = true;

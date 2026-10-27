@@ -28,18 +28,6 @@ class WindowsTests(unittest.TestCase):
         layout = QVBoxLayout(window)
         tabs = QTabWidget(window)
         terminals = [Terminal(tabs), Terminal(tabs)]
-        experiment = os.environ.get('BASHDOCK_INPUT_EXPERIMENT', '')
-        for terminal in terminals:
-            original_write = terminal.write
-
-            def experimental_write(data, command_id=0, original=original_write):
-                if experiment == 'no-focus' and data in ('\x1b[I', '\x1b[O'):
-                    return
-                if experiment == 'bracketed' and command_id:
-                    data = '\x1b[200~' + data[:-1] + '\x1b[201~\r'
-                original(data, command_id=command_id)
-
-            terminal.write = experimental_write
         output = [[], []]
         for index, terminal in enumerate(terminals):
             tabs.addTab(terminal, str(index + 1))
@@ -78,8 +66,6 @@ class WindowsTests(unittest.TestCase):
                 tabs.setCurrentIndex(index)
                 window.resize(900 + (attempt % 3) * 45, 650 + (attempt % 4) * 20)
                 QTest.qWait((0, 2200, 50, 250)[attempt % 4])
-                if experiment == 'settled-resize':
-                    QTest.qWait(500)
                 marker = f'{attempt},'
                 command = f"printf '%s' {shlex.quote(marker)} >> {shlex.quote(receipt.as_posix())}"
                 expected += marker
