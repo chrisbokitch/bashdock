@@ -692,7 +692,7 @@ class MainWindow(QMainWindow):
             }
             QMenuBar::item { background:transparent;border-radius:5px;padding:2px 6px; }
             QMenuBar::item:selected,QMenuBar::item:pressed { background:#3c4b60;color:#ffffff; }
-            QMenu::item { padding:2px 0;background:transparent;border-radius:5px; }
+            QMenu::item { padding:4px 0;background:transparent;border-radius:5px; }
             QMenu::right-arrow { image:url("MENU_ARROW");width:6px;height:10px; }
             QMenu::item:selected { background:#3c4b60;color:#ffffff; }
             QMenu::item:disabled { color:#8995a7; }
