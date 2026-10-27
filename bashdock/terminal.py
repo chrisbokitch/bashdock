@@ -5,7 +5,7 @@ import logging
 import json
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -183,10 +183,16 @@ class Terminal(QWebEngineView):
         # The button-command signal sends plain input plus Enter, not a clipboard paste.
         if self.process:
             if not self.command_startup.submit(command):
-                self.bridge.focus.emit()
+                self.focus_terminal()
                 return
             self.bridge.paste.emit(command)
-            self.bridge.focus.emit()
+            self.focus_terminal()
+
+    def focus_terminal(self):
+        # Focusing xterm's textarea alone does not transfer native Qt focus
+        # from another widget into the WebEngine view.
+        self.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.bridge.focus.emit()
 
     def shell_ready(self, session_id):
         # A late browser callback from a stopped shell cannot release a new

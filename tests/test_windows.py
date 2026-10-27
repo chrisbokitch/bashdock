@@ -14,6 +14,57 @@ from bashdock.shell_integration import create_init_file
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(unittest.TestCase):
+    def test_command_button_restores_native_and_terminal_focus_for_typing(self):
+        from unittest.mock import Mock
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLineEdit, QPushButton
+        from bashdock.terminal import Terminal
+
+        app = QApplication.instance() or QApplication([])
+        window = QWidget()
+        layout = QVBoxLayout(window)
+        terminal = Terminal(window)
+        other = QLineEdit(window)
+        button = QPushButton('Run command', window)
+        button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        button.clicked.connect(lambda: terminal.run_command('pwd'))
+        for widget in (terminal, other, button):
+            layout.addWidget(widget)
+        window.resize(900, 650)
+        window.show()
+        window.activateWindow()
+        writes = []
+
+        def wait_for(predicate):
+            deadline = time.monotonic() + 20
+            while not predicate() and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(predicate(), repr(writes))
+
+        try:
+            wait_for(lambda: terminal.ready)
+            terminal.process = Mock()
+            terminal.process.write.side_effect = writes.append
+            terminal.shell_ready(terminal.command_startup.begin())
+            for attempt in range(2):
+                other.setFocus()
+                wait_for(other.hasFocus)
+                QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+                wait_for(lambda: len(writes) > attempt * 2)
+                focus = QApplication.focusWidget()
+                self.assertTrue(focus is terminal or terminal.isAncestorOf(focus))
+                # Typing immediately after a real Qt button click must reach
+                # the shell, not the widget that had focus beforehand.
+                QTest.keyClicks(focus, 'x')
+                wait_for(lambda: len(writes) >= (attempt + 1) * 2)
+                self.assertEqual(['pwd\r', 'x'] * (attempt + 1), writes)
+                self.assertEqual('', other.text())
+        finally:
+            terminal.stop()
+            window.close()
+
     def test_scroll_to_bottom_button_preserves_scrollback_and_restores_focus(self):
         from PySide6.QtWidgets import QApplication
         from bashdock.terminal import Terminal
