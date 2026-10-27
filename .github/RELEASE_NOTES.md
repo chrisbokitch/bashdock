@@ -1,8 +1,23 @@
+BashDock 1.0 brings persistent Git Bash tabs, per-tab command buttons and saved
+workspaces to Windows.
+
+- Restore tabs, folders, command bars and window geometry in fresh shell sessions.
+- Set terminal defaults and independent per-tab appearance overrides.
+- Export/import settings and recover from backups.
+- Copy/paste with multiline confirmation, jump to the bottom of terminal output,
+  and open an independent external Git Bash window.
+- Install verified, signed automatic updates after confirming restart, with
+  startup checks and rollback protection. Developers can stage local builds.
+- Export diagnostic reports without command text, terminal output or clipboard
+  contents.
+
 Download the Windows x64 ZIP, extract the complete `bashdock` folder, and run `bashdock.exe`. Git for Windows must be installed; Python and Node are not required.
 
 The `.sha256` file verifies the ZIP. Build information records the source commit and dependency versions.
 
-Before publishing this draft, complete the clean Windows VM acceptance checklist in `docs/RELEASING.md`. These executables are currently unsigned.
+The Windows executables are not Authenticode-signed. Update metadata is signed
+separately and verified by the updater. Window restoration starts fresh shells;
+it does not restore running commands or remote connections.
 
 
 BashDock is licensed under GNU GPL version 3 only. Third-party components keep
@@ -20,6 +35,4 @@ notices when redistributing.
 
 Signed releases include `bashdock-update.json` and `bashdock-update.sig` for the
 app's automatic updater. These are additional metadata assets, not application
-or source downloads. Before publishing, complete the actual update/rollback
-checks in `docs/AUTO-UPDATES.md` and confirm the public signing key was configured
-before building this candidate.
+or source downloads.

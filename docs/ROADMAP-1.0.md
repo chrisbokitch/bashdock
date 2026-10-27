@@ -36,6 +36,11 @@ launch is required.
 
 ## Remaining release gates
 
+The owner selected **1.0.0** as the next candidate on 2026-10-27.
+[RELEASE-1.0.0.md](RELEASE-1.0.0.md) tracks draft preparation, the exact ZIP
+smoke, publication approval and the remaining public-update checks.
+
+
 - [x] Complete manual Windows acceptance M1–M9; owner results and package
       evidence are recorded in [ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md).
 - [x] Complete the local staged cancel/install/reopen smoke at a spaced path

@@ -633,6 +633,12 @@ merely because older lists were unchecked.
 
 ## Publisher confirmation and final candidate
 
+**1.0.0 candidate selected — 2026-10-27.** See
+[RELEASE-1.0.0.md](RELEASE-1.0.0.md) for the candidate procedure. Selection does
+not close F1: remaining public-update checks and the candidate-specific
+validation/publication results remain open.
+
+
 - [x] P1: Production update-signing private-key backup verified — owner
   confirmation, 2026-10-27. The owner saved the existing key in secure vault
   storage, downloaded/restored a copy and reported **Backup matches** after
