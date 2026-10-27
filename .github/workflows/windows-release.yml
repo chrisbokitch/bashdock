@@ -81,6 +81,22 @@ jobs:
             $env:QT_QPA_PLATFORM = $previousPlatform
             Remove-Item Env:QT_SCALE_FACTOR -ErrorAction SilentlyContinue
           }
+      - name: Check tab operations and restored footer with native Windows scaling
+        shell: pwsh
+        run: |
+          $previousPlatform = $env:QT_QPA_PLATFORM
+          try {
+            $env:QT_QPA_PLATFORM = "windows"
+            foreach ($scale in @("1", "1.25", "1.5")) {
+              $env:QT_SCALE_FACTOR = $scale
+              Write-Host "Checking tabs and footer: native Windows, scale=$scale"
+              .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k tab -v
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          } finally {
+            $env:QT_QPA_PLATFORM = $previousPlatform
+            Remove-Item Env:QT_SCALE_FACTOR -ErrorAction SilentlyContinue
+          }
       - name: Compile, test executable, and create portable ZIP
         run: npm run package
       - name: Verify ZIP checksum and run extracted executable

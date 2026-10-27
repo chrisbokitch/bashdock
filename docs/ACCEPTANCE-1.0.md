@@ -68,7 +68,7 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | ID | Check to finish | Existing evidence / result still needed |
 | --- | --- | --- |
 | M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
-| M2 | Remaining tab operations and footer regression | Create/rename/cancel rename/reorder/close tabs and inspect close-icon positioning. Reopen with a nonfirst tab active, then select the first and check the full command-button row. Basic tab restoration is E2; the detailed operations and 0.14.5 footer fix have automated coverage but no separate owner acceptance result. |
+| M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
 | M3 | Saved workspace workflows | Subset/save, add, replace/cancel, overlapping tab identities, independent copies, update/rename/delete and settings round trips. Confirm saved SSH commands never connect automatically. Automated coverage is extensive; full compiled-app manual coverage is unrecorded. |
 | M4 | Remaining terminal interactions | Arrows/history/completion, Ctrl+C, Unicode, pager behavior, persistent directory/environment and resize behavior. Basic typing/buttons already passed (E2), and clipping is confirmed resolved (E8); finish only the remaining interactions. |
 | M5 | Clipboard and optional mouse preferences | Selection/copy, paste, multiline confirmation/cancel, copy-on-select and right-click paste, including mouse-aware programs. JavaScript/Qt coverage is not a recorded manual clipboard result. |
@@ -76,6 +76,44 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
 | M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+
+### M2 automated coverage and remaining manual smoke
+
+The real Qt UI tests in [test_workspace.py](../tests/test_workspace.py) use
+isolated settings and fake terminal processes:
+
+- `test_new_tab_button_creates_independent_profile_in_active_directory_and_autosaves`:
+  the actual New Tab button creates/selects an independent tab, inherits the
+  active directory, leaves the original shell alone, and saves through the timer.
+- `test_tab_rename_dialog_accept_cancel_and_blank_preserve_saved_identity`:
+  double-click opens the real rename dialog; accepting trims the name, cancelling
+  and blank input preserve it, and saved tab identity/settings remain intact.
+- `test_reordered_tab_close_button_cancels_then_closes_its_own_shell_and_autosaves`:
+  Qt's `moveTab` operation saves order/selection; an inactive moved tab's actual
+  close control cancels without changes, then closes only its own shell and saves.
+- Existing tests verify saved names/order/folders/buttons and active-tab restoration,
+  close-icon positioning through tab switches, cancelled-rename drag state,
+  and full button height/vertical viewport containment after reopening on tab two,
+  selecting tab one, and repeatedly resizing with normal and long button labels.
+
+These tests run under `npm test`. The Windows workflow also runs tab-related
+tests with the native Qt Windows backend at scale factors 1, 1.25 and 1.5.
+Simulated scaling does not replace M9's actual display-setting check. The
+reorder test exercises Qt's move operation, not a physical mouse drag; fake
+shells also do not certify the packaged WebEngine composition.
+
+For M2, use the installed compiled build and record its version:
+
+1. With two or more tabs, **drag a tab** to another position, switch tabs and
+   click the moved tab's close control. Check that the intended tab closes and
+   the controls look aligned and are easy to click.
+2. Leave a nonfirst tab selected, close/reopen BashDock, then select the first tab.
+   Narrow and widen the window and visually check the command-button row for
+   cropping, overlap or a gap. Existing horizontal overflow remains expected;
+   wrapping buttons and customizable tab icons are future features, not M2 gates.
+
+No separate manual create/rename/cancel/persistence matrix is required for M2.
+The smoke above is still outstanding until an owner result is recorded.
 
 ## Outstanding updater checks
 

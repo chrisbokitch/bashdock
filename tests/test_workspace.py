@@ -542,6 +542,110 @@ class WorkspaceTests(unittest.TestCase):
             restored.close()
             restored.deleteLater()
 
+    def test_new_tab_button_creates_independent_profile_in_active_directory_and_autosaves(self):
+        from PySide6.QtTest import QTest
+
+        first = self.window.current_tab()
+        self.ready(first)
+        folder = Path(self.temp.name) / 'Project with spaces'
+        folder.mkdir()
+        first.terminal.directory_changed.emit(str(folder))
+        self.window.show()
+        self.app.processEvents()
+        self.window.findChild(QPushButton, 'newTab').click()
+        second = self.window.current_tab()
+        self.assertEqual(2, self.window.tabs.count())
+        self.assertIsNot(first, second)
+        self.assertNotEqual(first.data['id'], second.data['id'])
+        self.assertEqual('Git Bash 2', self.window.tabs.tabText(1))
+        self.ready(second)
+        self.assertEqual([(str(self.bash), str(folder))], second.terminal.starts)
+        self.assertEqual(0, first.terminal.stops)
+        second.data['buttons'][0]['label'] = 'Independent'
+        self.assertNotEqual('Independent', first.data['buttons'][0]['label'])
+        # Exercise the real debounce timer, rather than forcing persist().
+        QTest.qWait(500)
+        saved = config.read(self.path)
+        self.assertEqual(1, saved['active_tab'])
+        self.assertEqual([first.data, second.data], saved['tabs'])
+
+    def test_tab_rename_dialog_accept_cancel_and_blank_preserve_saved_identity(self):
+        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QInputDialog
+
+        self.window.show()
+        tab = self.window.current_tab()
+        self.ready(tab)
+        identity = tab.data['id']
+        for text, accepted, expected in (
+                ('  Build & test  ', True, 'Build & test'),
+                ('Discard this name', False, 'Build & test'),
+                ('   ', True, 'Build & test')):
+            with self.subTest(text=text, accepted=accepted):
+                before = copy.deepcopy(tab.data)
+                observed = []
+
+                def finish_dialog():
+                    dialog = next(d for d in self.window.findChildren(QInputDialog) if d.isVisible())
+                    observed.append(dialog.textValue())
+                    dialog.setTextValue(text)
+                    if accepted:
+                        dialog.accept()
+                    else:
+                        dialog.reject()
+
+                QTimer.singleShot(25, finish_dialog)
+                bar = self.window.tabs.tabBar()
+                self.app.processEvents()
+                QTest.mouseDClick(bar, Qt.MouseButton.LeftButton,
+                                 pos=bar.tabRect(0).center())
+                self.assertEqual([before['name']], observed)
+                self.assertEqual(expected, self.window.tabs.tabText(0))
+                self.assertEqual(dict(before, name=expected), tab.data)
+                self.assertEqual(identity, tab.data['id'])
+                self.assertEqual(0, tab.terminal.stops)
+                QTest.qWait(500)
+                self.assertEqual(tab.data, config.read(self.path)['tabs'][0])
+
+    def test_reordered_tab_close_button_cancels_then_closes_its_own_shell_and_autosaves(self):
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QTabBar, QToolButton
+
+        first = self.window.current_tab()
+        self.ready(first)
+        self.window.new_tab()
+        second = self.window.current_tab()
+        self.ready(second)
+        self.window.new_tab()
+        third = self.window.current_tab()
+        self.ready(third)
+        self.window.show()
+        bar = self.window.tabs.tabBar()
+        # Use Qt's move operation: tabMoved must save the new visual order,
+        # retain active widget identity, and keep close callbacks bound to tabs.
+        bar.moveTab(0, 2)
+        QTest.qWait(500)
+        saved = config.read(self.path)
+        self.assertEqual([second.data, third.data, first.data], saved['tabs'])
+        self.assertEqual(1, saved['active_tab'])
+        self.assertIs(third, self.window.current_tab())
+        close = bar.tabButton(2, QTabBar.ButtonPosition.RightSide).findChild(QToolButton, 'tabClose')
+        original = self.path.read_bytes()
+        with patch('bashdock.app.QMessageBox.question', return_value=QMessageBox.StandardButton.No):
+            close.click()
+        QTest.qWait(500)
+        self.assertEqual(original, self.path.read_bytes())
+        self.assertEqual(3, self.window.tabs.count())
+        self.assertEqual([0, 0, 0], [t.terminal.stops for t in (first, second, third)])
+        close.click()
+        QTest.qWait(500)
+        self.assertEqual([1, 0, 0], [t.terminal.stops for t in (first, second, third)])
+        self.assertIs(third, self.window.current_tab())
+        saved = config.read(self.path)
+        self.assertEqual([second.data, third.data], saved['tabs'])
+        self.assertEqual(1, saved['active_tab'])
+
     def test_close_one_tab_leaves_other_shell_running_and_removes_saved_tab(self):
         first = self.window.current_tab()
         self.ready(first)
