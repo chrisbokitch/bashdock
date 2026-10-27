@@ -41,12 +41,7 @@ new QWebChannel(qt.webChannelTransport, channel => {
   const bridge = channel.objects.bridge;
   let preferences = {copy_on_select: false, right_click_paste: false};
   const readySessions = [];
-  let atShellPrompt = false;
   terminal.parser.registerOscHandler(777, data => {
-    if (data === 'bashdock-prompt' || data === 'bashdock-command') {
-      atShellPrompt = data === 'bashdock-prompt';
-      return true;
-    }
     const readyPrefix = 'bashdock-ready;';
     if (data.startsWith(readyPrefix)) {
       readySessions.push(data.slice(readyPrefix.length));
@@ -58,10 +53,10 @@ new QWebChannel(qt.webChannelTransport, channel => {
     return true;
   });
   terminal.onData(data => {
-    // ConPTY enables focus reporting at startup. Forwarding these events at
-    // a Git Bash prompt can make its resize/input handling lose the next
-    // character. Programs retain focus reports once Bash starts a command.
-    if (atShellPrompt && (data === '\x1b[I' || data === '\x1b[O')) return;
+    // ConPTY enables focus reporting at startup. With Git Bash, forwarding
+    // these notifications around resizes can discard the next input character.
+    // Keep focus itself working, but omit focus reports from the input stream.
+    if (data === '\x1b[I' || data === '\x1b[O') return;
     bridge.input(data);
   });
   terminal.onResize(size => bridge.resize(size.cols, size.rows));

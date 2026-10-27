@@ -31,17 +31,15 @@ class ShellIntegrationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / "child").mkdir()
-            (root / ".bash_profile").write_text("PROMPT_COMMAND=('printf USER_HOOK')\nPS0='USER_PS0'\n")
+            (root / ".bash_profile").write_text("PROMPT_COMMAND=('printf USER_HOOK')\n")
             rc = root / "init.bash"
             # Don't load the host's system profile in an isolated test.
             rc.write_text(INIT_SCRIPT.replace("source /etc/profile", ":"))
             result = subprocess.run([BASH, "--noprofile", "--rcfile", rc.as_posix(), "-ic",
-                'printf "%s" "$PS0"; cd -- "$HOME/child"; for i in 1 2; do for hook in "${PROMPT_COMMAND[@]}"; do eval "$hook"; done; done'],
+                'cd -- "$HOME/child"; for i in 1 2; do for hook in "${PROMPT_COMMAND[@]}"; do eval "$hook"; done; done'],
                 env=dict(os.environ, HOME=root.as_posix(), BASHDOCK_SESSION="session-test"), capture_output=True, text=True,
                 encoding="utf-8", timeout=10)
             self.assertEqual(0, result.returncode, result.stderr)
             self.assertIn("USER_HOOK", result.stdout)
-            self.assertIn("\x1b]777;bashdock-command\x07USER_PS0", result.stdout)
-            self.assertEqual(2, result.stdout.count("\x1b]777;bashdock-prompt\x07"))
             self.assertEqual(1, result.stdout.count("\x1b]777;bashdock-ready;session-test\x07"))
             self.assertIn(f"\x1b]777;bashdock-cwd;{(root / 'child').as_posix()}\x07", result.stdout)
