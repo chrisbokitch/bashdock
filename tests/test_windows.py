@@ -390,6 +390,112 @@ class WindowsTests(unittest.TestCase):
             s.receipt('paste-first.txt', 'first')
             s.receipt('paste-second.txt', 'second')
 
+    def test_m7_export_import_cancel_keeps_live_shell_and_accept_archives_then_starts_fresh(self):
+        from unittest.mock import patch
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        from bashdock import config
+        from bashdock.app import MainWindow
+        from bashdock.update_helper import retry
+
+        app = QApplication.instance() or QApplication([])
+        temporary = tempfile.TemporaryDirectory(prefix='bashdock M7 ')
+        folder = Path(temporary.name)
+        settings, exported = folder / 'settings.json', folder / 'export.json'
+        data = config.defaults()
+        data['bash_path'] = find_bash()
+        data['confirm_on_exit'] = False
+        data['tabs'][0].update(startup_folder=str(folder), current_folder=str(folder))
+        config.save(data, settings)
+        window = None
+
+        def wait(predicate):
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                if predicate():
+                    return
+                app.processEvents()
+                time.sleep(0.01)
+            self.fail('Settings import shell did not reach expected state')
+
+        def ready(tab):
+            wait(lambda: tab.terminal.ready and tab.terminal.command_startup.ready)
+
+        def receipt(name, expected):
+            path = folder / name
+            wait(lambda: path.is_file() and path.read_text(encoding='utf-8') == expected)
+
+        try:
+            with patch('bashdock.config.config_path', return_value=settings):
+                window = MainWindow()
+                window.show()
+                original = window.current_tab()
+                ready(original)
+                process = original.terminal.process
+                original.terminal.run_command('export BASHDOCK_M7=kept; printf ready > original-ready.txt')
+                receipt('original-ready.txt', 'ready')
+                original.data['name'] = 'Exported snapshot'
+                with patch('bashdock.app.QFileDialog.getSaveFileName', return_value=(str(exported), '')):
+                    window.export_settings()
+                self.assertEqual('Exported snapshot', config.read(exported)['tabs'][0]['name'])
+                self.assertIs(process, original.terminal.process)
+                with patch('bashdock.app.QFileDialog.getOpenFileName', return_value=('', '')):
+                    window.import_settings()
+                with patch('bashdock.app.QMessageBox.question', return_value=QMessageBox.StandardButton.No):
+                    window.import_settings(path=exported)
+                invalid = folder / 'invalid.json'
+                invalid.write_text('{broken', encoding='utf-8')
+                with patch('bashdock.app.QMessageBox.warning') as warning:
+                    window.import_settings(path=invalid)
+                    warning.assert_called_once()
+                self.assertIs(original, window.current_tab())
+                self.assertIs(process, original.terminal.process)
+                original.terminal.run_command('printf \'%s\' "$BASHDOCK_M7" > still-running.txt')
+                receipt('still-running.txt', 'kept')
+                self.assertFalse(list((folder / 'backups').glob('settings-before-import-*.json')))
+
+                # This edit deliberately has no scheduled autosave. The import
+                # archive must capture the current in-memory workspace anyway.
+                original.data['name'] = 'Unsaved immediately before import'
+                observed = []
+                timer = QTimer(window)
+                timer.setInterval(10)
+
+                def confirm():
+                    dialog = QApplication.activeModalWidget()
+                    if isinstance(dialog, QMessageBox):
+                        timer.stop()
+                        observed.append((dialog.windowTitle(), dialog.standardButton(dialog.defaultButton())))
+                        button = dialog.button(QMessageBox.StandardButton.Yes)
+                        button.click() if button is not None else dialog.reject()
+
+                timer.timeout.connect(confirm)
+                timer.start()
+                try:
+                    window.import_settings(path=exported)
+                finally:
+                    timer.stop()
+                    timer.deleteLater()
+                self.assertEqual([('Replace workspace?', QMessageBox.StandardButton.No)], observed)
+                current = window.current_tab()
+                ready(current)
+                self.assertIsNot(original, current)
+                self.assertIsNot(process, current.terminal.process)
+                self.assertEqual('Exported snapshot', current.data['name'])
+                archives = list((folder / 'backups').glob('settings-before-import-*.json'))
+                self.assertEqual(1, len(archives))
+                self.assertEqual('Unsaved immediately before import', config.read(archives[0])['tabs'][0]['name'])
+                current.terminal.run_command('printf \'%s\' "${BASHDOCK_M7-unset}" > fresh-shell.txt')
+                receipt('fresh-shell.txt', 'unset')
+        finally:
+            if window is not None:
+                window.allow_save = False
+                window.data['confirm_on_exit'] = False
+                window.close()
+                window.deleteLater()
+                app.processEvents()
+            retry(temporary.cleanup, timeout=5)
+
     def test_saved_workspace_buttons_require_click_after_add_replace_and_reopen(self):
         from unittest.mock import patch
         from PySide6.QtTest import QTest

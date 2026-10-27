@@ -196,6 +196,31 @@ class ConfigTests(unittest.TestCase):
                     config.save(changed, path)
             self.assertEqual(original, path.read_bytes())
 
+    def test_m7_failed_damaged_archive_or_primary_write_preserves_primary_and_good_backup(self):
+        for fail_archive in (True, False):
+            with self.subTest(fail_archive=fail_archive), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / 'settings.json'
+                config.save(config.defaults(), path)
+                backup = config.backup_path(path).read_bytes()
+                damaged = b'\xffdamaged settings'
+                path.write_bytes(damaged)
+                recovered = config.defaults()
+                real_write = config.atomic_write
+
+                def fail_write(target, content):
+                    if (fail_archive and target.parent.name == 'backups') or (not fail_archive and target == path):
+                        raise PermissionError('locked')
+                    real_write(target, content)
+
+                with patch('bashdock.config.atomic_write', side_effect=fail_write):
+                    with self.assertRaises(PermissionError):
+                        config.save(recovered, path)
+                self.assertEqual(damaged, path.read_bytes())
+                self.assertEqual(backup, config.backup_path(path).read_bytes())
+                archives = list((path.parent / 'backups').glob('settings-damaged-*.json'))
+                self.assertEqual([] if fail_archive else [damaged], [p.read_bytes() for p in archives])
+                self.assertFalse(list(path.parent.rglob('settings-*.tmp')))
+
     def test_import_requires_existing_valid_file_and_export_does_not_create_backups(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "export.json"

@@ -327,9 +327,78 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
 | M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
 | M6 | Installed appearance and native picker smoke | Inheritance/overrides, return to defaults, nested Save/Cancel, reset/save failure, settings/workspace persistence and live WebEngine appearance without shell restart are automated. Only visual comparison of inherited/custom tabs and actual font/colour picker usability remain below; no complete manual functional matrix is required. |
-| M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
+| M7 | Installed export/import and isolated recovery smoke | Backup/atomic-write preservation, import cancellation/failure, export guards and recovery choices are automated, including real-shell import lifecycle. Only the installed file-picker/import smoke and damaged-settings cancellation/restore presentation remain below. A disposable-profile launcher confines all deliberately damaged settings to a new temporary APPDATA folder. |
 | M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+
+### M7 automated coverage and remaining manual smoke
+
+Existing [config tests](../tests/test_config.py) and
+[workspace tests](../tests/test_workspace.py) cover Unicode/multiline round
+trips, rotating valid backups, pre-import snapshots of unsaved state, invalid
+and cancelled imports, archive/write failure, startup backup recovery,
+cancelling recovery with autosave paused, and starting fresh without a backup.
+M3/M6 already cover saved workspaces and terminal presets through these routes.
+
+Additional regressions cover:
+
+- `test_m7_failed_damaged_archive_or_primary_write_preserves_primary_and_good_backup`:
+  failed preservation or replacement never overwrites the damaged primary or
+  good backup, and leaves no temporary write files.
+- `test_m7_cancelled_protected_and_failed_exports_keep_live_settings_and_backup`:
+  file-picker cancellation, exports targeting the active settings/backup, and
+  an unwritable export leave current files and shells intact.
+- `test_m7_recovery_cancelled_restore_or_invalid_backup_preserves_both_files_and_shell`:
+  the real recovery dialog routes Restore through confirmation/validation;
+  cancelling replacement or rejecting a damaged backup keeps both files,
+  the temporary shell and paused saving intact.
+- `test_m7_recovery_import_cancel_and_export_restore_use_the_recovery_dialog`:
+  cancelling the recovery import picker leaves damage untouched; selecting a
+  valid export restores it and preserves the original damaged bytes/good backup.
+- `test_m7_export_import_cancel_keeps_live_shell_and_accept_archives_then_starts_fresh`
+  in [test_windows.py](../tests/test_windows.py): real MainWindow/WebEngine/Git Bash
+  keeps its process and exported environment after cancelled/invalid imports.
+  Accepting the real replacement dialog archives unsaved live state and starts
+  a fresh shell with the imported tab data, without carrying old shell variables.
+
+`npm test` includes these cases, with the real-shell case requiring Windows.
+The Windows workflow also runs the new recovery dialogs/import integration
+using native Qt. File-system failure injection is automated and does not need
+repeating against an owner's working installation.
+
+Only two installed-app checks remain. Use the latest source checkout to run
+this helper against the installed **0.14.7** folder (no app update is needed):
+
+```bash
+.venv/Scripts/python.exe scripts/check_settings_manual.py "C:/path/to/installed/bashdock"
+```
+
+[check_settings_manual.py](../scripts/check_settings_manual.py) launches the
+installed app three times with a newly generated, empty temporary APPDATA
+folder passed only to the child process. It leaves the evidence folder in
+place and prints its location; it does not modify the caller's APPDATA or
+deliberately damage the normal settings. Its isolation and refusal to damage
+files before validating the disposable backup are tested in
+[test_settings_manual.py](../tests/test_settings_manual.py).
+
+1. **Export/import presentation:** in the first disposable window, create a
+   recognisable tab and export settings using the file picker. Rename the tab,
+   cancel an import and confirm the shell remains usable; then accept importing
+   the export. Check the intended tabs return in fresh shells, the replacement
+   wording is clear, and `bashdock/backups/settings-before-import-*.json` in the
+   printed profile contains the previous tab name. Close this window.
+2. **Recovery presentation:** the helper validates the disposable files, then
+   damages only that profile's primary settings. In the second window, choose
+   Cancel in Recover settings and close without saving tab changes. In the
+   third, choose Restore backup and confirm, inspect the restored tabs/settings,
+   then close. Check that both dialogs are readable and choices are clear.
+
+The helper checks cancellation leaves the damaged primary and backup bytes
+unchanged, recovery produces valid settings, and an archive preserves the
+original damaged bytes. Its successful exit verifies those file checks, not
+the owner's visual/manual result. Report the two checks separately; both are
+outstanding until an owner result is recorded. No full manual failure/start-fresh
+matrix is required for M7.
 
 ## Outstanding updater checks
 
