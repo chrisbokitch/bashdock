@@ -97,6 +97,19 @@ jobs:
             $env:QT_QPA_PLATFORM = $previousPlatform
             Remove-Item Env:QT_SCALE_FACTOR -ErrorAction SilentlyContinue
           }
+      - name: Check saved workspace dialogs and shell startup with native Windows
+        shell: pwsh
+        run: |
+          $previousPlatform = $env:QT_QPA_PLATFORM
+          try {
+            $env:QT_QPA_PLATFORM = "windows"
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k m3 -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k saved_workspace_buttons -v
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            $env:QT_QPA_PLATFORM = $previousPlatform
+          }
       - name: Compile, test executable, and create portable ZIP
         run: npm run package
       - name: Verify ZIP checksum and run extracted executable

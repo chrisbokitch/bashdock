@@ -254,6 +254,137 @@ class WorkspaceTests(unittest.TestCase):
         self.window.restore_backup()
         self.assertEqual(saved, self.window.data["workspaces"])
 
+    def test_m3_workspace_picker_validates_then_saves_subset_through_real_dialog_and_cancel_is_inert(self):
+        from PySide6.QtCore import Qt, QTimer
+        from PySide6.QtWidgets import QDialogButtonBox
+        from bashdock.workspaces import WorkspacesDialog, SaveWorkspaceDialog
+
+        first = self.window.current_tab()
+        self.ready(first)
+        self.window.new_tab()
+        second = self.window.current_tab()
+        self.ready(second)
+        dialog = WorkspacesDialog(self.window)
+        observed = []
+
+        def fill_picker():
+            picker = next(d for d in dialog.findChildren(SaveWorkspaceDialog) if d.isVisible())
+            buttons = picker.findChild(QDialogButtonBox)
+            with patch('bashdock.workspaces.QMessageBox.warning') as warning:
+                buttons.button(QDialogButtonBox.StandardButton.Save).click()
+                self.assertTrue(picker.isVisible())
+                picker.name.setText('  Selected project  ')
+                for i in range(2):
+                    picker.tabs.item(i).setCheckState(Qt.CheckState.Unchecked)
+                buttons.button(QDialogButtonBox.StandardButton.Save).click()
+                self.assertTrue(picker.isVisible())
+                self.assertEqual(2, warning.call_count)
+            picker.tabs.item(1).setCheckState(Qt.CheckState.Checked)
+            observed.append(picker.selected_indexes())
+            buttons.button(QDialogButtonBox.StandardButton.Save).click()
+
+        try:
+            QTimer.singleShot(25, fill_picker)
+            dialog.save_new()
+            self.assertEqual([[1]], observed)
+            expected = [{'name': 'Selected project', 'tabs': [second.data], 'active_tab': 0}]
+            self.assertEqual(expected, config.read(self.path)['workspaces'])
+            self.assertEqual('Selected project', dialog.list.currentItem().text())
+            before = self.path.read_bytes()
+
+            def cancel_picker():
+                picker = next(d for d in dialog.findChildren(SaveWorkspaceDialog) if d.isVisible())
+                picker.name.setText('Do not save')
+                picker.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Cancel).click()
+
+            QTimer.singleShot(25, cancel_picker)
+            dialog.save_new()
+            self.assertEqual(before, self.path.read_bytes())
+            self.assertEqual(expected, self.window.data['workspaces'])
+            self.assertEqual([0, 0], [t.terminal.stops for t in (first, second)])
+        finally:
+            dialog.deleteLater()
+
+    def test_m3_workspace_manager_cancel_invalid_names_and_write_failures_keep_library_and_shells(self):
+        from bashdock.workspaces import WorkspacesDialog
+
+        tab = self.window.current_tab()
+        self.ready(tab)
+        self.assertTrue(self.window.save_workspace('Project', [0]))
+        self.assertTrue(self.window.save_workspace('Other', [0]))
+        dialog = WorkspacesDialog(self.window)
+        original = copy.deepcopy(self.window.data['workspaces'])
+        disk = self.path.read_bytes()
+        try:
+            with patch('bashdock.workspaces.QMessageBox.question', return_value=QMessageBox.StandardButton.No), \
+                    patch.object(dialog, 'choose_tabs') as picker:
+                dialog.update_selected()
+                dialog.delete_selected()
+                picker.assert_not_called()
+            with patch('bashdock.workspaces.QInputDialog.getText', return_value=('Discard', False)):
+                dialog.rename_selected()
+            for name in ('   ', ' other '):
+                with self.subTest(name=name), patch('bashdock.app.QMessageBox.warning') as warning, \
+                        patch('bashdock.workspaces.QInputDialog.getText', return_value=(name, True)):
+                    dialog.rename_selected()
+                    warning.assert_called_once()
+            with patch('bashdock.config.save', side_effect=PermissionError('locked')), \
+                    patch('bashdock.app.QMessageBox.warning'):
+                with patch('bashdock.workspaces.QInputDialog.getText', return_value=('Changed', True)):
+                    dialog.rename_selected()
+                dialog.delete_selected()
+                self.assertFalse(self.window.save_workspace('Project', [0], replace=0))
+            self.assertEqual(original, self.window.data['workspaces'])
+            self.assertEqual(disk, self.path.read_bytes())
+            self.assertEqual(['Project', 'Other'], [dialog.list.item(i).text() for i in range(2)])
+            self.assertIs(tab, self.window.current_tab())
+            self.assertEqual(0, tab.terminal.stops)
+            self.assertEqual([], tab.terminal.commands)
+        finally:
+            dialog.deleteLater()
+
+    def test_m3_workspace_ssh_buttons_never_run_on_add_replace_import_or_reopen(self):
+        tab = self.window.current_tab()
+        tab.data['buttons'] = [{'label': 'Connect', 'command': 'ssh user@example.invalid'}]
+        tab.build_buttons()
+        self.ready(tab)
+        self.assertTrue(self.window.save_workspace('SSH project', [0]))
+        saved = copy.deepcopy(self.window.data['workspaces'])
+        self.window.new_tab()
+        self.ready(self.window.current_tab())
+        self.window.close_tab(0)
+        self.assertTrue(self.window.open_workspace(0))
+        opened = self.window.current_tab()
+        self.ready(opened)
+        self.assertEqual([], opened.terminal.commands)
+        self.assertEqual(1, len(opened.terminal.starts))
+        # Clicking explicitly is the only route that may submit this command.
+        opened.command_buttons[0].click()
+        self.assertEqual(['ssh user@example.invalid'], opened.terminal.commands)
+        opened.data['buttons'][0]['command'] = 'live edit'
+        self.assertEqual(saved, self.window.data['workspaces'])
+        self.assertTrue(self.window.open_workspace(0, replace=True))
+        replacement = self.window.current_tab()
+        self.ready(replacement)
+        self.assertEqual(saved[0]['tabs'][0], replacement.data)
+        self.assertEqual([], replacement.terminal.commands)
+        export = Path(self.temp.name) / 'workspace-export.json'
+        with patch('bashdock.app.QFileDialog.getSaveFileName', return_value=(str(export), '')):
+            self.window.export_settings()
+        self.window.import_settings(path=export)
+        imported = self.window.current_tab()
+        self.ready(imported)
+        self.assertEqual([], imported.terminal.commands)
+        self.window.data['confirm_on_exit'] = False
+        self.window.close()
+        self.window.deleteLater()
+        self.window = MainWindow(terminal_factory=FakeTerminal)
+        reopened = self.window.current_tab()
+        self.ready(reopened)
+        self.assertEqual(saved, self.window.data['workspaces'])
+        self.assertEqual(saved[0]['tabs'][0], reopened.data)
+        self.assertEqual([], reopened.terminal.commands)
+
     def test_export_includes_unsaved_workspace_without_changing_live_sessions(self):
         tab = self.window.current_tab()
         self.ready(tab)

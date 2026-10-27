@@ -16,6 +16,82 @@ from bashdock.shell_integration import create_init_file
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(unittest.TestCase):
+    def test_saved_workspace_buttons_require_click_after_add_replace_and_reopen(self):
+        from unittest.mock import patch
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        from bashdock import config
+        from bashdock.app import MainWindow
+        from bashdock.terminal import Terminal
+        from bashdock.update_helper import retry
+
+        class ObservedTerminal(Terminal):
+            def __init__(self, parent=None):
+                super().__init__(parent)
+                self.submitted = []
+
+            def run_command(self, command):
+                self.submitted.append(command)
+                super().run_command(command)
+
+        app = QApplication.instance() or QApplication([])
+        temporary = tempfile.TemporaryDirectory(prefix='bashdock saved workspace ')
+        folder = Path(temporary.name)
+        settings = folder / 'settings.json'
+        receipt = folder / 'button-receipt.txt'
+        data = config.defaults()
+        data['bash_path'] = find_bash()
+        data['confirm_on_exit'] = False
+        for tab in data['tabs']:
+            tab.update(startup_folder=str(folder), current_folder=str(folder))
+        profile = config.default_tab('Saved command')
+        profile.update(startup_folder=str(folder), current_folder=str(folder),
+                       buttons=[{'label': 'Write receipt', 'command':
+                                 f"printf '%s' clicked > {shlex.quote(receipt.as_posix())}"}])
+        data['workspaces'] = [{'name': 'Button project', 'tabs': [profile], 'active_tab': 0}]
+        config.save(data, settings)
+
+        def wait_for(predicate):
+            deadline = time.monotonic() + 20
+            while not predicate() and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(predicate(), 'Saved-workspace shell/button did not become ready')
+
+        window = None
+        try:
+            with patch('bashdock.config.config_path', return_value=settings), \
+                    patch('bashdock.app.QMessageBox.question', return_value=QMessageBox.StandardButton.Yes):
+                window = MainWindow(terminal_factory=ObservedTerminal)
+                window.show()
+                for mode in ('add', 'replace', 'reopen'):
+                    with self.subTest(mode=mode):
+                        if mode == 'reopen':
+                            window.close()
+                            window.deleteLater()
+                            app.processEvents()
+                            window = MainWindow(terminal_factory=ObservedTerminal)
+                            window.show()
+                        else:
+                            self.assertTrue(window.open_workspace(0, replace=mode == 'replace'))
+                        tab = window.current_tab()
+                        wait_for(lambda: tab.terminal.ready and tab.terminal.command_startup.ready)
+                        QTest.qWait(500)
+                        self.assertEqual([], tab.terminal.submitted)
+                        self.assertFalse(receipt.exists(), 'A saved button ran without a click')
+                        tab.command_buttons[0].click()
+                        wait_for(lambda: receipt.exists() and receipt.read_text() == 'clicked')
+                        self.assertEqual([profile['buttons'][0]['command']], tab.terminal.submitted)
+                        receipt.unlink()
+        finally:
+            if window is not None:
+                window.allow_save = False
+                window.data['confirm_on_exit'] = False
+                window.close()
+                window.deleteLater()
+                app.processEvents()
+            retry(temporary.cleanup, timeout=5)
+
     def test_first_button_in_hidden_tab_and_buttons_after_resize_execute_intact(self):
         from PySide6.QtCore import Qt
         from PySide6.QtTest import QTest

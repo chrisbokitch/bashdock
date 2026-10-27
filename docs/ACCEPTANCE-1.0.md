@@ -113,13 +113,62 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | --- | --- | --- |
 | M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
 | M2 | Packaged tab interaction and visual smoke | Automated cases cover creation, rename acceptance/cancellation/blank input, Qt reordering, closing/cancelling after reorder, autosave/restoration, close-icon geometry and restored-footer bounds through resizing. Only a short compiled-app smoke remains: drag a tab with the mouse, use its close control, and visually inspect the restored first-tab footer while narrowing/widening the window. See the scope below; do not repeat the complete functional matrix manually. |
-| M3 | Saved workspace workflows | Subset/save, add, replace/cancel, overlapping tab identities, independent copies, update/rename/delete and settings round trips. Confirm saved SSH commands never connect automatically. Automated coverage is extensive; full compiled-app manual coverage is unrecorded. |
+| M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
 | M4 | Remaining terminal interactions | Arrows/history/completion, Ctrl+C, Unicode, pager behavior, persistent directory/environment and resize behavior. Basic typing/buttons already passed (E2), and clipping is confirmed resolved (E8); finish only the remaining interactions. |
 | M5 | Clipboard and optional mouse preferences | Selection/copy, paste, multiline confirmation/cancel, copy-on-select and right-click paste, including mouse-aware programs. JavaScript/Qt coverage is not a recorded manual clipboard result. |
 | M6 | Terminal defaults and per-tab overrides | Inheritance, returning to defaults, cancel/save failure behavior, preservation through workspaces/settings, and applying appearance without restarting shells. Appearance restoration has focused owner evidence; this complete scenario is unrecorded. |
 | M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
 | M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+
+### M3 automated coverage and remaining manual smoke
+
+Existing [workspace tests](../tests/test_workspace.py) cover selected-tab order
+and active-tab mapping, add versus replace/cancel, preservation of unrelated
+shells/global settings, backup before replacement, overlapping identities,
+independent saved/live copies, update/rename/delete, menu routing, and
+export/import/recovery. [Config tests](../tests/test_config.py) cover saved
+library validation, migration and round trips.
+
+Additional M3 regressions exercise:
+
+- `test_m3_workspace_picker_validates_then_saves_subset_through_real_dialog_and_cancel_is_inert`:
+  the real modal picker rejects a blank name/empty selection, saves the selected
+  subset through its Save control, and cancels without modifying disk or shells.
+- `test_m3_workspace_manager_cancel_invalid_names_and_write_failures_keep_library_and_shells`:
+  cancelled update/delete/rename, invalid or duplicate names, and failed writes
+  preserve the library, saved file, manager list and live shells.
+- `test_m3_workspace_ssh_buttons_never_run_on_add_replace_import_or_reopen`:
+  saved SSH commands remain idle through all four routes, edits do not mutate
+  the saved copy, and only an explicit button click submits a command. This uses
+  fake processes and never makes an SSH connection.
+- `test_saved_workspace_buttons_require_click_after_add_replace_and_reopen`
+  in [test_windows.py](../tests/test_windows.py): real Git Bash/WebEngine startup
+  reaches readiness without submitting a saved button; an explicit click writes
+  a file receipt. This uses a harmless command, not a network connection.
+
+`npm test` includes these cases, with the real-shell case requiring Windows.
+The Windows workflow additionally runs the new dialogs and real-shell test
+using the native Qt Windows backend. Source tests do not inspect the installed
+package's visual presentation or certify an actual SSH session.
+
+For the remaining M3 manual check, use the installed build and a disposable
+workspace name; record the version. Replacement closes current shell sessions,
+so finish any running work first.
+
+1. In **Manage → Workspaces → Configure…**, save a small selection of tabs,
+   including one with a saved SSH/Connect button. Check that the selection list,
+   workspace details and action buttons are readable and usable. Close that
+   saved tab, then open the workspace using its menu entry. Confirm the tab
+   opens at a fresh shell prompt and **does not connect or run the SSH button**.
+2. In the workspace manager, choose **Replace current tabs…** and cancel:
+   current shells should remain usable. Then confirm replacement and check
+   that the intended saved tabs appear as fresh shells, with the SSH button
+   still idle and the dialog/menus behaving normally.
+
+The two installed-app checks remain outstanding until an owner result is
+recorded. No separate manual update/rename/delete or export/import matrix is
+required for M3; M7 retains its distinct settings/recovery manual scope.
 
 ## Outstanding updater checks
 
