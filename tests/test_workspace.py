@@ -1027,6 +1027,21 @@ class WorkspaceTests(unittest.TestCase):
             self.assertFalse(menu.mask().contains(menu.rect().bottomRight()))
             menu.hide()
 
+    def test_diagnostic_report_export_and_cancel(self):
+        from bashdock.input_diagnostics import Recorder
+        report = Path(self.temp.name) / 'diagnostics.json'
+        recorder = Recorder()
+        recorder.record('window_resize', width=900, height=600)
+        with patch('bashdock.app.input_recorder', recorder), \
+                patch('bashdock.app.QFileDialog.getSaveFileName', return_value=(str(report), '')):
+            self.window.save_diagnostic_report()
+        self.assertTrue(report.is_file())
+        self.assertIn('window_resize', report.read_text())
+        with patch('bashdock.app.input_recorder.save') as save, \
+                patch('bashdock.app.QFileDialog.getSaveFileName', return_value=('', '')):
+            self.window.save_diagnostic_report()
+            save.assert_not_called()
+
     def test_menus_group_actions_and_about_shows_current_version_and_repository(self):
         from PySide6.QtWidgets import QDialog, QLabel
         from bashdock import __version__
@@ -1045,10 +1060,10 @@ class WorkspaceTests(unittest.TestCase):
         manage[0].trigger()
         self.assertEqual(2, self.window.tabs.count())
         with patch("bashdock.app.QDialog.exec", return_value=0) as show:
-            self.assertEqual(['Check for updates…', '', 'About BashDock…'],
+            self.assertEqual(['Check for updates…', 'Save diagnostic report…', '', 'About BashDock…'],
                              [a.text() for a in menus['Help'].actions()])
-            self.assertTrue(menus['Help'].actions()[1].isSeparator())
-            menus["Help"].actions()[2].trigger()
+            self.assertTrue(menus['Help'].actions()[2].isSeparator())
+            menus["Help"].actions()[3].trigger()
             show.assert_called_once()
             dialog = next(d for d in self.window.findChildren(QDialog) if d.windowTitle() == "About BashDock")
             labels = dialog.findChildren(QLabel)

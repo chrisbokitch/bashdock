@@ -61,7 +61,8 @@ new QWebChannel(qt.webChannelTransport, channel => {
   }));
   // Buttons represent typed commands, not clipboard pastes. Send the command
   // and Enter together so stale bracketed-paste mode cannot add escape markers.
-  bridge.paste.connect(command => bridge.input(command.replace(/\r?\n/g, '\r') + '\r'));
+  bridge.paste.connect((commandId, command) =>
+    bridge.commandInput(commandId, command.replace(/\r?\n/g, '\r') + '\r'));
   bridge.clipboardPaste.connect(text => terminal.paste(text));
   bridge.focus.connect(() => terminal.focus());
   terminal.attachCustomKeyEventHandler(event => {
@@ -83,6 +84,8 @@ new QWebChannel(qt.webChannelTransport, channel => {
   const rightPaste = event => preferences.right_click_paste &&
     (event.shiftKey || terminal.modes.mouseTrackingMode === 'none');
   const host = document.getElementById('terminal');
+  host.addEventListener('focusin', () => bridge.viewFocus(true));
+  host.addEventListener('focusout', () => bridge.viewFocus(false));
   host.addEventListener('mousedown', event => {
     if (event.button === 2 && rightPaste(event)) {
       event.preventDefault();

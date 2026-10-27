@@ -35,6 +35,8 @@ The executable and app window use the BashDock terminal-and-buttons icon. Its PN
 
 If a shell cannot start, the app shows the error. Startup and terminal-reader errors are also recorded in `%APPDATA%\bashdock\bashdock.log`, including when the executable runs without a console window.
 
+For intermittent input problems, use **Help → Save diagnostic report…** immediately after the problem occurs, before closing BashDock. This exports up to 4,096 recent events from a bounded in-memory buffer, plus application/runtime versions. Events include anonymous tab/command IDs, elapsed times, input lengths, resize dimensions, focus changes, whether a button command reached the UI bridge unchanged, and counts returned by the terminal backend. A completed write means the backend call returned; it does not prove what Bash ultimately received or executed. The report contains **no command text, terminal output, clipboard contents, tab names, folder paths, environment variables, or command fingerprints**. Integrity fingerprints use a temporary private key, remain only in memory, and are discarded after comparison or shell restart. The ordinary error log and settings file are not included. Nothing is uploaded automatically. Recent diagnostic activity is lost when the app closes; heavy activity can replace older events.
+
 ## Versioning
 
 BashDock uses `MAJOR.MINOR.PATCH`. While pre-1.0, patch releases cover fixes and UI polish; minor releases cover new features or substantial changes. We will choose the 1.0 milestone explicitly. Versions are deliberate release decisions, not automatic commit counters; bump the patch for a new shipped revision rather than silently changing an already distributed version.

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import config, terminal_preferences
+from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
 from .window_theme import install_titlebar_theme
 from .external_shell import open_external
@@ -668,6 +669,9 @@ class MainWindow(QMainWindow):
         self.check_updates_action = QAction("Check for updates…", self)
         self.check_updates_action.triggered.connect(self.check_for_updates)
         help_menu.addAction(self.check_updates_action)
+        diagnostic_action = QAction("Save diagnostic report…", self)
+        diagnostic_action.triggered.connect(self.save_diagnostic_report)
+        help_menu.addAction(diagnostic_action)
         help_menu.addSeparator()
         help_menu.addAction(about_action)
         # Older PySide bindings can delete a submenu when a temporary action
@@ -1074,6 +1078,8 @@ class MainWindow(QMainWindow):
         self.refresh_tab_colors()
         tab = self.current_tab()
         if tab:
+            trace = getattr(tab.terminal, 'trace', None)
+            input_recorder.record('tab_selected', terminal=trace.terminal_id if trace else 0)
             self.statusBar().showMessage(tab.status)
             if tab.terminal.ready:
                 tab.terminal.bridge.focus.emit()
@@ -1131,6 +1137,7 @@ class MainWindow(QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        input_recorder.record('window_resize', width=event.size().width(), height=event.size().height())
         if hasattr(self, "save_timer"):
             self.schedule_save()
 
@@ -1219,6 +1226,18 @@ class MainWindow(QMainWindow):
             if tab.data.get("terminal") is None:
                 tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
         self.refresh_tab_colors()
+
+    def save_diagnostic_report(self):
+        filename, _ = QFileDialog.getSaveFileName(self, "Save diagnostic report",
+            "bashdock-diagnostics.json", "JSON files (*.json)")
+        if not filename:
+            return
+        try:
+            input_recorder.save(filename)
+        except OSError as error:
+            QMessageBox.warning(self, "Cannot save diagnostic report", str(error))
+            return
+        self.statusBar().showMessage("Diagnostic report saved. Commands and terminal output are excluded.", 8000)
 
     def show_about(self):
         dialog = QDialog(self)

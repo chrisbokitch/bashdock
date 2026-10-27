@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from .shell_integration import valid_reported_directory
 from .shell_backend import spawn_shell
 from .command_startup import CommandStartup
+from .input_diagnostics import CommandTrace
 from . import terminal_preferences
 
 
@@ -23,7 +24,7 @@ class LocalPage(QWebEnginePage):
 
 class Bridge(QObject):
     output = Signal(str)
-    paste = Signal(str)
+    paste = Signal(int, str)
     clipboardPaste = Signal(str)
     focus = Signal()
     settingsChanged = Signal(str)
@@ -45,7 +46,19 @@ class Bridge(QObject):
 
     @Slot(str)
     def input(self, data):
+        self.terminal.trace.record('terminal_input', characters=len(data),
+            utf8_bytes=len(data.encode('utf-8', errors='surrogatepass')),
+            has_escape='\x1b' in data, has_enter='\r' in data or '\n' in data)
         self.terminal.write(data)
+
+    @Slot(int, str)
+    def commandInput(self, command_id, data):
+        self.terminal.trace.receive(command_id, data)
+        self.terminal.write(data, command_id=command_id)
+
+    @Slot(bool)
+    def viewFocus(self, focused):
+        self.terminal.trace.record('web_focus', focused=focused)
 
     @Slot(str)
     def shellReady(self, session_id):
@@ -74,12 +87,17 @@ class Bridge(QObject):
 
     @Slot(int, int)
     def resize(self, cols, rows):
-        self.terminal.dimensions = (max(2, rows), max(2, cols))
+        dimensions = (max(2, rows), max(2, cols))
+        self.terminal.trace.record('resize_requested', rows=dimensions[0], cols=dimensions[1],
+            changed=dimensions != self.terminal.dimensions, running=bool(self.terminal.process))
+        self.terminal.dimensions = dimensions
         if self.terminal.process:
             try:
                 self.terminal.process.setwinsize(*self.terminal.dimensions)
-            except (OSError, RuntimeError):
-                pass
+                self.terminal.trace.record('resize_complete')
+            except (OSError, RuntimeError) as error:
+                self.terminal.trace.record('resize_failed', errno=getattr(error, 'errno', None),
+                    winerror=getattr(error, 'winerror', None))
 
 
 class Terminal(QWebEngineView):
@@ -98,6 +116,7 @@ class Terminal(QWebEngineView):
         self.reader = None
         self.init_file = None
         self.command_startup = CommandStartup()
+        self.trace = CommandTrace()
         self.preferences = terminal_preferences.defaults()
         self.setPage(LocalPage(self))
         self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False)
@@ -123,6 +142,8 @@ class Terminal(QWebEngineView):
         self.stopping.clear()
         self.cleanup_init_file()
         session_id = self.command_startup.begin()
+        self.trace.reset()
+        self.trace.record('shell_start', rows=self.dimensions[0], cols=self.dimensions[1])
         self.process, self.init_file = spawn_shell(
             bash_path, folder, self.dimensions, session_id=session_id)
         self.reader = threading.Thread(target=self.read_loop, args=(self.process,), daemon=True)
@@ -167,31 +188,46 @@ class Terminal(QWebEngineView):
             else:
                 self.process = None
                 self.command_startup.reset()
+                self.trace.reset()
+                self.trace.record('shell_stop')
                 self.cleanup_init_file()
                 self.ended.emit(data)
         if chunks:
             self.bridge.output.emit("".join(chunks))
 
-    def write(self, data):
+    def write(self, data, command_id=0):
+        self.trace.record('write_attempt', command=command_id, characters=len(data),
+            utf8_bytes=len(data.encode('utf-8', errors='surrogatepass')), running=bool(self.process))
         if self.process:
             try:
-                self.process.write(data)
+                count = self.process.write(data)
+                self.trace.record('write_complete', command=command_id, reported_count=count)
             except (OSError, RuntimeError, EOFError) as error:
+                self.trace.record('write_failed', command=command_id,
+                    errno=getattr(error, 'errno', None), winerror=getattr(error, 'winerror', None))
                 self.problem.emit(str(error))
 
     def run_command(self, command):
         # The button-command signal sends plain input plus Enter, not a clipboard paste.
+        command_id = self.trace.prepare(command, ready=self.command_startup.ready, running=bool(self.process))
         if self.process:
-            if not self.command_startup.submit(command):
+            if not self.command_startup.submit((command_id, command)):
+                self.trace.record('command_queued', command=command_id)
                 self.focus_terminal()
                 return
-            self.bridge.paste.emit(command)
-            self.focus_terminal()
+            self.dispatch_command(command_id, command)
+
+    def dispatch_command(self, command_id, command):
+        self.trace.record('command_dispatched', command=command_id)
+        self.bridge.paste.emit(command_id, command)
+        self.focus_terminal()
 
     def focus_terminal(self):
         # Focusing xterm's textarea alone does not transfer native Qt focus
         # from another widget into the WebEngine view.
         self.setFocus(Qt.FocusReason.OtherFocusReason)
+        self.trace.record('focus_requested', native_focus=self.hasFocus() or
+                          (self.focusProxy() is not None and self.focusProxy().hasFocus()))
         self.bridge.focus.emit()
 
     def shell_ready(self, session_id):
@@ -199,8 +235,9 @@ class Terminal(QWebEngineView):
         # shell's commands. Terminal-generated replies still bypass this queue.
         if not self.process:
             return
-        for command in self.command_startup.release(session_id):
-            self.run_command(command)
+        self.trace.record('shell_ready', accepted=session_id == self.command_startup.session_id)
+        for command_id, command in self.command_startup.release(session_id):
+            self.dispatch_command(command_id, command)
 
     def cleanup_init_file(self):
         if self.init_file:
@@ -211,6 +248,8 @@ class Terminal(QWebEngineView):
             self.init_file = None
 
     def stop(self):
+        self.trace.record('shell_stop')
+        self.trace.reset()
         self.command_startup.reset()
         self.stopping.set()
         process, self.process = self.process, None

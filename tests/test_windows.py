@@ -231,6 +231,13 @@ class WindowsTests(unittest.TestCase):
             terminal.bridge.clipboardPaste.emit("clipboard text")
             wait_for(lambda: len(writes) >= 3)
             self.assertEqual("\x1b[200~clipboard text\x1b[201~", writes[2])
+            events = [e for e in terminal.trace.recorder.snapshot()['events']
+                      if e['terminal'] == terminal.trace.terminal_id]
+            received = [e for e in events if e['event'] == 'command_received']
+            self.assertEqual(2, len(received))
+            self.assertTrue(all(e['recognized'] and e['unchanged'] for e in received))
+            self.assertEqual([e['command'] for e in received],
+                             [e['command'] for e in events if e['event'] == 'command_dispatched'])
         finally:
             terminal.stop()
             terminal.close()

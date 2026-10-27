@@ -5,13 +5,15 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 function setup(TerminalClass) {
-  const signal = () => ({connect(fn) {this.handler = fn;}, emit(value) {this.handler(value);}});
+  const signal = () => ({connect(fn) {this.handler = fn;}, emit(...values) {this.handler(...values);}});
   const initial = {font_family: 'Cascadia Mono', font_size: 15, scrollback: 10000,
     cursor_style: 'block', cursor_blink: true, foreground: '#dde4ef', background: '#10141c',
     cursor_color: '#70dcc2', selection_color: '#365e66', copy_on_select: false, right_click_paste: false};
   const bridge = {output: signal(), paste: signal(), clipboardPaste: signal(), focus: signal(),
     settingsChanged: signal(), inputs: [], input(text) {this.inputs.push(text);}, resize() {}, directory() {}, ready() {},
     readySessions: [], shellReady(token) {this.readySessions.push(token);},
+    commands: [], commandInput(id, text) {this.commands.push({id, text}); this.inputs.push(text);},
+    focusEvents: [], viewFocus(focused) {this.focusEvents.push(focused);},
     copies: [], copy(text) {this.copies.push(text);}, pastes: 0, requestPaste() {this.pastes++;},
     requestSettings() {this.settingsChanged.emit(JSON.stringify(initial));}};
   const host = {clientWidth: 800, clientHeight: 600, events: {}, addEventListener(name, fn) {this.events[name] = fn;}};
@@ -171,15 +173,24 @@ test('first and repeated command buttons send plain commands and Enter in one wr
   for (const bracketedPasteMode of [false, true]) {
     const s = setup();
     s.terminal.modes.bracketedPasteMode = bracketedPasteMode;
-    s.bridge.paste.emit('pwd');
-    s.bridge.paste.emit("printf 'café\\n'\nprintf 'done\\n'");
-    s.bridge.paste.emit('git status\r\ngit diff');
+    s.bridge.paste.emit(1, 'pwd');
+    s.bridge.paste.emit(2, "printf 'café\\n'\nprintf 'done\\n'");
+    s.bridge.paste.emit(3, 'git status\r\ngit diff');
     assert.deepEqual(s.bridge.inputs, [
       'pwd\r', "printf 'café\\n'\rprintf 'done\\n'\r", 'git status\rgit diff\r'
     ]);
     assert.deepEqual(s.terminal.pasteCalls, []);
+    assert.deepEqual(s.bridge.commands.map(command => command.id), [1, 2, 3]);
     assert.ok(s.bridge.inputs.every(text => !text.includes('\x1b')));
   }
+});
+
+test('web focus diagnostics contain only focus state', () => {
+  const s = setup();
+  s.host.events.focusin();
+  s.host.events.focusout();
+  assert.deepEqual(s.bridge.focusEvents, [true, false]);
+  assert.deepEqual(s.bridge.inputs, []);
 });
 
 test('clipboard input still uses bracketed paste without adding Enter', () => {
