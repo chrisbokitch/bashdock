@@ -270,10 +270,61 @@ checklist left them unchecked. The IDs below identify the remaining scope.
 | M3 | Packaged workspace dialog and fresh-shell smoke | Functional save/subset/add/replace/cancel, overlapping IDs, independent copies, library edits, persistence/export/import and no automatic button submission are automated. Remaining manual scope is the short installed-app dialog and fresh-shell check below, including a saved SSH button staying idle. No complete manual functional matrix is required. |
 | M4 | Packaged terminal input and pager visual smoke | History/editing keys, completion, foreground Ctrl+C/recovery, Unicode transport/rendered text, real pager navigation/resize/exit and persistent directory/environment have automated Windows coverage. Remaining manual scope is native Unicode entry and a short installed-app pager/rendering check below. Basic typing/buttons and the clipping fix already passed (E2/E8). |
 | M5 | Installed clipboard interoperability and physical mouse smoke | Automated coverage checks native clipboard text, copy/paste shortcuts, confirmation/default-No/cancel for multiline paste, no extra Enter, optional selection copy and right-click routing with mouse tracking. Remaining scope is physical drag selection/external-app clipboard exchange and optional preferences with a real mouse-aware program, as described below. |
-| M6 | Terminal defaults and per-tab overrides | Inheritance, returning to defaults, cancel/save failure behavior, preservation through workspaces/settings, and applying appearance without restarting shells. Appearance restoration has focused owner evidence; this complete scenario is unrecorded. |
+| M6 | Installed appearance and native picker smoke | Inheritance/overrides, return to defaults, nested Save/Cancel, reset/save failure, settings/workspace persistence and live WebEngine appearance without shell restart are automated. Only visual comparison of inherited/custom tabs and actual font/colour picker usability remain below; no complete manual functional matrix is required. |
 | M7 | Settings export/import and recovery | Restore an export and inspect the separate pre-import backup; cancel/invalid import must keep shells. In a disposable profile, verify damaged-settings recovery, damaged-file preservation, cancellation and starting fresh. Existing owner smoke checked settings restoration; these broader manual recovery cases are not recorded. |
 | M8 | External shell and exit lifecycle | External shell opens in the expected folder and survives BashDock closing; verify quit confirmation/opt-out and embedded process cleanup. Automated UI/launch tests do not establish this full manual lifecycle result. |
 | M9 | Actual Windows display scaling | Inspect resize/maximize, menus, footer/buttons, update notice and restored tabs at 100%, 125% and 150% Windows display scaling. Existing Qt scale-factor tests do not replace this check. |
+
+### M6 automated coverage and remaining manual smoke
+
+Existing [workspace tests](../tests/test_workspace.py) and
+[terminal preference tests](../tests/test_terminal_preferences.py) cover global
+defaults, independent per-tab presets, inherited/new tabs, return to the latest
+defaults, validation, cancelled edits, failed saves, and preservation through
+saved workspaces, export/import and restoration. Fake shell start/stop counters
+verify the UI does not restart sessions when applying appearance.
+
+Additional M6 regressions exercise:
+
+- `test_m6_nested_terminal_dialog_save_cancel_and_return_to_defaults`: the
+  real Configure tab and nested Terminal Settings dialogs use their Save,
+  Cancel and Use defaults controls. Child Save only stages changes; parent
+  cancellation discards them, child cancellation preserves the previous custom
+  preset, and parent Save commits the preset or inherited state to disk and
+  the intended tab while leaving the other shell alone.
+- `test_m6_restore_global_defaults_is_transactional_with_custom_tabs`: the real
+  Terminal Defaults dialog restores factory values, with Cancel and an injected
+  write failure preserving disk/live appearance. Successful Save updates the
+  inherited tab while leaving the custom tab and both shells intact.
+- `test_m6_live_terminal_preferences_preserve_process_directory_and_environment`
+  in [test_windows.py](../tests/test_windows.py): real WebEngine/xterm options
+  and frame CSS reflect multiple fonts, sizes, light/dark colours, cursor style,
+  blink, selection colours and scrollback, then return to the original values.
+  Terminal dimensions refit, the same ConPTY process/reader/init file remain,
+  and execution receipts verify exported environment and working directory
+  survive every change.
+
+`npm test` includes these cases; the Windows workflow also runs the new dialog
+and real-shell cases with native Qt Windows rendering. These checks inspect
+renderer state, not the installed app's glyph appearance or a human interaction
+with the native font/colour pickers. M5 already covers the mouse preferences.
+
+Only these installed-app checks remain for M6; use 0.14.7 and record the version:
+
+1. **Appearance across two tabs:** leave one tab using defaults and give another
+   a visibly different custom preset. Change Terminal Defaults and inspect the
+   inherited tab's font, colours, cursor and selection; the custom tab should
+   keep its look. Return that custom tab to Use defaults and save Configure tab;
+   visually confirm it adopts the current defaults. Check readability, tab
+   colours and surrounding terminal surfaces for obvious rendering problems.
+2. **Actual pickers:** use the font dropdown and colour picker in the installed
+   dialog. Check they open, remain readable and can be accepted/cancelled; cancel
+   an appearance edit and confirm the running terminal keeps its previous look.
+   Restore your preferred appearance afterward.
+
+Both checks remain outstanding until an owner result is recorded. A separate
+manual persistence/save-failure/restart matrix is not required for M6; M7 and
+M9 retain their distinct recovery and actual Windows display-scaling scope.
 
 ## Outstanding updater checks
 

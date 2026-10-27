@@ -178,6 +178,55 @@ class WindowsTests(unittest.TestCase):
                       "[[ $PWD == */child ]] && printf cwd >> ../after-pager.txt")
             s.receipt('after-pager.txt', 'keptcwd')
 
+    def test_m6_live_terminal_preferences_preserve_process_directory_and_environment(self):
+        with self.interactive_session() as s:
+            t = s.terminal
+            original = dict(t.preferences)
+            process, reader, init_file = t.process, t.reader, t.init_file
+            s.command('export BASHDOCK_M6=kept; mkdir child; cd child; printf ready > ../m6-ready.txt')
+            s.receipt('m6-ready.txt', 'ready')
+            presets = [
+                dict(original, font_family='Consolas', font_size=22, scrollback=2345,
+                     cursor_style='bar', cursor_blink=False, background='#223344',
+                     foreground='#efefef', cursor_color='#00ff88', selection_color='#445566'),
+                dict(original, font_family='Courier New', font_size=13, scrollback=4567,
+                     cursor_style='underline', cursor_blink=True, background='#f4f4f4',
+                     foreground='#101010', cursor_color='#4400cc', selection_color='#bbccdd'),
+                original,
+            ]
+            snapshot = """JSON.stringify({font_family:terminal.options.fontFamily,
+                font_size:terminal.options.fontSize, scrollback:terminal.options.scrollback,
+                cursor_style:terminal.options.cursorStyle, cursor_blink:terminal.options.cursorBlink,
+                background:terminal.options.theme.background, foreground:terminal.options.theme.foreground,
+                cursor_color:terminal.options.theme.cursor,
+                selection_color:terminal.options.theme.selectionBackground,
+                inactive_selection:terminal.options.theme.selectionInactiveBackground,
+                frame_background:getComputedStyle(document.body).backgroundColor,
+                frame_foreground:getComputedStyle(document.body).getPropertyValue('--terminal-foreground').trim(),
+                fitted:terminal.cols === fit.proposeDimensions().cols &&
+                       terminal.rows === fit.proposeDimensions().rows})"""
+            for index, preset in enumerate(presets):
+                with self.subTest(preset=index):
+                    t.apply_settings(preset)
+                    expected = {key: preset[key] for key in (
+                        'font_size', 'scrollback', 'cursor_style', 'cursor_blink',
+                        'background', 'foreground', 'cursor_color', 'selection_color')}
+                    rgb = [int(preset['background'][i:i + 2], 16) for i in (1, 3, 5)]
+                    expected.update(font_family=f"{json.dumps(preset['font_family'])}, Consolas, monospace",
+                                    inactive_selection=preset['selection_color'],
+                                    frame_background=f'rgb({rgb[0]}, {rgb[1]}, {rgb[2]})',
+                                    frame_foreground=preset['foreground'], fitted=True)
+                    s.wait(lambda: json.loads(s.evaluate(snapshot)) == expected)
+                    self.assertIs(process, t.process)
+                    self.assertIs(reader, t.reader)
+                    self.assertEqual(init_file, t.init_file)
+                    filename = f'm6-state-{index}.txt'
+                    t.run_command(f'printf \'%s\' "$BASHDOCK_M6" > ../{filename}; '
+                                  f'[[ $PWD == */child ]] && printf :cwd >> ../{filename}')
+                    s.receipt(filename, 'kept:cwd')
+                    self.assertIs(process, t.process)
+                    self.assertIs(reader, t.reader)
+
     @contextmanager
     def saved_clipboard(self):
         from PySide6.QtCore import QMimeData

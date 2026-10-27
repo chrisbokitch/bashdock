@@ -1029,6 +1029,144 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(original, self.window.current_tab().terminal.preferences)
         self.assertEqual(original, config.load(self.path)["terminal"])
 
+    def test_m6_nested_terminal_dialog_save_cancel_and_return_to_defaults(self):
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QDialogButtonBox
+        from bashdock.terminal_settings import TerminalSettingsDialog
+
+        first = self.window.current_tab()
+        self.ready(first)
+        self.window.new_tab()
+        second = self.window.current_tab()
+        self.ready(second)
+        defaults = copy.deepcopy(self.window.data['terminal'])
+        custom = dict(defaults, background='#331122', font_size=23)
+        identity = first.data['id']
+        for mode, save_inner, save_outer, expected in (
+                ('custom', True, False, None),
+                ('custom', True, True, custom),
+                ('defaults', False, True, custom),
+                ('defaults', True, False, custom),
+                ('defaults', True, True, None)):
+            with self.subTest(mode=mode, save_inner=save_inner, save_outer=save_outer):
+                errors, visited = [], []
+                before = copy.deepcopy(first.data.get('terminal'))
+
+                def edit_outer():
+                    outer = QApplication.activeModalWidget()
+
+                    def edit_inner():
+                        inner = QApplication.activeModalWidget()
+                        try:
+                            self.assertIsInstance(inner, TerminalSettingsDialog)
+                            if mode == 'custom':
+                                inner.use_defaults.setChecked(False)
+                                inner.size.setValue(23)
+                                inner.set_color('background', '#331122')
+                            else:
+                                inner.restore_button.click()
+                                self.assertTrue(inner.use_defaults.isChecked())
+                                self.assertFalse(inner.controls.isEnabled())
+                            # A child Save only stages changes in Configure tab.
+                            self.assertEqual(before, first.data.get('terminal'))
+                            self.assertEqual(before or defaults, first.terminal.preferences)
+                            visited.append('inner')
+                            button = (QDialogButtonBox.StandardButton.Save if save_inner
+                                      else QDialogButtonBox.StandardButton.Cancel)
+                            inner.findChild(QDialogButtonBox).button(button).click()
+                        except Exception as error:
+                            errors.append(error)
+                            inner.reject()
+
+                    try:
+                        self.assertIsInstance(outer, SettingsDialog)
+                        QTimer.singleShot(25, edit_inner)
+                        next(b for b in outer.findChildren(QPushButton)
+                             if b.text() == 'Terminal settings…').click()
+                        self.assertEqual(before, first.data.get('terminal'))
+                        self.assertEqual(before, config.read(self.path)['tabs'][0].get('terminal'))
+                        visited.append('outer')
+                        button = (QDialogButtonBox.StandardButton.Save if save_outer
+                                  else QDialogButtonBox.StandardButton.Cancel)
+                        outer.findChild(QDialogButtonBox).button(button).click()
+                    except Exception as error:
+                        errors.append(error)
+                        outer.reject()
+
+                self.assertTrue(self.window.persist())
+                QTimer.singleShot(25, edit_outer)
+                self.window.configure(first)
+                if errors:
+                    raise errors[0]
+                self.assertEqual(['inner', 'outer'], visited)
+                self.assertEqual(expected, first.data.get('terminal'))
+                self.assertEqual(expected, config.read(self.path)['tabs'][0].get('terminal'))
+                self.assertEqual(expected or defaults, first.terminal.preferences)
+                self.assertEqual(defaults, second.terminal.preferences)
+                self.assertEqual(identity, first.data['id'])
+                self.assertEqual([0, 0], [t.terminal.stops for t in (first, second)])
+                self.assertEqual([1, 1], [len(t.terminal.starts) for t in (first, second)])
+
+    def test_m6_restore_global_defaults_is_transactional_with_custom_tabs(self):
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QDialogButtonBox
+        from bashdock import terminal_preferences
+        from bashdock.terminal_settings import TerminalSettingsDialog
+
+        first = self.window.current_tab()
+        self.window.new_tab()
+        second = self.window.current_tab()
+        changed = dict(self.window.data['terminal'], background='#223344', font_size=22)
+        custom = dict(changed, background='#331122', cursor_style='bar')
+        self.window.data['terminal'] = changed
+        first.terminal.apply_settings(changed)
+        second.data['terminal'] = copy.deepcopy(custom)
+        second.terminal.apply_settings(custom)
+        for tab in (first, second):
+            self.ready(tab)
+        self.assertTrue(self.window.persist())
+        original = self.path.read_bytes()
+        for save, locked in ((False, False), (True, True), (True, False)):
+            with self.subTest(save=save, locked=locked):
+                errors = []
+
+                def edit():
+                    dialog = QApplication.activeModalWidget()
+                    try:
+                        self.assertIsInstance(dialog, TerminalSettingsDialog)
+                        self.assertIsNone(dialog.use_defaults)
+                        dialog.restore_button.click()
+                        self.assertEqual(terminal_preferences.defaults(), dialog.values())
+                        self.assertEqual(changed, first.terminal.preferences)
+                        button = (QDialogButtonBox.StandardButton.Save if save
+                                  else QDialogButtonBox.StandardButton.Cancel)
+                        dialog.findChild(QDialogButtonBox).button(button).click()
+                    except Exception as error:
+                        errors.append(error)
+                        dialog.reject()
+
+                QTimer.singleShot(25, edit)
+                with patch('bashdock.app.QMessageBox.warning') as warning:
+                    if locked:
+                        with patch('bashdock.config.save', side_effect=PermissionError('locked')):
+                            self.window.configure_terminal()
+                        warning.assert_called_once()
+                    else:
+                        self.window.configure_terminal()
+                        warning.assert_not_called()
+                if errors:
+                    raise errors[0]
+                expected = terminal_preferences.defaults() if save and not locked else changed
+                self.assertEqual(expected, self.window.data['terminal'])
+                self.assertEqual(expected, first.terminal.preferences)
+                self.assertEqual(custom, second.terminal.preferences)
+                self.assertEqual(custom, second.data['terminal'])
+                self.assertEqual(expected, config.read(self.path)['terminal'])
+                if not save or locked:
+                    self.assertEqual(original, self.path.read_bytes())
+                self.assertEqual([0, 0], [t.terminal.stops for t in (first, second)])
+                self.assertEqual([1, 1], [len(t.terminal.starts) for t in (first, second)])
+
     def test_inactive_tab_tints_follow_tab_identity_defaults_and_hover(self):
         from PySide6.QtCore import QEvent, QPoint, QPointF
         from PySide6.QtGui import QColor, QHoverEvent
