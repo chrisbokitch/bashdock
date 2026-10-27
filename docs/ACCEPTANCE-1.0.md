@@ -59,6 +59,32 @@ The tested 0.14.6 revision is
   paths, including the extracted ZIP. An extraction/startup check in a path
   containing spaces is not evidence of a complete GUI update between spaced paths.
 
+## Completed M1: clean-machine setup
+
+**Passed — owner confirmation, 2026-10-27**, following the requested clean
+Windows 11 VM procedure with the packaged 0.14.7 build and a standard account,
+without Python or Node installed.
+
+The owner confirmed all requested checks passed: launch without Git and inspect
+the missing-Git guidance/download action; install Git for Windows; use
+Manage → Restart shell to detect it without manually configuring the executable;
+execute typed and button commands; and close/reopen successfully without the
+missing-Git prompt.
+
+The owner supplied this package identity and SHA-256 output from BashDock:
+
+```text
+bashdock-0.14.7-windows-x64.zip
+88b7e4404c6c196ec6e22fb10600489541eabe3587df6b34af39753dd4284f06
+```
+
+The terminal prompt identified the test account/VM as
+`BashDockTest@VM-BASHDOCKTEST`. This is an owner-reported checksum and result;
+the archive was not uploaded or independently rehashed for this confirmation.
+The exact Windows build, Git/Bash/MSYS versions and source commit for that ZIP
+were not supplied. No additional setup checks remain for M1; the final 1.0
+candidate retains its separate exact-package smoke requirement.
+
 ## Completed M2: tab operations and footer
 
 The real Qt UI tests in [test_workspace.py](../tests/test_workspace.py) use
@@ -494,15 +520,12 @@ The owner confirmed the requested checks passed. This records the requested
 three-scale visual smoke; it does not establish an additional multi-monitor or
 live monitor-transition matrix.
 
-## Outstanding manual Windows checks
+## Manual Windows acceptance summary
 
-Use a disposable VM/profile for destructive recovery and updater-failure cases.
-Preserve E1–E8; do not rerun completed historical checks merely because an older
-checklist left them unchecked. The IDs below identify the remaining scope.
-
-| ID | Check to finish | Existing evidence / result still needed |
-| --- | --- | --- |
-| M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
+M1–M9 are complete for their recorded scopes and tested versions above.
+Remaining updater cases, publisher confirmation and final-candidate gates are
+listed below; the eventual 1.0 ZIP still requires its own package smoke and any
+targeted retests warranted by changes.
 
 ## Outstanding updater checks
 
