@@ -46,7 +46,9 @@ class LocalUpdateTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name)
+        # Windows temporary directories may contain a short-name alias; the
+        # installer resolves it before operating on the installation.
+        self.root = Path(self.temp.name).resolve()
         self.cache = self.root / 'updates'
         self.patch = patch.object(local, 'cache_directory', return_value=self.cache)
         self.patch.start()
