@@ -1,8 +1,8 @@
 # BashDock 1.0.0 release record
 
 Published with the owner's approval on 2026-10-27 at 23:13:29 UTC (16:13 PDT).
-The exact-package owner smoke and public asset checks passed. The remaining
-owner check is U1: visible waiting during a normal public update.
+The exact-package owner smoke, public asset checks and owner-confirmed U1
+public-update waiting check passed. The 1.0 release acceptance is complete.
 
 ## Scope and retained evidence
 
@@ -24,8 +24,8 @@ the entire manual matrix solely because the version changes to 1.0.
    application ZIP and checksum from that draft, not a local stage-update build
    or the enclosing Actions artifact wrapper.
 4. Record the tag, commit, application ZIP SHA-256, Windows/Git versions and
-   results in issue #2. This record is still pending until that exact file exists
-   and has been exercised by the owner.
+   results in issue #2. The completed exact-package result is
+   recorded below.
 
 ## Exact-candidate owner smoke (F2)
 
@@ -82,7 +82,8 @@ create a dummy release or modify production signing keys for these checks.
   `71f89c4c10f7657779988d27fbaa62ffbe8f8be0aecd222f6088908daca2f54e`.
 - F2 owner smoke: **passed — owner confirmation, 2026-10-27**.
 - Publication approved and completed; U4/public asset access and website links passed.
-- U1 visible-waiting owner check: pending.
+- U1 visible-waiting owner check: **passed — owner confirmation, 2026-10-27**.
+- Release acceptance and final gate closure: **complete**.
 
 ## Focus-test follow-up
 
@@ -99,7 +100,7 @@ Application runtime/version files were unchanged by that follow-up, and the
 existing `v1.0.0` tag remains at `ec43489`. The published source snapshot, when
 approved, is the tagged revision; this later test-harness correction is on main.
 F2 exact-draft ZIP smoke subsequently passed as recorded below. Publication and
-U4/public-link checks are now complete; U1 remains pending.
+U4/public-link checks and the U1 owner result are now complete.
 
 ## F2 exact-package result
 
@@ -122,7 +123,7 @@ The draft's notes and required 12-asset inventory were reviewed: application
 ZIP/checksum/build info, combined checksums, application source, signed manifest
 and signature, Qt/PySide/pywinpty/truststore sources and Rust dependency sources.
 The application ZIP is 244,500,578 bytes. Publication and public recipient/website access subsequently passed as recorded
-below. Normal public-update waiting (U1) remains pending owner confirmation.
+below. Normal public-update waiting (U1) subsequently passed as recorded below.
 
 ## Publication and public access (U4/F3)
 
@@ -141,7 +142,7 @@ Using a fresh HTTP client without GitHub credentials/browser cookies:
 - The combined checksum list matches GitHub's uploaded asset digests for all
   other assets. The checksum list intentionally does not checksum itself.
 - Live source discovery offers 1.0.0 to baseline 0.11.12 and offers no replay to
-  1.0.0. This is a source/API check, not the remaining compiled U1 handoff.
+  1.0.0. This is source/API evidence, separate from the owner-confirmed U1 handoff below.
 
 Updated the website's pinned ZIP/checksum/source/release links, visible version
 labels, metadata, illustrative footer and checksum command in website commit
@@ -149,4 +150,23 @@ labels, metadata, illustrative footer and checksum command in website commit
 completed: `https://www.bashdock.com/` serves 1.0.0 download links with no stale
 0.11.12 or pre-1.0 labels. Existing CSS, JavaScript and older illustrative
 screenshots were retained; no new 1.0 screenshots are claimed. U4 and F3 are
-complete; keep issue #2 open for the U1 owner result/final gate closure.
+complete. The U1 owner result/final gate closure subsequently passed below.
+
+## U1 public-update waiting result
+
+**Passed — owner confirmation, 2026-10-27.** The owner opened two instances of
+**0.11.12** from the same installation, minimized one and updated the other
+through the normal public channel to **1.0.0**. The owner reported that the
+waiting guidance was clear and the update continued as soon as the remaining
+BashDock instance was closed normally.
+
+This closes the requested visible-waiting/completion scope. It does not claim a
+new manual timeout, locked-file, crash or unrelated-process matrix; those
+automated and historical results remain separately scoped. No additional
+Windows build, installation path or downloaded ZIP hash was supplied for this
+handoff; the exact published target identity/hash is recorded under F2.
+
+**Release acceptance complete:** M1–M9, U1–U7, P1 and F1–F3 are complete for their
+recorded scopes. Issue #2 can close as completed. Future changes require their
+own appropriate tests and version decisions; this is not a claim of universal
+compatibility or coverage of every environment.

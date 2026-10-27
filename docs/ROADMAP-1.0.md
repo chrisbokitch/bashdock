@@ -34,25 +34,27 @@ These are scoped results, not blanket completion of manual Windows acceptance.
 The first public beta/release is already available; no second initial public
 launch is required.
 
-## Remaining release gates
+## Completed 1.0 release gates
 
 **1.0.0 was published with owner approval on 2026-10-27.**
 [RELEASE-1.0.0.md](RELEASE-1.0.0.md) records its exact ZIP smoke, signed/public
-asset verification and live website update. U1 remains the final owner check.
+asset verification and live website update. The owner confirmed U1 passed;
+all recorded 1.0 release acceptance gates are complete.
 
 
 - [x] Complete manual Windows acceptance M1–M9; owner results and package
       evidence are recorded in [ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md).
 - [x] Complete the local staged cancel/install/reopen smoke at a spaced path
       (U6/U7), owner-confirmed on 0.14.7 commit f085056.
-- [ ] Complete visible waiting during a normal public update to 1.0.0 (U1).
+- [x] Complete visible waiting during a normal public update to 1.0.0 (U1),
+      owner-confirmed with two 0.11.12 instances, one minimized.
       Public candidate asset access (U4) has passed. U2/U3/U5 failure and
       preference contracts are automated; preserve existing tamper/rollback
       evidence. See the acceptance record for coverage and limits.
 - [x] Verify the production signing-key backup (P1): owner confirmed secure
       vault storage and a restored copy matching the original, 2026-10-27.
 - [x] Select 1.0.0 with the owner and validate the exact candidate ZIP (F2).
-      Final gate closure F1 awaits the remaining U1 owner result.
+      Final gate closure F1 is complete with the owner-confirmed U1 result.
 - [x] Review and publish the approved candidate with all required assets and
       matching live public website links (F3).
 
