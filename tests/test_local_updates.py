@@ -32,6 +32,16 @@ class LocalUpdateTests(unittest.TestCase):
         subprocess.run([cls.openssl, 'rsa', '-in', str(cls.private), '-pubout', '-out', str(cls.public_file)],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         cls.public = dict(algorithm='RSA-PKCS1-SHA256', exponent=65537, modulus=modulus(cls.private))
+        publisher_private = Path(cls.keys.name) / 'publisher.pem'
+        cls.publisher_file = Path(cls.keys.name) / 'publisher.pub'
+        subprocess.run([cls.openssl, 'genpkey', '-algorithm', 'RSA', '-pkeyopt',
+                        'rsa_keygen_bits:3072', '-out', str(publisher_private)],
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run([cls.openssl, 'rsa', '-in', str(publisher_private), '-pubout',
+                        '-out', str(cls.publisher_file)],
+                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cls.publisher_public = dict(algorithm='RSA-PKCS1-SHA256', exponent=65537,
+                                    modulus=modulus(publisher_private))
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -58,17 +68,21 @@ class LocalUpdateTests(unittest.TestCase):
     def verify(self, raw, signature, key):
         if sys.platform == 'win32':
             return verify_signature(raw, signature, key)
-        # Linux fixtures use OpenSSL with the exact enrolled test key. Windows
+        # Linux fixtures use OpenSSL with the selected test key. Windows
         # runs the real CNG implementation used by the compiled app/helper.
-        if key != self.public:
-            raise ValueError('Not the enrolled fixture key')
+        if key == self.public:
+            public_file = self.public_file
+        elif key == self.publisher_public:
+            public_file = self.publisher_file
+        else:
+            raise ValueError('Not a fixture signing key')
         if len(signature) != len(bytes.fromhex(key['modulus'])):
             raise ValueError('Invalid local signature length')
         with tempfile.TemporaryDirectory() as directory:
             message, signed = Path(directory) / 'data', Path(directory) / 'sig'
             message.write_bytes(raw)
             signed.write_bytes(signature)
-            result = subprocess.run([self.openssl, 'dgst', '-sha256', '-verify', str(self.public_file),
+            result = subprocess.run([self.openssl, 'dgst', '-sha256', '-verify', str(public_file),
                                      '-signature', str(signed), str(message)], capture_output=True)
             if result.returncode:
                 raise ValueError('Invalid local signature')
@@ -132,8 +146,11 @@ class LocalUpdateTests(unittest.TestCase):
         plan = self.plan(ready)
         del plan['channel']
         wait = Mock()
-        with self.assertRaises(ValueError):
-            update_helper.install(plan, {}, verify=self.verify, wait=wait)
+        verify = Mock(side_effect=self.verify)
+        with self.assertRaisesRegex(ValueError, 'signature'):
+            update_helper.install(plan, self.publisher_public, verify=verify, wait=wait)
+        verify.assert_called_once()
+        self.assertEqual(self.publisher_public, verify.call_args.args[2])
         wait.assert_not_called()
         self.assertEqual(b'old executable', (self.target / 'bashdock.exe').read_bytes())
 
