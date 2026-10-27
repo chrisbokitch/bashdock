@@ -21,7 +21,7 @@ def installation_id(target):
 
 
 def inbox_root(target):
-    return cache_directory().parent / 'local-updates' / installation_id(target)
+    return (cache_directory().parent / 'local-updates' / installation_id(target)).resolve()
 
 
 def installed_info(target):
