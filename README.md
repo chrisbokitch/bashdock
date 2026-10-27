@@ -143,6 +143,7 @@ Buttons send text followed by Enter to the active terminal, just like typing. Us
 - Select text with the mouse, then **Ctrl+Shift+C** to copy.
 - **Ctrl+Shift+V** pastes from the clipboard. Multiline clipboard pastes require confirmation.
 - `clear` clears the visible terminal; terminal scrollback holds up to 10,000 lines.
+- When scrolled up, a small **↓** button appears at the terminal's lower right. Click it to return to the latest output and focus the terminal. It follows each tab's colours and stays hidden in full-screen terminal apps.
 - Closing/restarting a shell ends the session. Stop long-running jobs first.
 
 Settings are stored as JSON in `%APPDATA%\bashdock\settings.json`. Changes save atomically. Buttons contain executable commands; only use commands you trust. Shell output and command history are not saved by the app; Bash itself may maintain its normal history file.

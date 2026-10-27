@@ -14,6 +14,75 @@ from bashdock.shell_integration import create_init_file
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(unittest.TestCase):
+    def test_scroll_to_bottom_button_preserves_scrollback_and_restores_focus(self):
+        from PySide6.QtWidgets import QApplication
+        from bashdock.terminal import Terminal
+
+        app = QApplication.instance() or QApplication([])
+        terminal = Terminal()
+        terminal.resize(900, 600)
+        terminal.show()
+
+        def evaluate(script):
+            results = []
+            terminal.page().runJavaScript(script, results.append)
+            deadline = time.monotonic() + 10
+            while not results and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+            self.assertTrue(results, "Terminal JavaScript did not respond")
+            return results[0]
+
+        state_script = """JSON.stringify((() => {
+            const button = document.getElementById('scroll-to-bottom');
+            const rect = button.getBoundingClientRect();
+            const frame = document.getElementById('terminal-frame').getBoundingClientRect();
+            return {hidden:button.hidden, viewport:terminal.buffer.active.viewportY,
+                base:terminal.buffer.active.baseY, type:terminal.buffer.active.type,
+                focused:document.activeElement.classList.contains('xterm-helper-textarea'),
+                right:rect.right, bottom:rect.bottom, width:rect.width,
+                frameRight:frame.right, frameBottom:frame.bottom,
+                color:getComputedStyle(button).color};
+        })())"""
+
+        def wait_for(predicate):
+            deadline = time.monotonic() + 15
+            state = None
+            while time.monotonic() < deadline:
+                app.processEvents()
+                if terminal.ready:
+                    state = json.loads(evaluate(state_script))
+                    if predicate(state):
+                        return state
+                time.sleep(0.01)
+            self.fail(f"Unexpected scroll button state: {state}")
+
+        try:
+            wait_for(lambda s: s['hidden'])
+            terminal.bridge.output.emit('line\r\n' * 100)
+            wait_for(lambda s: s['base'] > 20 and s['hidden'])
+            evaluate('terminal.scrollLines(-10)')
+            state = wait_for(lambda s: not s['hidden'])
+            position, base = state['viewport'], state['base']
+            self.assertEqual(34, state['width'])
+            self.assertLessEqual(state['right'], state['frameRight'] - 12)
+            self.assertLessEqual(state['bottom'], state['frameBottom'] - 12)
+            terminal.bridge.output.emit('new output\r\n' * 5)
+            state = wait_for(lambda s: s['base'] >= base + 5)
+            self.assertEqual(position, state['viewport'])
+            self.assertFalse(state['hidden'])
+            terminal.apply_settings(dict(terminal.preferences, background='#341527', foreground='#f0ddee'))
+            wait_for(lambda s: s['color'] == 'rgb(240, 221, 238)')
+            terminal.bridge.output.emit('\x1b[?1049h')
+            wait_for(lambda s: s['type'] == 'alternate' and s['hidden'])
+            terminal.bridge.output.emit('\x1b[?1049l')
+            wait_for(lambda s: s['type'] == 'normal' and not s['hidden'])
+            evaluate("document.getElementById('scroll-to-bottom').click()")
+            wait_for(lambda s: s['hidden'] and s['viewport'] == s['base'] and s['focused'])
+        finally:
+            terminal.stop()
+            terminal.close()
+
     def test_first_button_waits_out_startup_input_probe_including_after_restart(self):
         from unittest.mock import patch
         from PySide6.QtWidgets import QApplication

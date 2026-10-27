@@ -21,8 +21,22 @@ html,body{height:100%;margin:0;background:#10141c;overflow:hidden}
 .xterm .xterm-viewport::-webkit-scrollbar-thumb:active{background-color:var(--scrollbar-active)}
 .xterm .xterm-viewport::-webkit-scrollbar-button{display:none;width:0;height:0}
 .xterm .xterm-viewport::-webkit-scrollbar-corner{background:var(--scrollbar-track)}
+#scroll-to-bottom{
+    position:absolute;right:24px;bottom:12px;z-index:5;width:34px;height:34px;
+    display:grid;place-items:center;padding:0;border-radius:50%;
+    border:1px solid var(--scrollbar-hover);background:var(--scrollbar-thumb);
+    color:var(--terminal-foreground,#dde4ef);opacity:.78;cursor:pointer;
+    box-shadow:0 2px 8px #0004;
+}
+#scroll-to-bottom[hidden]{display:none}
+#scroll-to-bottom:hover,#scroll-to-bottom:focus-visible{opacity:1}
+#scroll-to-bottom:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+#scroll-to-bottom svg{width:20px;height:20px;pointer-events:none}
 </style>
-</head><body><div id="terminal-frame"><div id="terminal"></div></div>
+</head><body><div id="terminal-frame"><div id="terminal"></div>
+<button id="scroll-to-bottom" type="button" hidden title="Scroll to bottom" aria-label="Scroll to bottom">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14m-6-6 6 6 6-6"/></svg>
+</button></div>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script src="xterm.js"></script><script src="addon-fit.js"></script>
 <script src="terminal.js"></script></body></html>

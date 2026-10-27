@@ -15,6 +15,7 @@ function setup(TerminalClass) {
     copies: [], copy(text) {this.copies.push(text);}, pastes: 0, requestPaste() {this.pastes++;},
     requestSettings() {this.settingsChanged.emit(JSON.stringify(initial));}};
   const host = {clientWidth: 800, clientHeight: 600, events: {}, addEventListener(name, fn) {this.events[name] = fn;}};
+  const scrollButton = {hidden: true, events: {}, addEventListener(name, fn) {this.events[name] = fn;}};
   let terminal, fits = 0;
   const context = vm.createContext({
     Terminal: TerminalClass ? class extends TerminalClass {
@@ -22,9 +23,15 @@ function setup(TerminalClass) {
       open() {} loadAddon() {} focus() {}
     } : class {
       constructor(options) {terminal = this; this.options = options; this.cols = 80; this.rows = 24;
-        this.modes = {mouseTrackingMode: 'none', bracketedPasteMode: false}; this.selection = ''; this.pasteCalls = [];}
+        this.modes = {mouseTrackingMode: 'none', bracketedPasteMode: false}; this.selection = ''; this.pasteCalls = [];
+        this.buffer = {active: {type: 'normal', viewportY: 0, baseY: 0},
+          onBufferChange(fn) {terminal.bufferChanged = fn;}};}
       outputWrites = [];
-      loadAddon() {} open() {} write(data, callback) {this.outputWrites.push({data, callback});} focus() {}
+      focusCalls = 0;
+      loadAddon() {} open() {} write(data, callback) {this.outputWrites.push({data, callback});}
+      focus() {this.focusCalls++;}
+      onScroll(fn) {this.scrolled = fn;} onWriteParsed(fn) {this.parsed = fn;}
+      scrollToBottom() {this.buffer.active.viewportY = this.buffer.active.baseY; this.scrolled();}
       paste(text) {
         this.pasteCalls.push(text);
         this.data(this.modes.bracketedPasteMode ? `\x1b[200~${text}\x1b[201~` : text);
@@ -37,13 +44,13 @@ function setup(TerminalClass) {
     FitAddon: {FitAddon: class {fit() {fits++;}}},
     ResizeObserver: class {observe() {}},
     QWebChannel: function(_, fn) {fn({objects: {bridge}});}, qt: {webChannelTransport: {}},
-    document: {getElementById() {return host;}, body: {style: {
+    document: {getElementById(id) {return id === 'scroll-to-bottom' ? scrollButton : host;}, body: {style: {
       setProperty(name, value) {this[name] = value;}
     }}, fonts: {ready: Promise.resolve()}},
     requestAnimationFrame(fn) {fn();}
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../bashdock/assets/terminal.js'), 'utf8'), context);
-  return {terminal, bridge, host, context, initial, fits: () => fits};
+  return {terminal, bridge, host, scrollButton, context, initial, fits: () => fits};
 }
 
 test('initial and live preferences reach terminal options and surrounding background', () => {
@@ -58,7 +65,31 @@ test('initial and live preferences reach terminal options and surrounding backgr
   assert.equal(s.terminal.options.cursorBlink, false);
   assert.equal(s.terminal.options.scrollback, 500);
   assert.equal(s.context.document.body.style.backgroundColor, '#223344');
+  assert.equal(s.context.document.body.style['--terminal-foreground'], updated.foreground);
   assert.ok(s.fits() > 1);
+});
+
+test('scroll button follows each tab viewport, hides in alternate screen and restores terminal focus', () => {
+  const first = setup(), second = setup();
+  assert.equal(first.scrollButton.hidden, true);
+  first.terminal.buffer.active.baseY = 40;
+  first.terminal.parsed();
+  assert.equal(first.scrollButton.hidden, false);
+  assert.equal(second.scrollButton.hidden, true);
+  first.terminal.buffer.active.type = 'alternate';
+  first.terminal.bufferChanged();
+  assert.equal(first.scrollButton.hidden, true);
+  first.terminal.buffer.active.type = 'normal';
+  first.terminal.bufferChanged();
+  assert.equal(first.scrollButton.hidden, false);
+  const focusCalls = first.terminal.focusCalls;
+  let prevented = false;
+  first.scrollButton.events.mousedown({preventDefault() {prevented = true;}});
+  assert.equal(prevented, true);
+  first.scrollButton.events.click();
+  assert.equal(first.terminal.buffer.active.viewportY, 40);
+  assert.equal(first.scrollButton.hidden, true);
+  assert.equal(first.terminal.focusCalls, focusCalls + 1);
 });
 
 test('scrollbars follow each terminal background on startup and live theme changes', () => {

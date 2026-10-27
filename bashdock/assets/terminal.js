@@ -17,6 +17,23 @@ const terminal = new Terminal({
 const fit = new FitAddon.FitAddon();
 terminal.loadAddon(fit);
 terminal.open(document.getElementById('terminal'));
+const scrollToBottom = document.getElementById('scroll-to-bottom');
+const updateScrollButton = () => {
+  const buffer = terminal.buffer.active;
+  scrollToBottom.hidden = buffer.type !== 'normal' || buffer.viewportY >= buffer.baseY;
+};
+terminal.onScroll(updateScrollButton);
+terminal.onWriteParsed(updateScrollButton);
+terminal.onResize(updateScrollButton);
+terminal.buffer.onBufferChange(updateScrollButton);
+// Mouse activation should not blur the shell or disturb its text selection.
+scrollToBottom.addEventListener('mousedown', event => event.preventDefault());
+scrollToBottom.addEventListener('click', () => {
+  terminal.scrollToBottom();
+  updateScrollButton();
+  terminal.focus();
+});
+updateScrollButton();
 new QWebChannel(qt.webChannelTransport, channel => {
   const bridge = channel.objects.bridge;
   let preferences = {copy_on_select: false, right_click_paste: false};
@@ -90,6 +107,7 @@ new QWebChannel(qt.webChannelTransport, channel => {
               selectionInactiveBackground: preferences.selection_color}
     };
     document.body.style.backgroundColor = preferences.background;
+    document.body.style.setProperty('--terminal-foreground', preferences.foreground);
     for (const [part, color] of Object.entries(scrollbarColors(preferences.background))) {
       document.body.style.setProperty(`--scrollbar-${part}`, color);
     }
