@@ -45,6 +45,14 @@ class UpdateTLSTests(unittest.TestCase):
                            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, check=True, timeout=30)
 
             class Handler(BaseHTTPRequestHandler):
+                def handle(self):
+                    try:
+                        super().handle()
+                    except ConnectionResetError:
+                        # Certificate-rejection cases can reset the connection
+                        # on Windows. Keep other server exceptions visible.
+                        pass
+
                 def do_GET(self):
                     if self.path == '/redirect':
                         self.send_response(302)
