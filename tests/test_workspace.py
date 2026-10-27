@@ -599,6 +599,30 @@ class WorkspaceTests(unittest.TestCase):
         finally:
             dialog.deleteLater()
 
+    def test_dialog_native_path_display_and_browse_preserve_remembered_directory(self):
+        from PySide6.QtCore import QDir
+        startup = Path(self.temp.name)
+        remembered = startup / 'remembered folder'
+        remembered.mkdir()
+        original = dict(self.window.current_tab().data, bash_path=self.bash.as_posix(),
+                        startup_folder=startup.as_posix(), current_folder=str(remembered))
+        dialog = SettingsDialog(original, self.window)
+        try:
+            self.assertEqual(QDir.toNativeSeparators(self.bash.as_posix()), dialog.bash.text())
+            self.assertEqual(QDir.toNativeSeparators(startup.as_posix()), dialog.folder.text())
+            with patch('bashdock.app.QFileDialog.getOpenFileName', return_value=(self.bash.as_posix(), '')):
+                dialog.browse(dialog.bash, False)
+            with patch('bashdock.app.QFileDialog.getExistingDirectory', return_value=startup.as_posix()):
+                dialog.browse(dialog.folder, True)
+            self.assertEqual(QDir.toNativeSeparators(self.bash.as_posix()), dialog.bash.text())
+            self.assertEqual(QDir.toNativeSeparators(startup.as_posix()), dialog.folder.text())
+            dialog.commit()
+            self.assertEqual(str(remembered), dialog.result_data['current_folder'])
+            self.assertEqual(dialog.bash.text(), dialog.result_data['bash_path'])
+            self.assertEqual(dialog.folder.text(), dialog.result_data['startup_folder'])
+        finally:
+            dialog.deleteLater()
+
     def test_dont_show_again_saves_preference_and_workspace_before_stopping(self):
         tab = self.window.current_tab()
         self.ready(tab)

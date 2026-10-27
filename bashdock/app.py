@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint
+from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint, QDir
 from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor, QPen
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
@@ -186,8 +186,8 @@ class SettingsDialog(QDialog):
         form = QFormLayout()
         self.name = QLineEdit(data["name"])
         form.addRow("Tab name", self.name)
-        self.bash = QLineEdit(data["bash_path"] or config.find_bash())
-        self.folder = QLineEdit(data["startup_folder"])
+        self.bash = QLineEdit(QDir.toNativeSeparators(data["bash_path"] or config.find_bash()))
+        self.folder = QLineEdit(QDir.toNativeSeparators(data["startup_folder"]))
         for label, edit, is_folder in (("Git Bash executable", self.bash, False),
                                         ("Startup folder", self.folder, True)):
             row = QHBoxLayout()
@@ -250,7 +250,7 @@ class SettingsDialog(QDialog):
                     if folder else QFileDialog.getOpenFileName(self, "Choose Git's bash.exe",
                         edit.text(), "Bash executable (bash.exe);;Executables (*.exe)")[0])
         if selected:
-            edit.setText(selected)
+            edit.setText(QDir.toNativeSeparators(selected))
 
     def add_row(self, label, command):
         row = self.table.rowCount()
@@ -277,10 +277,10 @@ class SettingsDialog(QDialog):
         self.table.selectRow(target)
 
     def commit(self):
-        data = {"name": self.name.text().strip(), "bash_path": self.bash.text().strip(),
+        data = {"name": self.name.text().strip(), "bash_path": QDir.toNativeSeparators(self.bash.text().strip()),
                 "current_folder": self.original["current_folder"],
                 "terminal": copy.deepcopy(self.terminal_override),
-                "startup_folder": self.folder.text().strip(), "buttons": []}
+                "startup_folder": QDir.toNativeSeparators(self.folder.text().strip()), "buttons": []}
         for row in range(self.table.rowCount()):
             data["buttons"].append({key: self.table.item(row, col).text()
                                     for col, key in enumerate(("label", "command"))})
@@ -290,7 +290,7 @@ class SettingsDialog(QDialog):
                 raise ValueError("Select Git for Windows' bash.exe (usually Git/bin/bash.exe).")
             if not Path(data["startup_folder"]).is_dir():
                 raise ValueError("Select an existing startup folder.")
-            if data["startup_folder"] != self.original["startup_folder"]:
+            if QDir.fromNativeSeparators(data["startup_folder"]) != QDir.fromNativeSeparators(self.original["startup_folder"]):
                 data["current_folder"] = data["startup_folder"]
         except (ValueError, OSError) as error:
             QMessageBox.warning(self, "Cannot save settings", str(error))
