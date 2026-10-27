@@ -140,6 +140,23 @@ Investigation areas:
 - Add actual Windows acceptance tests for each shell: typing, Ctrl+C, Unicode,
   resizing, multiline buttons, templates, directory restoration and external launch.
 
+## Workspace submenu: Replace current toggle
+
+Post-1.0 request: add a checkable **Replace current** item at the bottom of
+**Manage → Workspaces**, separated from the saved workspace entries by a separator.
+
+- Unchecked: choosing a saved workspace adds its missing tabs, preserving the
+  current behavior for overlapping tab identities.
+- Checked: choosing a saved workspace replaces the current workspace instead of
+  adding tabs, using the existing replacement confirmation and backup behavior.
+- Toggling the item only changes the opening mode; it does not immediately open
+  a workspace or close any tabs.
+- Start with the existing additive behavior by default. Decide whether the mode
+  persists across app launches when implementing the enhancement.
+
+Acceptance: submenu entries respect the selected mode; the checked state is
+clear; cancelling replacement preserves current shells and settings.
+
 ## Shared foundations and release boundaries
 
 - Extend settings with backward-compatible migrations. Preserve persistent tab
