@@ -538,11 +538,11 @@ owner's installed executable.
 | --- | --- | --- |
 | U1 | Signed local transaction waits for a simulated second instance, retries a temporary directory lock, completes and records healthy without terminating the new process. Existing timeout tests preserve the original installation. Native Windows status tests read the actual window label, verify its guidance updates, reject WM_CLOSE during a live transaction and verify teardown. Existing Windows process tests track only fixture-owned children. | Observe waiting and completion during a normal public signed update from 0.11.12 or later; combine with candidate asset checks below. No separate manual timeout/locked-file/forced-kill matrix is required. |
 | U2 | Real temporary installation/controller handoff receives an injected write-probe PermissionError before backup/spawn; guidance recommends a writable folder, no helper launches and installation/settings remain unchanged. | None for the automated failure contract. This is not a test of every Windows ACL or elevation configuration. |
-| U3 | Real restart dialog defaults to No. Cancel, failed save and failed helper launch leave both fake shells and the ready notice usable. Controller tests inject helper-copy, backup, DLL-reset and spawn failures; DLL lookup restores after spawn failure. Successful handoff uses detached flags, strips only bundled runtime PATH entries and archives the snapshot before spawn. | None for these deterministic failure paths; normal compiled handoff remains in the combined local smoke below. |
+| U3 | Real restart dialog defaults to No. Cancel, failed save and failed helper launch leave both fake shells and the ready notice usable. Controller tests inject helper-copy, backup, DLL-reset and spawn failures; DLL lookup restores after spawn failure. Successful handoff uses detached flags, strips only bundled runtime PATH entries and archives the snapshot before spawn. | None for these deterministic failure paths; normal compiled handoff passed in the owner-confirmed local smoke below. |
 | U4 | Existing discovery tests reject equal/older versions, drafts/prereleases and mismatched signed metadata. Existing tamper/CNG/compiled-helper evidence is retained. | Anonymous application/source/license/update-asset access for the chosen public candidate, combined with U1/final publication. No duplicate manual replay/tamper matrix is required for unchanged filtering. |
 | U5 | Mid-stream connection loss/cancellation remove only the partial pending directory, preserve an existing ready update and allow a clean retry. Check-without-download never fetches the ZIP or launches a helper. Real Qt preference actions persist disabled checks/downloads, preserve explicit manual checks and roll back failed preference saves. Existing source-preview tests confirm no implicit installation/local timer; the source UI does not create the automatic-check controller. | None for these automated routes. No deliberate network interruption of a working installation is needed. |
-| U6 | Existing extraction/startup and the new signed transaction fixtures use paths containing spaces. | One complete installed GUI handoff at a spaced installation path, combined with U7 below. |
-| U7 | Real fixture-key signed staging, controller discovery/deduplication, transaction success, consumed pointer, no old offer in a new controller and discovery of a different next build are exercised together. Existing tests cover newer-offer preservation, revocation, installation binding and startup rollback. | One installed-app cancel/install/reopen smoke, combined with U6 below. |
+| U6 | Existing extraction/startup and the new signed transaction fixtures use paths containing spaces. | Passed — owner confirmed the complete staged GUI update at `C:/Development/BashDock Update Test/bashdock`; see U6/U7 evidence below. |
+| U7 | Real fixture-key signed staging, controller discovery/deduplication, transaction success, consumed pointer, no old offer in a new controller and discovery of a different next build are exercised together. Existing tests cover newer-offer preservation, revocation, installation binding and startup rollback. | Passed — owner confirmed cancellation preserves shells/notice, successful restart restores configuration in fresh shells, and close/reopen does not resurrect the consumed offer. |
 
 New coverage is in [test_update_orchestration.py](../tests/test_update_orchestration.py),
 [test_local_updates.py](../tests/test_local_updates.py),
@@ -552,7 +552,29 @@ Windows CI additionally runs the new dialog/preference/controller cases with
 native Qt. Local fixture keys are disposable and never use the publisher key.
 OS/network failures and process launch/health are injected where stated.
 
-### Remaining check A: local installed-app lifecycle (U6 + U7)
+### Completed check A: local installed-app lifecycle (U6 + U7)
+
+**Passed — owner confirmation, 2026-10-27.** The owner confirmed all requested
+cancel → accept → close/reopen checks passed, including restored tabs and no
+consumed update notice reappearing. The supplied installed BUILD-INFO.json
+identifies:
+
+- Version: **0.14.7**.
+- Commit: `f0850566ed6bbfd2e004301d79123772bade0a4d`.
+- Installation: `C:/Development/BashDock Update Test/bashdock`.
+- Platform: `Windows-11-10.0.26300-SP0`, AMD64.
+- Python: 3.14.7; Git: 2.55.0.windows.4.
+- Reported build-lock SHA-256:
+  `eaeffded331bc5e91809bcde0ecda1ce4c3b951e6bc4c95b0276cff56e028c1f`.
+
+An earlier supplied BUILD-INFO.json identified `dea41c6`; the owner then pulled
+the source changes, restaged, supplied the expected `f085056` build identity
+and explicitly confirmed the requested checks succeeded. The supplied source
+archive checksum is not the application ZIP checksum; no application ZIP
+checksum was supplied for this local build. U6/U7 are complete for this scope.
+This does not mark the separate public signed-update check U1/U4 complete.
+
+The exercised procedure was:
 
 Use a disposable installation with idle test tabs on a Windows machine with
 source build tools. The M1 VM can be reused after adding those tools; alternatively
@@ -603,8 +625,9 @@ GitHub sign-in. Record the baseline/target identity and exact ZIP checksum; this
 asset check also supplies the relevant part of F3 rather than creating a second
 publication exercise.
 
-Both packaged checks remain pending owner confirmation. The normal public
-update and compiled rollback/tamper milestones are already complete. Reassess
+Only check B remains pending owner confirmation. Check A (U6/U7) passed as
+recorded above. The historical normal public update and compiled rollback/tamper
+milestones are already complete. Reassess
 only relevant paths if code/dependencies change; do not repeat completed cases
 merely because older lists were unchecked.
 

@@ -38,9 +38,10 @@ launch is required.
 
 - [x] Complete manual Windows acceptance M1–M9; owner results and package
       evidence are recorded in [ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md).
-- [ ] Complete the two remaining combined updater smoke checks: local staged
-      cancel/install/reopen at a spaced path (U6/U7), and normal public signed
-      update waiting plus candidate asset access (U1/U4). U2/U3/U5 failure and
+- [x] Complete the local staged cancel/install/reopen smoke at a spaced path
+      (U6/U7), owner-confirmed on 0.14.7 commit f085056.
+- [ ] Complete normal public signed-update waiting plus candidate asset access
+      (U1/U4) with the next intended public candidate. U2/U3/U5 failure and
       preference contracts are automated; preserve existing tamper/rollback
       evidence. See the acceptance record for coverage and limits.
 - [ ] Confirm the existing secure production signing-key backup (P1).
