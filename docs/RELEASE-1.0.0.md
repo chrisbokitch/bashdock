@@ -74,10 +74,12 @@ create a dummy release or modify production signing keys for these checks.
 
 - Candidate version selected: **1.0.0**.
 - Exact tested/tagged commit: `ec4348991b463c0e6bdeacb5a6ffe3008b733033`.
-- Main and tagged Windows package validation passed; the tag's signing/draft job
-  is in progress as of this status update.
-- Signed draft and exact application ZIP checksum: pending tag workflow.
-- F2 owner smoke: pending.
+- Main and tagged Windows package validation, update signing and draft creation
+  passed in [the tag workflow](https://github.com/chrisbokitch/bashdock/actions/runs/40593899149).
+- Signed draft: [v1.0.0](https://github.com/chrisbokitch/bashdock/releases/tag/untagged-3521df38cf43ede33446), still unpublished.
+- Exact application ZIP SHA-256:
+  `71f89c4c10f7657779988d27fbaa62ffbe8f8be0aecd222f6088908daca2f54e`.
+- F2 owner smoke: **passed — owner confirmation, 2026-10-27**.
 - Publication approval and U1/U4/public-link results: pending.
 
 ## Focus-test follow-up
@@ -94,4 +96,29 @@ confirmed the local rerun passed. The focus-test publication hold is cleared.
 Application runtime/version files were unchanged by that follow-up, and the
 existing `v1.0.0` tag remains at `ec43489`. The published source snapshot, when
 approved, is the tagged revision; this later test-harness correction is on main.
-F2 exact-draft ZIP smoke, publication approval and U1/U4 remain pending.
+F2 exact-draft ZIP smoke subsequently passed as recorded below. Publication
+approval and U1/U4 remain pending.
+
+## F2 exact-package result
+
+**Passed — owner confirmation, 2026-10-27.** The owner confirmed all requested
+checks passed using the signed draft's `bashdock-1.0.0-windows-x64.zip`:
+checksum verification, launch, About 1.0.0, License and notices, typed and button
+commands, two-tab/folder restoration after close/reopen with usable fresh shells,
+and normal quit behavior.
+
+- Tag: `v1.0.0`.
+- Source commit: `ec4348991b463c0e6bdeacb5a6ffe3008b733033`.
+- ZIP SHA-256 supplied by the owner:
+  `71f89c4c10f7657779988d27fbaa62ffbe8f8be0aecd222f6088908daca2f54e`.
+- GitHub's uploaded ZIP asset digest independently reports the same SHA-256.
+  This metadata comparison is not an independent download/rehash of the ZIP.
+- No additional Windows/Git version or installation-path report was supplied for
+  this final smoke; earlier environment reports are not assumed to describe it.
+
+The draft's notes and required 12-asset inventory were reviewed: application
+ZIP/checksum/build info, combined checksums, application source, signed manifest
+and signature, Qt/PySide/pywinpty/truststore sources and Rust dependency sources.
+The application ZIP is 244,500,578 bytes. The release remains a draft; public
+recipient access, normal public-update waiting and public website/link checks
+remain U1/U4/F3 and cannot be claimed from the draft's existence.

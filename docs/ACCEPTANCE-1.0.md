@@ -646,9 +646,13 @@ validation/publication results remain open.
   no key rotation was performed. This confirms the requested backup/restore
   check; it does not claim an additional offline backup.
 - [ ] F1: Resolve outstanding blockers and deliberately select 1.0.0 with the owner.
-- [ ] F2: Record the exact candidate tag/commit/ZIP SHA-256 and run its final
-  launch/shell/restoration/About/close-reopen smoke plus targeted change-based
-  retests. Historical evidence is not a checksum or smoke result for a new ZIP.
+- [x] F2: Exact 1.0.0 draft package smoke passed — owner confirmation,
+  2026-10-27. Tag `v1.0.0`, commit `ec4348991b463c0e6bdeacb5a6ffe3008b733033`,
+  ZIP SHA-256 `71f89c4c10f7657779988d27fbaa62ffbe8f8be0aecd222f6088908daca2f54e`.
+  Owner confirmed checksum/launch/About/licenses/typed and button commands,
+  restored tabs/folders/fresh shells and normal quit. GitHub's uploaded asset
+  digest matches the supplied hash. See [RELEASE-1.0.0.md](RELEASE-1.0.0.md)
+  for the evidence and remaining publication/public-update scope.
 - [ ] F3: Review notes and all application/source/checksum/update assets, verify
   recipient access, publish the approved release, and update public website links.
 
