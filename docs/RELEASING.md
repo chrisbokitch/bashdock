@@ -43,6 +43,12 @@ The workflow uses GitHub's built-in token; no personal access token is required.
 
 ## Validate the draft before publishing
 
+This section is the reusable procedure, not a ledger of unfinished work. See
+[ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md) for completed evidence and the remaining
+M1–M9/U1–U7 checks. Preserve recorded historical passes; select outstanding cases
+and retests warranted by the candidate's changes. A new candidate still needs
+its own identity/checksum and final smoke result (F1–F3).
+
 Download the ZIP attached to the draft and test that exact file on the clean Windows VM:
 
 - Start without Git installed: check the missing-Git guidance.
@@ -157,7 +163,12 @@ adding notices. Microsoft's documentation limits redistribution of the package
 and individual binaries to licensed Visual Studio users:
 <https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files>.
 Record this confirmation in the release-testing issue. This owner-side license
-entitlement is not verified by CI and remains a public-release gate.
+entitlement is not verified by CI. BashDock's owner confirmation and runtime
+inventory review are already recorded in
+[issue #1](https://github.com/chrisbokitch/bashdock/issues/1) and summarized as E5
+in [ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md). Do not reopen the unchanged dependency
+baseline as unconfirmed; review relevant runtime/dependency changes. A new
+publisher must establish their own applicable entitlement.
 
 The Qt wheel also contains Mesa llvmpipe (Mesa 11.2.2 / LLVM 3.6.2, identified in
 the actual DLL). Its standalone MIT/Boost/NCSA notices are included separately

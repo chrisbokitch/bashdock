@@ -66,11 +66,16 @@ separate Windows trust/SmartScreen decision.
 
 ## One-time publisher setup
 
-The checked-in key initially has a null modulus. This intentionally makes
-unconfigured development builds quiet at startup and unable to install unsigned
-updates. They remain fully usable. Configure the key **before the first public
-build**, otherwise that build cannot trust later automatic updates and needs a
-manual bootstrap replacement.
+BashDock's production signing configuration has already been exercised by
+published signed releases; see E1 in [ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md).
+These setup instructions apply to a new publisher/fork. Do not regenerate the
+existing production key as part of acceptance reconciliation.
+
+A null public-key modulus marks an unconfigured development build: it stays
+quiet at startup and cannot install unsigned updates, but remains usable.
+A new publisher must configure the key **before their first public build**;
+otherwise that build cannot trust later automatic updates and needs a manual
+bootstrap replacement.
 
 From Git Bash in the project, run:
 
@@ -116,6 +121,13 @@ secret is missing. Do not publish a 1.0 candidate until the tests below pass.
 
 ## Required Windows VM validation
 
+This is the reusable procedure. Current results and outstanding cases U1–U7
+are recorded in [ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md). Real public two-version
+updates, cancellation/restoration, compiled-helper tamper rejection and an OS
+launch-failure rollback have already passed within their recorded scope. Keep
+that evidence; do not interpret this unmarked procedure as a list of tests that
+have never been run.
+
 Test the exact release ZIP, not only source preview:
 
 - Verify a signed newer release appears, downloads, and produces the yellow
@@ -135,8 +147,9 @@ Test the exact release ZIP, not only source preview:
 The portable suite tests discovery, signed metadata validation, archive rejection,
 exact downloads, folder replacement, rollback and GUI cancellation/save failures.
 Windows CI additionally checks real CNG/OpenSSL interoperability, process handoff
-APIs and the compiled helper outside the application directory. A real two-release
-VM update remains a 1.0 acceptance gate.
+APIs and the compiled helper outside the application directory. The real two-release VM update milestone is recorded as completed (E3).
+Outstanding manual/error cases and the exact final-candidate check remain open;
+automated results do not stand in for those manual results.
 
 ## Secure connection failures
 

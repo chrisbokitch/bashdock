@@ -1,34 +1,63 @@
 # BashDock 1.0 readiness
 
-The intended feature set includes tabs and per-tab command bars, remembered
-folders/geometry, saved workspaces with persistent tab identities, terminal
-defaults and per-tab themes, settings backup/recovery, and **automatic updates**.
+The core 1.0 feature set is implemented: tabs and per-tab command bars,
+remembered folders/geometry, saved workspaces with persistent tab identities,
+terminal defaults/per-tab themes, settings backup/recovery, and automatic updates.
 
-Implemented foundations:
+The current evidence and remaining checks are in
+[ACCEPTANCE-1.0.md](ACCEPTANCE-1.0.md).
+[Issue #2](https://github.com/chrisbokitch/bashdock/issues/2) tracks their completion.
+The closed [first-release milestone #1](https://github.com/chrisbokitch/bashdock/issues/1)
+retains the historical release/VM reports; earlier unchecked notes there are
+superseded by later results.
 
-- Core tabs, workspace groups, command buttons and terminal customization.
-- Window/session configuration persistence and settings export/recovery.
-- Windows CI, full portable packages, checksums and matching source archives.
-- GPLv3 adoption and dependency-notice/source collection.
-- Signed-update discovery/download, yellow clickable footer action, independent
-  installer helper, user-controlled restart and startup-failure rollback.
+## Completed milestones
 
-Remaining release gates:
+- [x] Core tabs, command buttons, workspaces, appearance and settings persistence.
+- [x] Windows CI, portable packages, checksums and matching source/license assets.
+- [x] GPLv3 adoption, dependency notices/source collection, and the recorded
+      Microsoft runtime publisher confirmation/inventory review.
+- [x] Configure the production public key and Actions signing secret; exercise
+      tag → signed draft → reviewed stable publication.
+- [x] Validate real 0.11.4 → 0.11.11 → 0.11.12 public updates, restart cancellation
+      and restored configuration in fresh shells.
+- [x] Run the compiled-helper VM tamper and deliberate OS launch-failure rollback
+      checks, including restored real-app startup.
+- [x] Publish the pre-1.0 release and public download/install/help/source links
+      and screenshots.
+- [x] Add local stage-update support; owner confirmed normal restart after the
+      0.14.2 startup-receipt fix.
+- [x] Resolve the button-command first-character loss with the 0.14.6 guard;
+      repeated native Windows tests and owner confirmation recorded.
 
-- [ ] Configure/back up the update signing key and GitHub Actions signing secret
-      before the first public candidate; see [AUTO-UPDATES.md](AUTO-UPDATES.md).
-- [ ] Validate an actual signed update between two packaged versions on the
-      Windows VM, including intentional failed-start rollback.
-- [ ] Confirm Microsoft runtime redistribution entitlement.
-- [ ] Exercise the tag → signed draft-release → reviewed publication workflow.
-- [ ] Finish screenshots, troubleshooting/support documentation and public
-      download/source links.
-- [ ] Run the complete candidate ZIP acceptance checklist, including workspaces,
-      settings recovery, terminal behaviour and 100%/125%/150% display scaling.
-- [ ] Publish a public beta, address findings, then deliberately choose 1.0.0.
+These are scoped results, not blanket completion of manual Windows acceptance.
+The first public beta/release is already available; no second initial public
+launch is required.
+
+## Remaining release gates
+
+- [ ] Finish the genuinely outstanding manual compiled-app cases M1–M9 in the
+      [acceptance record](ACCEPTANCE-1.0.md#outstanding-manual-windows-checks):
+      clean setup, remaining tab/workspace/terminal/clipboard/appearance/recovery
+      flows, external shell/process lifecycle, and actual Windows 100%/125%/150%
+      display scaling.
+- [ ] Finish updater cases U1–U7, especially visible waiting guidance with a
+      0.11.12-or-later helper. Preserve the completed normal-update, tamper and
+      rollback evidence; distinguish compiled manual checks from automated tests.
+- [ ] Confirm the existing secure production signing-key backup (P1).
+      Signing configuration is complete; backup confirmation is not recorded.
+- [ ] Resolve blockers, deliberately choose 1.0.0 with the owner, and validate
+      the exact candidate ZIP and any change-based retests (F1–F2).
+- [ ] Review and publish the approved candidate with all required assets and
+      matching public website links (F3).
+
+A new candidate always needs its own identity/checksum/smoke evidence. This does
+not require repeating every historical acceptance exercise without a relevant
+change.
 
 An update check and download never authorize closing running shell commands.
 Installing an update always requires the user's restart confirmation.
 
-Future feature investigations are tracked separately in the
-[post-1.0 feature roadmap](FEATURE-ROADMAP.md); they do not block this release.
+Package-size reduction is optional release polish, not an added blocker.
+Future features are tracked separately in the
+[post-1.0 feature roadmap](FEATURE-ROADMAP.md); they do not block 1.0.
