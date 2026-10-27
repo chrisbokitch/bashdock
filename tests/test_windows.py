@@ -21,6 +21,7 @@ class WindowsTests(unittest.TestCase):
         from PySide6.QtTest import QTest
         from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QTabWidget, QPushButton
         from bashdock.terminal import Terminal
+        from bashdock.update_helper import retry
 
         app = QApplication.instance() or QApplication([])
         window = QWidget()
@@ -28,15 +29,9 @@ class WindowsTests(unittest.TestCase):
         tabs = QTabWidget(window)
         terminals = [Terminal(tabs), Terminal(tabs)]
         output = [[], []]
-        prompts = [0, 0]
         for index, terminal in enumerate(terminals):
             tabs.addTab(terminal, str(index + 1))
             terminal.bridge.output.connect(output[index].append)
-
-            def prompted(_path, index=index):
-                prompts[index] += 1
-
-            terminal.directory_changed.connect(prompted)
         layout.addWidget(tabs)
         button = QPushButton('Run command', window)
         button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -52,39 +47,41 @@ class WindowsTests(unittest.TestCase):
                 time.sleep(0.01)
             self.assertTrue(predicate(), repr(''.join(output[index])[-2000:]))
 
+        temporary = tempfile.TemporaryDirectory(prefix='bashdock hidden tab ')
         try:
             wait_for(lambda: all(terminal.ready for terminal in terminals))
-            with tempfile.TemporaryDirectory(prefix='bashdock hidden tab ') as folder:
-                for terminal in terminals:
-                    terminal.start(find_bash(), folder)
-                wait_for(lambda: all(terminal.command_startup.ready for terminal in terminals))
-                receipt = Path(folder) / 'button-receipts.txt'
-                command = ''
-                button.clicked.connect(lambda: tabs.currentWidget().run_command(command))
-                expected = ''
-                # First tab succeeds, then the first button in a previously
-                # hidden shell. Repeat visibility/focus changes and resizes at
-                # several delays; sleeping alone must not be the mitigation.
-                for attempt in range(18):
-                    index = attempt % 2
-                    tabs.setCurrentIndex(index)
-                    window.resize(900 + (attempt % 3) * 45, 650 + (attempt % 4) * 20)
-                    QTest.qWait((0, 2200, 50, 250)[attempt % 4])
-                    before = prompts[index]
-                    marker = f'{attempt},'
-                    command = f"printf '%s' {shlex.quote(marker)} >> {shlex.quote(receipt.as_posix())}"
-                    expected += marker
-                    QTest.mouseClick(button, Qt.MouseButton.LeftButton)
-                    wait_for(lambda: prompts[index] > before, index)
-                    # A real file receipt proves execution. Echoed input or a
-                    # visually intact xterm line cannot satisfy this check.
-                    self.assertTrue(receipt.is_file(), repr(''.join(output[index])[-2000:]))
-                    self.assertEqual(expected, receipt.read_text(encoding='utf-8'),
-                                     f'Button {attempt + 1} in tab {index + 1} did not execute intact')
+            folder = temporary.name
+            for terminal in terminals:
+                terminal.start(find_bash(), folder)
+            wait_for(lambda: all(terminal.command_startup.ready for terminal in terminals))
+            receipt = Path(folder) / 'button-receipts.txt'
+            command = ''
+            button.clicked.connect(lambda: tabs.currentWidget().run_command(command))
+            expected = ''
+            # First tab succeeds, then the first button in a previously
+            # hidden shell. Repeat visibility/focus changes and resizes at
+            # several delays; sleeping alone must not be the mitigation.
+            for attempt in range(18):
+                index = attempt % 2
+                tabs.setCurrentIndex(index)
+                window.resize(900 + (attempt % 3) * 45, 650 + (attempt % 4) * 20)
+                QTest.qWait((0, 2200, 50, 250)[attempt % 4])
+                marker = f'{attempt},'
+                command = f"printf '%s' {shlex.quote(marker)} >> {shlex.quote(receipt.as_posix())}"
+                expected += marker
+                QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+                # A real file receipt proves execution. Resizing can redraw
+                # the prompt before the command runs, so a prompt signal or
+                # echoed input cannot satisfy this check.
+                wait_for(lambda: receipt.is_file() and
+                         receipt.read_text(encoding='utf-8') == expected, index)
         finally:
             for terminal in terminals:
                 terminal.stop()
             window.close()
+            window.deleteLater()
+            app.processEvents()
+            retry(temporary.cleanup, timeout=5)
 
     def test_command_button_restores_native_and_terminal_focus_for_typing(self):
         from unittest.mock import Mock
