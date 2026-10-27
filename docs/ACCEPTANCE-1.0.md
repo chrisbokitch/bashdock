@@ -444,18 +444,7 @@ The owner confirmed both checks passed. No separate
 manual process-killing/save-failure matrix is required; the automation uses
 only processes it created. Actual Windows display-scaling remains M9.
 
-## Outstanding manual Windows checks
-
-Use a disposable VM/profile for destructive recovery and updater-failure cases.
-Preserve E1–E8; do not rerun completed historical checks merely because an older
-checklist left them unchecked. The IDs below identify the remaining scope.
-
-| ID | Check to finish | Existing evidence / result still needed |
-| --- | --- | --- |
-| M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
-| M9 | Actual Windows display scaling | Menu/tab geometry and combined update-notice/window-transition tests run at Qt scale factors 1, 1.25 and 1.5. Only the installed-app visual checks at actual Windows 100%/125%/150% scaling remain below. |
-
-### M9 automated coverage and remaining manual smoke
+## Completed M9: actual Windows display scaling
 
 Existing menu, tab, restored-footer and geometry tests cover popup padding,
 submenu resizing, close/new-tab controls, switching restored tabs, command-button
@@ -476,7 +465,13 @@ case with native Qt at all three scale factors.
 
 Qt scale-factor checks do not change the Windows display setting or establish
 visual sharpness, real monitor transitions or installed WebEngine rendering.
-Only these visual checks remain for M9, using the installed **0.14.7** app:
+**Passed — owner confirmation, 2026-10-27**, following the requested installed
+0.14.7 visual checks at actual Windows display scaling of 100%, 125% and 150%.
+The owner reported the tests looked good; combined with the automated coverage
+above, M9 is complete. No separate screenshots, package checksum or display
+configuration report were supplied.
+
+The exercised manual scope was:
 
 1. **At each actual Windows scale (100%, 125%, 150%):** choose the scale in
    Windows Settings → System → Display, then launch/relaunch BashDock. With two
@@ -495,8 +490,19 @@ Only these visual checks remain for M9, using the installed **0.14.7** app:
    scale checks. Installing it is not required for M9. Return Windows scaling
    to your preferred value afterward.
 
-Both checks remain pending owner confirmation. Record the scale(s) exercised;
-no additional app update is needed for these test/documentation changes.
+The owner confirmed the requested checks passed. This records the requested
+three-scale visual smoke; it does not establish an additional multi-monitor or
+live monitor-transition matrix.
+
+## Outstanding manual Windows checks
+
+Use a disposable VM/profile for destructive recovery and updater-failure cases.
+Preserve E1–E8; do not rerun completed historical checks merely because an older
+checklist left them unchecked. The IDs below identify the remaining scope.
+
+| ID | Check to finish | Existing evidence / result still needed |
+| --- | --- | --- |
+| M1 | Clean-machine setup | Confirm compiled missing-Git guidance and detecting an installation after restart; run as a standard user without Python/Node. Missing-Git UI logic is automated; this complete manual setup result is unrecorded. |
 
 ## Outstanding updater checks
 
