@@ -12,18 +12,20 @@ permissions:
 
 jobs:
   input:
-    name: Git ${{ matrix.git }} / Python ${{ matrix.python }}
+    name: Input experiment ${{ matrix.experiment }}
     runs-on: windows-2022
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        git: [runner, '2.55.0.windows.4']
-        python: ['3.12', '3.14']
+        git: ['2.55.0.windows.4']
+        python: ['3.14']
+        experiment: [baseline, no-focus, bracketed, settled-resize]
     env:
       PYTHONUNBUFFERED: '1'
       QT_QPA_PLATFORM: windows
       QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu
+      BASHDOCK_INPUT_EXPERIMENT: ${{ matrix.experiment }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
