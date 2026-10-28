@@ -974,8 +974,13 @@ class WindowsTests(GuiTestCase):
                             self.assertIsNot(first, tab)
                             self.assertEqual(index + 1, window.tabs.count())
                             wait(lambda: tab.terminal.ready and tab.terminal.command_startup.ready)
+                            wait(lambda: app.focusWidget() is tab.terminal or
+                                 tab.terminal.isAncestorOf(app.focusWidget()))
                             focus = app.focusWidget()
-                            self.assertTrue(focus is tab.terminal or tab.terminal.isAncestorOf(focus))
+                            self.assertTrue(focus is tab.terminal or tab.terminal.isAncestorOf(focus),
+                                repr(dict(route=route, focus=type(focus).__name__,
+                                    active=window.isActiveWindow(), popup=app.activePopupWidget(),
+                                    modal=app.activeModalWidget())))
                             # No terminal click/focus call: the first typed command
                             # must reach this new shell and preserve its first byte.
                             QTest.keyClicks(focus, "printf '%s' x >> typed.txt")

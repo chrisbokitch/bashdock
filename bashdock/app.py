@@ -1221,6 +1221,14 @@ class MainWindow(QMainWindow):
         # Transfer native focus as well as xterm focus. Do this even while the
         # page loads; its startup callback focuses xterm once the bridge is ready.
         tab.terminal.focus_terminal()
+        # A closing menu can restore the previous focus after its action runs.
+        # The tab context cancels this callback if it closes in the meantime.
+        def finish_focus():
+            if (self.current_tab() is tab and self.isActiveWindow() and
+                    QApplication.activeModalWidget() is None):
+                tab.terminal.focus_terminal()
+        QTimer.singleShot(0, tab, finish_focus)
+        tab.terminal.loaded.connect(finish_focus)
         self.schedule_save()
 
     def rename_tab(self, index):

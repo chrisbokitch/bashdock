@@ -1438,6 +1438,24 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(1, saved['active_tab'])
         self.assertEqual([first.data, second.data], saved['tabs'])
 
+    def test_new_tab_deferred_focus_does_not_follow_a_tab_switch_or_modal(self):
+        first = self.window.current_tab()
+        with patch.object(self.window, 'isActiveWindow', return_value=True):
+            self.window.new_tab()
+            second = self.window.current_tab()
+            self.window.tabs.setCurrentWidget(first)
+            self.app.processEvents()
+            self.assertEqual(1, second.terminal.focus_requests)
+            self.window.new_tab()
+            third = self.window.current_tab()
+            with patch('bashdock.app.QApplication.activeModalWidget', return_value=self.window):
+                self.app.processEvents()
+            self.assertEqual(1, third.terminal.focus_requests)
+            self.window.new_tab()
+            fourth = self.window.current_tab()
+            self.app.processEvents()
+            self.assertEqual(2, fourth.terminal.focus_requests)
+
     def test_tab_rename_dialog_accept_cancel_and_blank_preserve_saved_identity(self):
         from PySide6.QtCore import Qt, QTimer
         from PySide6.QtTest import QTest
