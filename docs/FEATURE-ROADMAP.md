@@ -5,29 +5,37 @@ prioritized the smaller UI quality-of-life improvements first on 2026-10-27.
 This is an investigation and sequencing document, not a commitment to dates or
 release numbers.
 
-## Suggested sequence
+## Agreed next sequence
+
+On 2026-10-28, the owner prioritized three focused additions to BashDock's existing
+command-button workflow, then a reassessment before taking on broader features.
 
 | Order | Feature | Scope |
 | --- | --- | --- |
-| 1 | Workspace submenu: Replace current toggle | Released in 1.3.0; owner visual check passed. |
-| 2 | Wrapping command buttons | Released in 1.3.0; owner visual check passed. |
-| 3 | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
-| 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
-| 5 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
-| 6 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
-| 7 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
-| 8 | Command-button preset bundles | Queued: preview and apply useful starter button sets to a tab. |
-| 9 | Per-button command confirmation | Queued: optional Confirm before using toggle, enabled for destructive presets. |
+| Complete | Workspace submenu: Replace current toggle | Released in 1.3.0; owner visual check passed. |
+| Complete | Wrapping command buttons | Released in 1.3.0; owner visual check passed. |
+| Complete | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
+| 1 | Multiline command editor | Next: improve the button editor and validate existing multiline transport. |
+| 2 | Per-button command confirmation | Add an optional Confirm before using toggle. |
+| 3 | Command-button preset bundles | Preview and apply useful starter sets; destructive preset buttons enable confirmation. |
+| Candidate | Prompted command variables | Reassess after the three focused additions; not scheduled. |
+| Candidate | Variables with choices | Depends on prompted variables; not scheduled. |
+| Candidate | Different shells per tab | Broader architectural work; not scheduled. |
 
-The workspace toggle, tab icons/compact overflow and button wrapping are
-released in 1.3.0. The multiline command editor is the next queued UI improvement.
-Deliver each UI enhancement separately with focused regression checks and a
-short owner visual check.
+Deliver each of the three additions separately with automated regression checks,
+actual Windows shell tests where relevant, and a short owner visual or interaction
+check. Use focused release checks appropriate to the change; broaden testing when
+its scope warrants it. No release dates or version numbers are committed here.
 
-Investigate shell support before implementing command templates because quoting
-and command submission affect their design, but ship it after the UI and broader
-compatibility work. Data-model changes should account for the remaining command
-editor/template/shell features.
+Confirmation comes before presets so destructive starter commands can use that
+behavior from their first release. After presets, reassess whether additional
+features justify their complexity and maintenance cost. Web/LAN access remains
+an exploratory idea outside this implementation plan.
+
+If command templates are pursued later, investigate shell support and quoting
+before implementation, even if additional shells ship afterward. Keep current
+data-model extensions compatible with that possibility without implementing
+the deferred features in advance.
 
 ## Workspace submenu: Replace current toggle
 
@@ -217,7 +225,8 @@ Investigation areas:
 
 Queued at the owner's request. Goal: help people start with useful command
 buttons by applying a curated bundle to a tab. This adds a roadmap item; it does
-not change the current implementation or reorder the next queued work.
+not change the current implementation. Presets follow the multiline editor and
+per-button confirmation in the agreed next sequence.
 
 Proposed first iteration:
 
