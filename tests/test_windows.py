@@ -660,10 +660,10 @@ class WindowsTests(unittest.TestCase):
             def fitted():
                 result = []
                 terminal.page().runJavaScript(
-                    '({height:innerHeight, rows:terminal.rows, expected:fit.proposeDimensions()?.rows})',
+                    'JSON.stringify({height:innerHeight, rows:terminal.rows, expected:fit.proposeDimensions()?.rows})',
                     result.append)
                 wait_for(lambda: bool(result))
-                state = result[0]
+                state = json.loads(result[0])
                 if (state['height'] == terminal.height() and
                         state['rows'] == state['expected'] == terminal.dimensions[0]):
                     states.append(state['rows'])
