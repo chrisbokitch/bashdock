@@ -491,8 +491,22 @@ class ShellTab(QWidget):
             button.setEnabled(running)
 
 
+class NewTabButton(QPushButton):
+    """A quiet circular control with a full-size keyboard focus target."""
+    def __init__(self, parent):
+        super().__init__('+', parent)
+        self.setObjectName('newTab')
+        self.setFixedSize(self.sizeHint())
+        self.setToolTip('New tab')
+        self.setAccessibleName('New tab')
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def sizeHint(self):
+        return QSize(28, 28)
+
+
 class TabStrip(QTabBar):
-    """Reserve enough top-row height for the corner control and its padding."""
+    """Keep the add control after the tabs, reserving space during overflow."""
     layout_changed = Signal()
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -505,6 +519,7 @@ class TabStrip(QTabBar):
         self.selected_foreground = '#dde4ef'
         self.terminal_themes = []
         self.compact = False
+        self.add_button = None
         self.compact_timer = QTimer(self)
         self.compact_timer.setSingleShot(True)
         self.compact_timer.timeout.connect(self.update_compact_mode)
@@ -514,6 +529,7 @@ class TabStrip(QTabBar):
         self.setElideMode(Qt.TextElideMode.ElideNone)
         self.setIconSize(QSize(18, 18))
         self.currentChanged.connect(self.position_close_buttons)
+        self.currentChanged.connect(self.position_add_button)
 
     def eventFilter(self, watched, event):
         if event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.LayoutRequest):
@@ -534,6 +550,27 @@ class TabStrip(QTabBar):
             QApplication.sendEvent(self, QEvent(QEvent.Type.StyleChange))
             self.updateGeometry()
             self.update()
+        self.position_add_button()
+
+    def position_add_button(self, *args):
+        parent = self.parentWidget()
+        if self.add_button is None or not isinstance(parent, QTabWidget):
+            return
+        corner = parent.cornerWidget(Qt.Corner.TopRightCorner)
+        if corner is None:
+            return
+        # The empty corner reserves room for both Qt's overflow arrows and the
+        # add control. With spare room, float the control directly after the last
+        # tab instead of leaving it at the far edge of the window.
+        right = (self.mapTo(parent, self.tabRect(self.count() - 1).topRight()).x() + 7
+                 if self.count() else self.x())
+        if sum(self.tabRect(i).width() for i in range(self.count())) > self.width():
+            right = corner.x() + 3
+        tab = self.tabRect(self.currentIndex())
+        top = self.y() + tab.top() + self.top_inset
+        self.add_button.move(min(right, corner.x() + 3),
+                             top + (tab.height() - self.top_inset - self.add_button.height()) // 2)
+        self.add_button.raise_()
 
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
@@ -625,6 +662,7 @@ class TabStrip(QTabBar):
         if hasattr(self, 'compact_timer'):
             self.compact_timer.start(0)
         self.position_close_buttons()
+        self.position_add_button()
         self.layout_changed.emit()
 
     def mouseDoubleClickEvent(self, event):
@@ -706,19 +744,16 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self.tab_changed)
         self.tabs.tabBar().tabMoved.connect(self.schedule_save)
         self.tabs.tabBar().tabMoved.connect(self.refresh_tab_colors)
-        add = QPushButton()
-        add.setObjectName("newTab")
-        add.setIcon(QIcon(str(APP_ICON.parent / "tab-add.svg")))
-        add.setIconSize(QSize(18, 18))
-        add.setFixedWidth(36)
-        add.setToolTip("New tab")
-        add.setAccessibleName("New tab")
+        add = NewTabButton(self.tabs)
         add.clicked.connect(self.new_tab)
         corner = QWidget()
         corner_layout = QHBoxLayout(corner)
         corner_layout.setContentsMargins(3, 0, 3, 3)
-        corner_layout.addWidget(add)
+        spacer = QWidget(corner)
+        spacer.setFixedSize(add.sizeHint())
+        corner_layout.addWidget(spacer)
         self.tabs.setCornerWidget(corner, Qt.Corner.TopRightCorner)
+        self.tabs.tabBar().add_button = add
         body = QWidget()
         layout = QVBoxLayout(body)
         layout.setContentsMargins(3, 3, 3, 0)
@@ -822,7 +857,16 @@ class MainWindow(QMainWindow):
             QPushButton { background:#273344;border:1px solid #3c4b60;border-radius:5px;padding:8px 12px; }
             QPushButton:hover { border-color:#70dcc2; }
             QPushButton:disabled { color:#77818f; }
-            QPushButton#configureTab,QPushButton#newTab { background:#111b2b;padding:6px; }
+            QPushButton#configureTab { background:#111b2b;padding:6px; }
+            QPushButton#newTab {
+                background:rgba(60,75,96,35);color:rgba(221,228,239,89);
+                border:1px solid rgba(112,135,163,70);border-radius:14px;
+                padding:0;font-size:22px;font-weight:normal;
+            }
+            QPushButton#newTab:hover,QPushButton#newTab:focus {
+                background:rgba(60,75,96,220);color:#dde4ef;border-color:#7087a3;
+            }
+            QPushButton#newTab:pressed { background:#53647c;color:#ffffff; }
             QLineEdit,QTableWidget,QPlainTextEdit { background:#10141c;selection-background-color:#365e66; }
             QLineEdit { padding:6px; }
             QStatusBar { background:#111b2b;border-top:1px solid #27384d; }

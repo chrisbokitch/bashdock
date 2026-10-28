@@ -2539,11 +2539,53 @@ class WorkspaceTests(unittest.TestCase):
                         self.app.processEvents()
                     button = self.window.findChild(QPushButton, "newTab")
                     self.assertGreaterEqual(button.height(), button.sizeHint().height())
-                    self.assertEqual(3, button.parentWidget().height() - button.geometry().bottom() - 1)
+                    self.assertTrue(self.window.tabs.rect().contains(button.geometry()))
+                    self.assertEqual(button.width(), button.height())
                     bar = self.window.tabs.tabBar()
+                    self.assertLessEqual(button.geometry().bottom(), bar.geometry().bottom())
                     tab_bottom = bar.mapTo(self.window, QPoint(0, bar.tabRect(0).bottom() + 1)).y()
                     shell_top = self.window.current_tab().terminal.mapTo(self.window, QPoint(0, 0)).y()
                     self.assertEqual(1, shell_top - tab_bottom)
+
+    def test_new_tab_control_follows_tabs_and_stays_clickable_during_overflow(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+
+        self.window.show()
+        bar = self.window.tabs.tabBar()
+        button = self.window.findChild(QPushButton, 'newTab')
+        for count in (1, 3, 18):
+            while self.window.tabs.count() < count:
+                self.window.new_tab()
+            for width in (1120, 600, 1120):
+                self.window.resize(width, 760)
+                for index in (0, count - 1):
+                    self.window.tabs.setCurrentIndex(index)
+                    for _ in range(10):
+                        self.app.processEvents()
+                    with self.subTest(count=count, width=width, selected=index):
+                        self.assertTrue(button.isVisible())
+                        self.assertTrue(self.window.tabs.rect().contains(button.geometry()))
+                        self.assertIs(button, self.window.tabs.childAt(button.geometry().center()))
+                        for tab_index in range(count):
+                            tab = bar.tabRect(tab_index).translated(bar.pos()).intersected(bar.geometry())
+                            self.assertFalse(button.geometry().intersects(tab))
+                        if count < 4:
+                            last_right = bar.tabRect(count - 1).translated(bar.pos()).right()
+                            self.assertGreater(button.x(), last_right)
+                            self.assertLess(button.x() - last_right, 12)
+        QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+        self.assertEqual(19, self.window.tabs.count())
+        self.assertEqual(18, self.window.tabs.currentIndex())
+        # Removing overflowing tabs brings the control back next to the labels.
+        while self.window.tabs.count() > 2:
+            self.window.close_tab(self.window.tabs.count() - 1)
+        bar.moveTab(0, 1)
+        for _ in range(10):
+            self.app.processEvents()
+        last_right = bar.tabRect(1).translated(bar.pos()).right()
+        self.assertGreater(button.x(), last_right)
+        self.assertLess(button.x() - last_right, 12)
 
     def test_tab_close_icons_stay_in_place_when_switching_tabs(self):
         from PySide6.QtCore import QPoint, Qt
