@@ -1,6 +1,6 @@
 # BashDock feature roadmap
 
-BashDock 1.0 is released and its acceptance checks are complete. The owner
+BashDock 1.3.0 is released; the 1.0 acceptance checks remain complete. The owner
 prioritized the smaller UI quality-of-life improvements first on 2026-10-27.
 This is an investigation and sequencing document, not a commitment to dates or
 release numbers.
@@ -9,16 +9,16 @@ release numbers.
 
 | Order | Feature | Scope |
 | --- | --- | --- |
-| 1 | Workspace submenu: Replace current toggle | Complete in development 1.1.0; owner visual check passed. |
-| 2 | Wrapping command buttons | Complete in development 1.3.0; owner visual check passed. |
-| 3 | Tab icons and compact overflow | Complete in development 1.2.0; owner visual check passed. |
+| 1 | Workspace submenu: Replace current toggle | Released in 1.3.0; owner visual check passed. |
+| 2 | Wrapping command buttons | Released in 1.3.0; owner visual check passed. |
+| 3 | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
 | 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
 | 5 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
 | 6 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
 | 7 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
 
 The workspace toggle, tab icons/compact overflow and button wrapping are
-implemented. The multiline command editor is the next queued UI improvement.
+released in 1.3.0. The multiline command editor is the next queued UI improvement.
 Deliver each UI enhancement separately with focused regression checks and a
 short owner visual check.
 
