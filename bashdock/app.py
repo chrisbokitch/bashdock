@@ -1218,6 +1218,9 @@ class MainWindow(QMainWindow):
             profile["current_folder"] = current.data["current_folder"]
         tab = self.add_tab(profile)
         self.tabs.setCurrentWidget(tab)
+        # Transfer native focus as well as xterm focus. Do this even while the
+        # page loads; its startup callback focuses xterm once the bridge is ready.
+        tab.terminal.focus_terminal()
         self.schedule_save()
 
     def rename_tab(self, index):

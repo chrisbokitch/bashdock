@@ -35,6 +35,12 @@ class FakeTerminal(QWidget):
         self.commands = []
         self.starts = []
         self.stops = 0
+        self.focus_requests = 0
+
+    def focus_terminal(self):
+        self.focus_requests += 1
+        self.setFocus()
+        self.bridge.focus.emit()
 
     def start(self, bash, folder):
         self.starts.append((bash, folder))
@@ -1419,6 +1425,8 @@ class WorkspaceTests(unittest.TestCase):
         self.assertIsNot(first, second)
         self.assertNotEqual(first.data['id'], second.data['id'])
         self.assertEqual('Git Bash 2', self.window.tabs.tabText(1))
+        self.assertFalse(second.terminal.ready)
+        self.assertEqual(1, second.terminal.focus_requests)
         self.ready(second)
         self.assertEqual([(str(self.bash), str(folder))], second.terminal.starts)
         self.assertEqual(0, first.terminal.stops)

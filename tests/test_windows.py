@@ -916,6 +916,78 @@ class WindowsTests(GuiTestCase):
             app.processEvents()
             retry(temporary.cleanup, timeout=5)
 
+    def test_new_tab_receives_native_and_terminal_focus_for_immediate_typing(self):
+        from unittest.mock import patch
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QApplication, QPushButton
+        from bashdock import config
+        from bashdock.app import MainWindow
+        app = QApplication.instance() or QApplication([])
+        with tempfile.TemporaryDirectory(prefix='bashdock new tab ') as temp:
+            folder = Path(temp).resolve()
+            settings = folder / 'settings.json'
+            data = config.defaults()
+            data['bash_path'] = find_bash()
+            data['confirm_on_exit'] = False
+            data['tabs'][0]['current_folder'] = str(folder)
+            data['tabs'][0]['startup_folder'] = str(folder)
+            config.save(data, settings)
+            with patch('bashdock.config.config_path', return_value=settings):
+                window = MainWindow()
+                def wait(predicate):
+                    deadline = time.monotonic() + 20
+                    while time.monotonic() < deadline:
+                        if predicate():
+                            return
+                        app.processEvents()
+                        time.sleep(0.01)
+                    self.fail('New tab did not become ready/focused or receive typed input')
+                try:
+                    window.show()
+                    window.raise_()
+                    window.activateWindow()
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('ignore', category=DeprecationWarning,
+                            message=r"Function: 'QApplication\.setActiveWindow\b")
+                        QApplication.setActiveWindow(window)
+                    wait(lambda: window.current_tab().terminal.command_startup.ready)
+                    first = window.current_tab()
+                    receipt = folder / 'typed.txt'
+                    for index, route in enumerate(('button', 'shortcut', 'menu'), 1):
+                        with self.subTest(route=route):
+                            if route == 'button':
+                                QTest.mouseClick(window.findChild(QPushButton, 'newTab'), Qt.MouseButton.LeftButton)
+                            elif route == 'shortcut':
+                                QTest.keyClick(app.focusWidget(), Qt.Key.Key_T,
+                                    Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+                            else:
+                                menu = window.manage_menu
+                                action = next(a for a in menu.actions() if a.text() == 'New tab')
+                                bar = window.menuBar()
+                                QTest.mouseClick(bar, Qt.MouseButton.LeftButton,
+                                    pos=bar.actionGeometry(menu.menuAction()).center())
+                                wait(menu.isVisible)
+                                QTest.mouseClick(menu, Qt.MouseButton.LeftButton,
+                                    pos=menu.actionGeometry(action).center())
+                            tab = window.current_tab()
+                            self.assertIsNot(first, tab)
+                            self.assertEqual(index + 1, window.tabs.count())
+                            wait(lambda: tab.terminal.ready and tab.terminal.command_startup.ready)
+                            focus = app.focusWidget()
+                            self.assertTrue(focus is tab.terminal or tab.terminal.isAncestorOf(focus))
+                            # No terminal click/focus call: the first typed command
+                            # must reach this new shell and preserve its first byte.
+                            QTest.keyClicks(focus, "printf '%s' x >> typed.txt")
+                            QTest.keyClick(focus, Qt.Key.Key_Return)
+                            wait(lambda: receipt.is_file() and receipt.read_text() == 'x' * index)
+                            self.assertTrue(first.terminal.process)
+                finally:
+                    window.allow_save = False
+                    window.close()
+                    window.deleteLater()
+                    app.processEvents()
+
     def test_command_button_restores_native_and_terminal_focus_for_typing(self):
         from unittest.mock import Mock
         from PySide6.QtCore import QEvent, Qt
