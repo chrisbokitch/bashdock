@@ -606,6 +606,7 @@ class WindowsTests(unittest.TestCase):
 
     def test_saved_workspace_buttons_require_click_after_add_replace_and_reopen(self):
         from unittest.mock import patch
+        from PySide6.QtCore import QPoint
         from PySide6.QtTest import QTest
         from PySide6.QtWidgets import QApplication, QMessageBox
         from bashdock import config
@@ -634,7 +635,7 @@ class WindowsTests(unittest.TestCase):
             tab.update(startup_folder=str(folder), current_folder=str(folder))
         profile = config.default_tab('Saved command')
         profile.update(startup_folder=str(folder), current_folder=str(folder),
-                       buttons=[{'label': f'Command {i}', 'command': ':'} for i in range(7)] +
+                       buttons=[{'label': f'Command {i}', 'command': ':'} for i in range(4)] +
                                [{'label': 'Write receipt', 'command':
                                  f"printf '%s' clicked > {shlex.quote(receipt.as_posix())}"}])
         data['workspaces'] = [{'name': 'Button project', 'tabs': [profile], 'active_tab': 0}]
@@ -642,10 +643,31 @@ class WindowsTests(unittest.TestCase):
 
         def wait_for(predicate):
             deadline = time.monotonic() + 20
-            while not predicate() and time.monotonic() < deadline:
+            while time.monotonic() < deadline:
+                if predicate():
+                    return
                 app.processEvents()
                 time.sleep(0.01)
-            self.assertTrue(predicate(), 'Saved-workspace shell/button did not become ready')
+            self.fail('Saved-workspace shell/button did not become ready')
+
+        def fitted_rows(terminal):
+            states = []
+
+            def fitted():
+                result = []
+                terminal.page().runJavaScript(
+                    '({height:innerHeight, rows:terminal.rows, expected:fit.proposeDimensions()?.rows})',
+                    result.append)
+                wait_for(lambda: bool(result))
+                state = result[0]
+                if (state['height'] == terminal.height() and
+                        state['rows'] == state['expected'] == terminal.dimensions[0]):
+                    states.append(state['rows'])
+                    return True
+                return False
+
+            wait_for(fitted)
+            return states[-1]
 
         window = None
         try:
@@ -653,8 +675,13 @@ class WindowsTests(unittest.TestCase):
                     patch('bashdock.app.QMessageBox.question', return_value=QMessageBox.StandardButton.Yes):
                 window = MainWindow(terminal_factory=ObservedTerminal)
                 window.show()
+                screen = window.screen().availableGeometry()
+                wide = min(1200, screen.width() - 80)
+                narrow = min(600, wide // 2)
+                height = min(760, screen.height() - 100)
                 for mode in ('add', 'replace', 'reopen'):
                     with self.subTest(mode=mode):
+                        receipt.unlink(missing_ok=True)
                         if mode == 'reopen':
                             window.close()
                             window.deleteLater()
@@ -667,21 +694,22 @@ class WindowsTests(unittest.TestCase):
                         wait_for(lambda: tab.terminal.ready and tab.terminal.command_startup.ready)
                         QTest.qWait(500)
                         process = tab.terminal.process
-                        window.resize(1400, 760)
+                        window.move(screen.topLeft() + QPoint(20, 20))
+                        window.resize(wide, height)
                         wait_for(lambda: len({button.y() for button in tab.command_buttons}) == 1)
-                        QTest.qWait(100)
-                        rows = tab.terminal.dimensions[0]
-                        window.resize(600, 760)
+                        rows = fitted_rows(tab.terminal)
+                        window.resize(narrow, height)
                         wait_for(lambda: tab.command_buttons[-1].y() > tab.command_buttons[0].y())
-                        wait_for(lambda: tab.terminal.dimensions[0] < rows)
+                        self.assertLess(fitted_rows(tab.terminal), rows)
                         self.assertIs(process, tab.terminal.process)
                         self.assertEqual([], tab.terminal.submitted)
                         self.assertFalse(receipt.exists(), 'A saved button ran without a click')
                         tab.command_buttons[-1].click()
                         wait_for(lambda: receipt.exists() and receipt.read_text() == 'clicked')
                         self.assertEqual([profile['buttons'][-1]['command']], tab.terminal.submitted)
-                        window.resize(1400, 760)
-                        wait_for(lambda: tab.terminal.dimensions[0] == rows)
+                        window.resize(wide, height)
+                        wait_for(lambda: len({button.y() for button in tab.command_buttons}) == 1)
+                        self.assertEqual(rows, fitted_rows(tab.terminal))
                         receipt.unlink()
         finally:
             if window is not None:
