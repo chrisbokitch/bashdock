@@ -1,7 +1,8 @@
 # BashDock 1.6.0 release record
 
-Release preparation started on 2026-10-28 (America/Vancouver). **Not yet tagged
-or published at preparation.** Latest public release remains 1.3.0.
+Release preparation started on 2026-10-28 (America/Vancouver). Tagged as
+**v1.6.0**; draft generation and publication remain pending. Latest public
+release remains 1.3.0.
 
 ## Candidate and completed checks
 
@@ -9,7 +10,11 @@ or published at preparation.** Latest public release remains 1.3.0.
   confirmation with custom messages, and five groups containing 18 command presets.
 - Runtime source tested: `a82f3af6fca56bdf60672a980e132000c4f95ccb`.
   Release preparation changes release notes and acceptance bookkeeping only;
-  the final tagged source identity must be recorded after tagging.
+  final tagged source is `a686d06ea1eb51ae2b80d90506cf85acb931246a`.
+- Annotated tag object: `972d3570e53a21513648b6c0eeea753f6605e3a8`.
+- Final candidate main build/package and compatibility workflows passed:
+  <https://github.com/chrisbokitch/bashdock/actions/runs/40714043988> and
+  <https://github.com/chrisbokitch/bashdock/actions/runs/40714043461>.
 - Owner confirmed the feature checks and local tests pass, including the preset
   append/replace staging flow, on 2026-10-28. This is source/preview acceptance,
   not acceptance of a downloaded release ZIP.
@@ -20,6 +25,22 @@ or published at preparation.** Latest public release remains 1.3.0.
 - All four Windows input compatibility jobs passed, covering runner Git and
   Git 2.55.0.windows.4 with Python 3.12 and 3.14:
   <https://github.com/chrisbokitch/bashdock/actions/runs/40708631433>.
+
+## Tagged workflow and harness follow-up
+
+Tag workflow: <https://github.com/chrisbokitch/bashdock/actions/runs/40715865665>.
+Attempt 1 passed the full test suite, then stalled in the native 100% scaling
+rename-dialog test. Its 25 ms callback ran before a visible QInputDialog existed,
+raised StopIteration, and left the subsequently opened modal waiting indefinitely.
+Job `122913251228` was cancelled after inspecting the live log; one retry of the
+same immutable tagged revision was requested. Its result is still pending.
+
+The main-branch test-only follow-up uses a bounded visibility-polling timer,
+collects callback exceptions and rethrows them in unittest, and closes the modal
+on failure. The existing acceptance/cancellation/blank-name and persistence
+assertions remain. A deliberate pre-dialog event-loop wait exercises the race
+that previously caused the hang. This follow-up does not change the app version
+or application runtime and is not part of the frozen v1.6.0 source archive.
 
 ## Selected release scope
 
@@ -42,8 +63,6 @@ execution check. No destructive preset needs to be run for acceptance.
 
 ## Remaining publication checks
 
-- Pass the final committed candidate's Windows workflow and create the immutable
-  v1.6.0 tag at that exact source commit.
 - Complete the tag workflow and review the signed draft's complete asset inventory.
 - Record tag/source identity, application ZIP SHA-256/size, matching checksum,
   and owner acceptance of that exact downloaded ZIP.

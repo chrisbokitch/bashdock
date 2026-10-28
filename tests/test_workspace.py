@@ -3,6 +3,7 @@ import copy
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -1445,21 +1446,50 @@ class WorkspaceTests(unittest.TestCase):
             with self.subTest(text=text, accepted=accepted):
                 before = copy.deepcopy(tab.data)
                 observed = []
+                errors = []
+                timer = QTimer(self.window)
+                timer.setInterval(10)
+                deadline = time.monotonic() + 5
 
                 def finish_dialog():
-                    dialog = next(d for d in self.window.findChildren(QInputDialog) if d.isVisible())
-                    observed.append(dialog.textValue())
-                    dialog.setTextValue(text)
-                    if accepted:
-                        dialog.accept()
-                    else:
-                        dialog.reject()
+                    try:
+                        dialog = next((d for d in self.window.findChildren(QInputDialog) if d.isVisible()), None)
+                        if dialog is None:
+                            if time.monotonic() < deadline:
+                                return
+                            raise AssertionError('Rename dialog did not become visible within five seconds')
+                        timer.stop()
+                        observed.append(dialog.textValue())
+                        dialog.setTextValue(text)
+                        if accepted:
+                            dialog.accept()
+                        else:
+                            dialog.reject()
+                    except BaseException as error:
+                        errors.append(error)
+                        timer.stop()
+                        modal = QApplication.activeModalWidget()
+                        if modal is not None:
+                            modal.reject()
 
-                QTimer.singleShot(25, finish_dialog)
                 bar = self.window.tabs.tabBar()
                 self.app.processEvents()
-                QTest.mouseDClick(bar, Qt.MouseButton.LeftButton,
-                                 pos=bar.tabRect(0).center())
+                timer.timeout.connect(finish_dialog)
+                timer.start()
+                try:
+                    # Deliberately service the callback before opening a dialog.
+                    # A one-shot timer previously raised StopIteration here and
+                    # left the subsequent native modal dialog open indefinitely.
+                    QTest.qWait(60)
+                    self.assertEqual([], observed)
+                    self.assertEqual([], errors)
+                    QTest.mouseDClick(bar, Qt.MouseButton.LeftButton,
+                                     pos=bar.tabRect(0).center())
+                    if errors:
+                        raise errors[0]
+                finally:
+                    timer.stop()
+                    timer.deleteLater()
                 self.assertEqual([before['name']], observed)
                 self.assertEqual(expected, self.window.tabs.tabText(0))
                 self.assertEqual(dict(before, name=expected), tab.data)
