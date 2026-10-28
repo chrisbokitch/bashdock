@@ -36,6 +36,21 @@ launched process, restores the previous folder and settings snapshot, and
 relaunches the old app. Failed settings are retained in the update cache.
 A restart failure is reported rather than silently deleting the previous build.
 
+After confirmed startup, the updater retains one recent successful rollback
+copy per installation and removes older successful copies. The installed app
+also retries this maintenance in the background on startup, including backups
+from earlier versions whose transaction records remain available. Both
+`.bashdock-previous-<id>` and `bashdock-previous-<id>` names are recognized when
+a matching update journal identifies their installation and successful outcome.
+Folders are never deleted just because their names match a pattern.
+
+Cleanup uses the same installation lock as updating. Running copies, locked
+files, unfinished/failed transactions, unrelated installations and symbolic
+links/junctions are protected; failed deletions are retried on a later startup
+or successful update. A cleanup failure does not roll back a healthy update.
+Settings backups and transaction records are retained. An unrecognized folder
+or a backup whose transaction record is missing remains for manual review.
+
 Backups and diagnostic files remain available for manual recovery. In a power
 failure during the brief folder-swap interval, restore the retained previous
 folder to the installation name if necessary; this first implementation is not
@@ -310,8 +325,10 @@ npm run stage-update -- "C:/Development/tools/bashdock" --disable
 This revokes its local public key and removes the offer, without rebuilding,
 closing the app, changing settings, or disabling public updates. Already-confirmed
 transactions may be in progress. To enroll a replacement development key, disable
-first, then stage again. Old staging directories and retained previous installations
-are left for inspection/manual cleanup; revocation does not delete them.
+first, then stage again. Revocation does not delete staging directories or
+retained previous installations. Normal successful-update/startup maintenance
+prunes attributable superseded installations as described above; pending
+packages and settings/diagnostic records are outside this cleanup policy.
 
 ### Windows validation
 

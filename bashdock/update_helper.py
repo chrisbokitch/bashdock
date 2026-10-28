@@ -2,6 +2,7 @@
 import argparse
 import ctypes
 import json
+import logging
 import os
 import secrets
 import shutil
@@ -14,6 +15,7 @@ from pathlib import Path
 from .updates import parse_manifest, digest_file, extract_package
 from .update_security import load_key
 from . import local_updates
+from .update_cleanup import installation_guard, prune_previous_installations
 
 
 def wait_for_pid(pid, timeout=120):
@@ -199,6 +201,11 @@ def install(plan, key, *, verify=None, wait=wait_for_pid, other_processes=proces
                 local_updates.acknowledge(target, pending)
             except (OSError, ValueError):
                 pass  # A healthy installed build must not roll back over inbox cleanup.
+        try:
+            prune_previous_installations(target, retained=old, other_processes=other_processes)
+        except Exception:
+            # Maintenance must never roll back a successfully started update.
+            logging.warning('Previous installation cleanup deferred after successful update.')
         status('Update complete.')
         return {'ok': True, 'version': manifest['version'], 'previous': str(old)}
     except BaseException:
@@ -263,39 +270,30 @@ def main():
             time.sleep(0.2)
         args.self_test.write_text(json.dumps({'ok': True, 'frozen': bool(getattr(sys, 'frozen', False))}))
         return
-    # A named mutex is automatically released even if the helper crashes.
-    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
-    kernel.CreateMutexW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p]
-    kernel.CreateMutexW.restype = ctypes.c_void_p
-    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    # Shared with startup cleanup; wait briefly if maintenance owns the lock.
     plan = json.loads(args.install.read_text(encoding='utf-8'))
-    identity = __import__('hashlib').sha256(str(Path(plan['install']).resolve()).casefold().encode()).hexdigest()
-    lock = kernel.CreateMutexW(None, False, 'Local\\BashDock-Update-' + identity)
-    if not lock or ctypes.get_last_error() == 183:
-        if lock:
-            kernel.CloseHandle(lock)
-        raise SystemExit('Another BashDock update is already running.')
     from .updates import cache_directory
     cache = cache_directory()
     cache.mkdir(parents=True, exist_ok=True)
     result_path = cache / 'result.json'
-    try:
-        from .update_status import UpdateStatus
-        with UpdateStatus() as status:
-            key = None if plan.get('channel') == local_updates.CHANNEL else load_key()
-            result = install(plan, key, status=status.set_text)
-        result_path.write_text(json.dumps(result), encoding='utf-8')
-    except Exception as error:
-        result_path.write_text(json.dumps({'ok': False, 'message': str(error)}), encoding='utf-8')
-        target = Path(plan['install'])
-        if (target / 'bashdock.exe').is_file():
-            try:
-                start_app(target)
-            except OSError:
-                pass
-        if sys.platform == 'win32':
-            ctypes.windll.user32.MessageBoxW(None, str(error) + '\nYour previous installation has been kept or restored.',
-                                            'BashDock update could not finish', 0x10)
-        raise SystemExit(1)
-    finally:
-        kernel.CloseHandle(lock)
+    with installation_guard(plan['install'], timeout=60) as acquired:
+        try:
+            if not acquired:
+                raise OSError('Another BashDock update or cleanup is still running. Try again shortly.')
+            from .update_status import UpdateStatus
+            with UpdateStatus() as status:
+                key = None if plan.get('channel') == local_updates.CHANNEL else load_key()
+                result = install(plan, key, status=status.set_text)
+            result_path.write_text(json.dumps(result), encoding='utf-8')
+        except Exception as error:
+            result_path.write_text(json.dumps({'ok': False, 'message': str(error)}), encoding='utf-8')
+            target = Path(plan['install'])
+            if (target / 'bashdock.exe').is_file():
+                try:
+                    start_app(target)
+                except OSError:
+                    pass
+            if sys.platform == 'win32':
+                ctypes.windll.user32.MessageBoxW(None, str(error) + '\nYour previous installation has been kept or restored.',
+                                                'BashDock update could not finish', 0x10)
+            raise SystemExit(1)

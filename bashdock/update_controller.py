@@ -34,6 +34,15 @@ class UpdateController(QObject):
         self.local_timer.timeout.connect(self.poll_local)
         if self.installation is not None:
             self.local_timer.start()
+            if sys.platform == 'win32' and getattr(sys, 'frozen', False):
+                QTimer.singleShot(5000, self.cleanup_previous)
+
+    def cleanup_previous(self):
+        if self.installation is None or self.cancelled.is_set():
+            return
+        from .update_cleanup import cleanup_previous_installations
+        threading.Thread(target=cleanup_previous_installations, args=(self.installation,),
+                         name='BashDock previous installation cleanup', daemon=True).start()
 
     def poll_local(self):
         if self.installation is None or self.busy or self.cancelled.is_set():
