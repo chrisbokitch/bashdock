@@ -8,8 +8,9 @@ if sys.platform != 'win32':
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QDialog, QDialogButtonBox
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel
 from bashdock.command_editor import CommandEditor
+from bashdock.command_confirmation import CommandConfirmation
 from qt_lifecycle import GuiTestCase
 
 
@@ -20,7 +21,57 @@ class CommandEditorTests(GuiTestCase):
         self.assertEqual(body, editor.command.toPlainText())
         editor.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
         self.assertEqual(QDialog.DialogCode.Accepted, editor.result())
-        self.assertEqual({'label': ' Build ', 'command': body}, editor.result_data)
+        self.assertEqual({'label': ' Build ', 'command': body, 'confirm': False,
+                          'confirmation_message': 'Are you sure?'}, editor.result_data)
+
+    def test_confirmation_toggle_disables_message_and_retains_custom_text(self):
+        editor = CommandEditor('Build', 'pwd')
+        self.assertFalse(editor.confirm.isChecked())
+        self.assertFalse(editor.confirmation_message.isEnabled())
+        self.assertEqual('Are you sure?', editor.confirmation_message.text())
+        editor.confirm.setChecked(True)
+        self.assertTrue(editor.confirmation_message.isEnabled())
+        editor.confirmation_message.setText('Deploy this version?')
+        editor.confirm.setChecked(False)
+        self.assertFalse(editor.confirmation_message.isEnabled())
+        editor.commit()
+        self.assertFalse(editor.result_data['confirm'])
+        self.assertEqual('Deploy this version?', editor.result_data['confirmation_message'])
+        restored = CommandEditor('Build', 'pwd', confirm=True,
+                                 confirmation_message=editor.result_data['confirmation_message'])
+        self.assertTrue(restored.confirmation_message.isEnabled())
+        self.assertEqual('Deploy this version?', restored.confirmation_message.text())
+        restored.confirmation_message.clear()
+        restored.commit()
+        self.assertEqual('Are you sure?', restored.result_data['confirmation_message'])
+
+    def test_confirmation_shows_literal_text_and_cancel_is_default(self):
+        entry = {'label': '<b>Build</b>', 'command': '\n  echo "café"\n\tpwd\n',
+                 'confirmation_message': '<b>Are you sure?</b>'}
+        for action in ('enter', 'escape', 'close', 'run'):
+            with self.subTest(action=action):
+                dialog = CommandConfirmation(entry, '<tab>')
+                self.assertTrue(dialog.command.isReadOnly())
+                self.assertEqual(entry['command'], dialog.command.toPlainText())
+                labels = dialog.findChildren(QLabel)
+                self.assertEqual(entry['confirmation_message'], labels[0].text())
+                self.assertIn('<tab>', labels[1].text())
+                self.assertTrue(all(label.textFormat() == Qt.TextFormat.PlainText for label in labels))
+                self.assertTrue(dialog.cancel_button.isDefault())
+                self.assertFalse(dialog.run_button.isDefault())
+                dialog.show()
+                self.app.processEvents()
+                if action == 'enter':
+                    QTest.keyClick(dialog, Qt.Key.Key_Return)
+                elif action == 'escape':
+                    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+                elif action == 'close':
+                    dialog.close()
+                else:
+                    dialog.run_button.click()
+                expected = QDialog.DialogCode.Accepted if action == 'run' else QDialog.DialogCode.Rejected
+                self.assertEqual(expected, dialog.result())
+                self.assertFalse(dialog.isVisible())
 
     def test_enter_and_tab_edit_body_and_escape_cancels(self):
         editor = CommandEditor('Build', 'first')

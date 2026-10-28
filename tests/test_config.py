@@ -8,6 +8,25 @@ from bashdock import config
 
 
 class ConfigTests(unittest.TestCase):
+    def test_optional_confirmation_fields_roundtrip_and_legacy_buttons_stay_unconfirmed(self):
+        import copy
+        data = config.defaults()
+        self.assertTrue(all(not button.get('confirm', False) for button in data['tabs'][0]['buttons']))
+        entry = data['tabs'][0]['buttons'][0]
+        entry.update(confirm=True, confirmation_message='Deploy café <production>?')
+        data['workspaces'] = [{'name': 'Confirm', 'tabs': copy.deepcopy(data['tabs']), 'active_tab': 0}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'settings.json'
+            config.save(data, path)
+            self.assertEqual(data, config.read(path))
+        for key, values in (('confirm', [None, 'false', 0, 1, []]),
+                            ('confirmation_message', [None, False, 0, '', '  ', 'line\nbreak', 'tab\tmessage'])):
+            for value in values:
+                with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                    invalid = copy.deepcopy(data)
+                    invalid['workspaces'][0]['tabs'][0]['buttons'][0][key] = value
+                    config.validate(invalid)
+
     def test_tab_icons_are_optional_for_legacy_settings_and_validated_in_saved_workspaces(self):
         import copy
         data = config.defaults()

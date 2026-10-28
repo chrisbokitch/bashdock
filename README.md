@@ -161,6 +161,19 @@ out of the command body. The editor keeps long lines intact with horizontal
 scrolling. Save stages the definition in Configure tab; that dialog's Save keeps
 it, while Cancel discards its staged changes. Editing and saving never run commands.
 
+Below the command body, **Confirm before using** enables a message field whose
+default is **Are you sure?**. Unchecked, the field is greyed out; toggling it off
+keeps your custom message for later. Clearing the message and saving restores the
+default. Existing buttons keep confirmation off unless you enable it.
+
+Clicking a button with confirmation enabled shows your message, the button label,
+target tab and exact command, including all lines. **Cancel** is the default;
+**Run command** submits it once to that tab's existing shell. Cancel or closing the
+prompt sends nothing. If that shell closes or restarts while the prompt is open,
+the reviewed command is not sent to a replacement shell. Save Configure tab to
+keep confirmation changes; they travel with the button in workspaces, exports,
+imports and backups. Restoring a button never runs it or opens this prompt.
+
 Multiline buttons use the same existing shell, including Bash functions, loops,
 continuation lines and heredocs. There is no automatic stop on error: use Bash
 syntax such as `&&` when later commands should depend on earlier success. Literal
@@ -262,6 +275,6 @@ unconfigured. Full signed-update VM validation is required before 1.0. See the
 
 ## Feature roadmap
 
-See the [post-1.0 feature roadmap](docs/FEATURE-ROADMAP.md) for the next command-confirmation and
-preset-bundle improvements, plus longer-term command variables and shell candidates.
+See the [post-1.0 feature roadmap](docs/FEATURE-ROADMAP.md) for the next preset-bundle
+improvement, plus longer-term command variables and shell candidates.
 These investigations are separate from the [1.0 release checklist](docs/ROADMAP-1.0.md).

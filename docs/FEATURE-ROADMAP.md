@@ -16,7 +16,7 @@ command-button workflow, then a reassessment before taking on broader features.
 | Complete | Wrapping command buttons | Released in 1.3.0; owner visual check passed. |
 | Complete | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
 | 1 | Multiline command editor | Implemented in development 1.4.0; owner visual check pending. |
-| 2 | Per-button command confirmation | Add an optional Confirm before using toggle. |
+| 2 | Per-button command confirmation | Implemented in development 1.5.0; owner visual check pending. |
 | 3 | Command-button preset bundles | Preview and apply useful starter sets; destructive preset buttons enable confirmation. |
 | Candidate | Prompted command variables | Reassess after the three focused additions; not scheduled. |
 | Candidate | Variables with choices | Depends on prompted variables; not scheduled. |
@@ -298,9 +298,16 @@ long labels, wrapped rows and commands whose required tools are unavailable.
 
 ## Per-button command confirmation
 
-Queued at the owner's request. Add a **Confirm before using** toggle to each
-button's definition in Configure tab, available for manually authored buttons
-as well as applied presets.
+Implemented in development **1.5.0**; owner visual check pending. The command
+editor places **Confirm before using** and a message field below the command body.
+The field is disabled until checked, defaults to **Are you sure?**, and supports
+custom text. Turning confirmation off retains the message; saving an empty field
+restores the default. The execution dialog shows the literal message, button label,
+reviewed tab and full read-only command with Cancel as default and an explicit
+Run command button. Acceptance remains bound to the reviewed tab and process;
+closing, restarting or removing that target prevents submission.
+
+The option is available for manually authored buttons and future applied presets.
 
 - Existing buttons migrate with confirmation off, preserving their behavior.
   Ordinary new buttons default to off; known destructive buttons in bundled
@@ -308,7 +315,7 @@ as well as applied presets.
 - This is explicit, editable button metadata. Do not attempt to decide whether
   arbitrary shell commands are destructive through keyword detection.
 - When enabled, clicking the command button opens a confirmation dialog showing
-  its label, exact command (including multiline content), and target tab.
+  its custom message, label, exact command (including multiline content), and target tab.
   Make **Cancel** the default; **Run command** explicitly accepts execution.
 - Confirm before sending any part of the command, including a first character,
   newline or queued startup submission. Cancel or closing the dialog sends no

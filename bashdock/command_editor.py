@@ -2,14 +2,15 @@
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
-    QMessageBox, QPlainTextEdit, QVBoxLayout,
+    QMessageBox, QPlainTextEdit, QVBoxLayout, QHBoxLayout, QCheckBox,
 )
 
-from .config import validate_buttons
+from .config import validate_buttons, DEFAULT_CONFIRMATION_MESSAGE
 
 
 class CommandEditor(QDialog):
-    def __init__(self, label, command, parent=None):
+    def __init__(self, label, command, parent=None, *, confirm=False,
+                 confirmation_message=DEFAULT_CONFIRMATION_MESSAGE):
         super().__init__(parent)
         self.setWindowTitle("Edit command button")
         self.resize(680, 460)
@@ -29,6 +30,19 @@ class CommandEditor(QDialog):
         heading.setBuddy(self.command)
         layout.addWidget(heading)
         layout.addWidget(self.command, 1)
+        confirmation = QHBoxLayout()
+        self.confirm = QCheckBox("Confirm before using")
+        self.confirm.setChecked(confirm)
+        self.confirmation_message = QLineEdit(confirmation_message)
+        self.confirmation_message.setAccessibleName("Confirmation message")
+        self.confirmation_message.setToolTip("Message shown before this command button runs")
+        self.confirmation_message.setEnabled(confirm)
+        self.confirmation_message.setStyleSheet(
+            "QLineEdit:disabled { color:#77818f;background:#1b222d; }")
+        self.confirm.toggled.connect(self.confirmation_message.setEnabled)
+        confirmation.addWidget(self.confirm)
+        confirmation.addWidget(self.confirmation_message, 1)
+        layout.addLayout(confirmation)
         note = QLabel("Enter adds a line; Tab inserts indentation. Use Ctrl+Tab to leave the editor.\n"
                       "Runs in this tab's existing shell at an empty prompt. Bash syntax controls\n"
                       "whether later commands run after a failure. Saving here only stages edits;\n"
@@ -42,7 +56,10 @@ class CommandEditor(QDialog):
         layout.addWidget(buttons)
 
     def commit(self):
-        data = {"label": self.label.text(), "command": self.command.toPlainText()}
+        message = self.confirmation_message.text()
+        data = {"label": self.label.text(), "command": self.command.toPlainText(),
+                "confirm": self.confirm.isChecked(),
+                "confirmation_message": message if message.strip() else DEFAULT_CONFIRMATION_MESSAGE}
         try:
             validate_buttons([data])
         except ValueError as error:

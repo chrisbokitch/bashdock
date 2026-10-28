@@ -32,6 +32,9 @@ def defaults():
             "updates": {"automatic": True, "download": True}}
 
 
+DEFAULT_CONFIRMATION_MESSAGE = "Are you sure?"
+
+
 def validate_buttons(buttons):
     if not isinstance(buttons, list):
         raise ValueError("buttons must be a list.")
@@ -43,6 +46,12 @@ def validate_buttons(buttons):
             raise ValueError("Each button needs a nonempty label and command.")
         if any(ord(ch) < 32 and ch not in "\n\t" for ch in button["command"]):
             raise ValueError("Commands cannot contain terminal control characters.")
+        if 'confirm' in button and type(button['confirm']) is not bool:
+            raise ValueError("Confirm before using must be true or false.")
+        if 'confirmation_message' in button:
+            message = button['confirmation_message']
+            if not isinstance(message, str) or not message.strip() or any(ord(ch) < 32 for ch in message):
+                raise ValueError("Confirmation messages must be nonempty text on one line.")
 
 
 def validate_tab(tab):

@@ -106,6 +106,63 @@ class WindowsTests(GuiTestCase):
             app.processEvents()
             retry(temporary.cleanup, timeout=5)
 
+    def test_command_button_confirmation_sends_nothing_until_run_and_executes_once(self):
+        from unittest.mock import patch
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout
+        from bashdock import config, terminal_preferences
+        from bashdock.app import ShellTab, TabStrip
+        from bashdock.command_confirmation import CommandConfirmation
+        owner = QWidget()
+        owner.tabs = QTabWidget(owner)
+        owner.tabs.setTabBar(TabStrip(owner.tabs))
+        owner.data = {'terminal': terminal_preferences.defaults()}
+        QVBoxLayout(owner).addWidget(owner.tabs)
+        errors = []
+        try:
+            with self.interactive_session() as s:
+                body = ("printf '%s\\n' first >> confirmation.txt\n"
+                        "printf '%s\\n' second >> confirmation.txt")
+                profile = config.default_tab('Reviewed tab')
+                profile['buttons'] = [{'label': 'Reviewed script', 'command': body,
+                                       'confirm': True, 'confirmation_message': 'Run both lines?'}]
+                tab = ShellTab(profile, owner, terminal_factory=lambda parent: s.terminal)
+                owner.tabs.addTab(tab, 'Reviewed tab')
+                owner.resize(900, 650)
+                owner.show()
+                with patch.object(s.terminal, 'run_command', wraps=s.terminal.run_command) as run:
+                    for action in ('cancel', 'close', 'run'):
+                        def respond(action=action):
+                            dialog = QApplication.activeModalWidget()
+                            try:
+                                self.assertIsInstance(dialog, CommandConfirmation)
+                                self.assertEqual(body, dialog.command.toPlainText())
+                                run.assert_not_called()
+                                self.assertFalse((s.folder / 'confirmation.txt').exists())
+                                self.assertEqual([], s.terminal.command_startup.pending)
+                                if action == 'run':
+                                    dialog.run_button.click()
+                                elif action == 'close':
+                                    dialog.close()
+                                else:
+                                    dialog.cancel_button.click()
+                            except BaseException as error:
+                                errors.append(error)
+                                dialog.reject()
+                        QTimer.singleShot(0, respond)
+                        tab.command_buttons[0].click()
+                        if errors:
+                            raise errors[0]
+                        if action != 'run':
+                            run.assert_not_called()
+                            self.assertFalse((s.folder / 'confirmation.txt').exists())
+                    run.assert_called_once_with(body)
+                    s.receipt('confirmation.txt', 'first\nsecond\n')
+                    s.wait(lambda: s.evaluate("document.activeElement.classList.contains('xterm-helper-textarea')"))
+        finally:
+            owner.close()
+            owner.deleteLater()
+
     def test_command_button_multiline_script_preserves_syntax_order_and_shell_state(self):
         from bashdock.command_editor import CommandEditor
         with self.interactive_session() as s:

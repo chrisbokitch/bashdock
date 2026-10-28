@@ -19,6 +19,8 @@ from . import config, terminal_preferences, tab_icons
 from .tab_icon_picker import TabIconPicker
 from .command_bar import CommandButton, CommandFlowLayout, CommandScrollArea
 from .command_editor import CommandEditor
+from .command_confirmation import CommandConfirmation
+from shiboken6 import isValid
 from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
 from .window_theme import install_titlebar_theme
@@ -239,7 +241,7 @@ class SettingsDialog(QDialog):
             shortcut.activated.connect(self.edit_button)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         for button in data["buttons"]:
-            self.add_row(button["label"], button["command"])
+            self.add_row(button["label"], button["command"], button)
         layout.addWidget(self.table)
         actions = QHBoxLayout()
         for label, callback in (("Add", self.add_button),
@@ -288,10 +290,11 @@ class SettingsDialog(QDialog):
         if selected:
             edit.setText(QDir.toNativeSeparators(selected))
 
-    def add_row(self, label, command):
+    def add_row(self, label, command, metadata=None):
         row = self.table.rowCount()
         self.table.insertRow(row)
         self.table.setItem(row, 0, QTableWidgetItem(label))
+        self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, copy.deepcopy(metadata or {}))
         self.table.setItem(row, 1, QTableWidgetItem(command))
         self.table.item(row, 1).setToolTip(command)
         self.table.selectRow(row)
@@ -299,18 +302,25 @@ class SettingsDialog(QDialog):
     def add_button(self):
         self.edit_button(new=True)
 
+    def row_data(self, row):
+        data = copy.deepcopy(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) or {})
+        data.update(label=self.table.item(row, 0).text(), command=self.table.item(row, 1).text())
+        return data
+
     def edit_button(self, *, new=False):
         row = self.table.currentRow()
         if not new and row < 0:
             return
-        label, command = (('New button', 'pwd') if new else
-                          tuple(self.table.item(row, col).text() for col in range(2)))
-        dialog = CommandEditor(label, command, self)
+        original = {'label': 'New button', 'command': 'pwd'} if new else self.row_data(row)
+        dialog = CommandEditor(original['label'], original['command'], self,
+                               confirm=original.get('confirm', False),
+                               confirmation_message=original.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE))
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            values = dialog.result_data
+            values = dict(original, **dialog.result_data)
             if new:
-                self.add_row(values['label'], values['command'])
+                self.add_row(values['label'], values['command'], values)
             else:
+                self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, values)
                 self.table.item(row, 0).setText(values['label'])
                 self.table.item(row, 1).setText(values['command'])
                 self.table.item(row, 1).setToolTip(values['command'])
@@ -340,8 +350,7 @@ class SettingsDialog(QDialog):
                 "terminal": copy.deepcopy(self.terminal_override),
                 "startup_folder": QDir.toNativeSeparators(self.folder.text().strip()), "buttons": []}
         for row in range(self.table.rowCount()):
-            data["buttons"].append({key: self.table.item(row, col).text()
-                                    for col, key in enumerate(("label", "command"))})
+            data["buttons"].append(self.row_data(row))
         try:
             config.validate_tab(data)
             if not Path(data["bash_path"]).is_file() or Path(data["bash_path"]).name.lower() != "bash.exe":
@@ -420,6 +429,7 @@ class ShellTab(QWidget):
         footer.addWidget(configure, 0, Qt.AlignmentFlag.AlignTop)
         layout.addLayout(footer)
         self.command_buttons = []
+        self.command_confirmation_open = False
         self.build_buttons()
 
     def build_buttons(self):
@@ -433,11 +443,37 @@ class ShellTab(QWidget):
             button.setToolTip(f"{entry['label']}\n{entry['command']}")
             # A mouse click should return input to this tab's terminal.
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            button.clicked.connect(lambda checked=False, command=entry["command"]:
-                                   self.terminal.run_command(command))
+            button.clicked.connect(lambda checked=False, definition=copy.deepcopy(entry):
+                                   self.run_button_command(definition))
             self.bar_layout.addWidget(button)
             self.command_buttons.append(button)
         self.set_running(bool(self.terminal.process))
+
+    def run_button_command(self, definition):
+        if self.command_confirmation_open or not self.terminal.process:
+            return
+        entry = copy.deepcopy(definition)
+        terminal, process = self.terminal, self.terminal.process
+        owner = self.window()
+        if entry.get('confirm', False):
+            entry.setdefault('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE)
+            dialog = CommandConfirmation(entry, self.data['name'], owner)
+            self.command_confirmation_open = True
+            try:
+                accepted = dialog.exec() == QDialog.DialogCode.Accepted
+            finally:
+                if isValid(self):
+                    self.command_confirmation_open = False
+                if isValid(dialog):
+                    dialog.deleteLater()
+            if not accepted:
+                return
+        # A modal dialog runs the event loop. Bind acceptance to the reviewed
+        # tab and process, even if selection changes or a shell is restarted.
+        if (isValid(self) and isValid(terminal) and isValid(owner)
+                and owner.tabs.indexOf(self) >= 0 and self.terminal is terminal
+                and terminal.process is process):
+            terminal.run_command(entry['command'])
 
     def set_running(self, running):
         for button in self.command_buttons:

@@ -88,6 +88,118 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def test_command_confirmation_cancel_default_and_accept_bind_to_reviewed_tab_once(self):
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_confirmation import CommandConfirmation
+        first = self.window.current_tab()
+        self.ready(first)
+        body = 'printf first\nprintf second'
+        entry = {'label': 'Reviewed', 'command': body, 'confirm': True,
+                 'confirmation_message': 'Run both lines?'}
+        first.data['buttons'] = [entry]
+        first.build_buttons()
+        self.window.new_tab()
+        second = self.window.current_tab()
+        self.ready(second)
+        self.window.tabs.setCurrentIndex(0)
+        # Drive the actual modal Cancel, close and Run controls. No class-level
+        # exec mock is used while PySide creates connections on the dialog.
+        errors = []
+        for action in ('cancel', 'close', 'run'):
+            def respond(action=action):
+                dialog = QApplication.activeModalWidget()
+                try:
+                    self.assertIsInstance(dialog, CommandConfirmation)
+                    self.assertEqual([], first.terminal.commands)
+                    self.assertEqual([], second.terminal.commands)
+                    self.assertEqual(body, dialog.command.toPlainText())
+                    # A nested invocation while confirmation is open is ignored.
+                    first.run_button_command(entry)
+                    self.window.tabs.setCurrentIndex(1)
+                    if action == 'run':
+                        first.data['buttons'][0]['command'] = 'changed while dialog was open'
+                        dialog.run_button.click()
+                    elif action == 'close':
+                        dialog.close()
+                    else:
+                        dialog.cancel_button.click()
+                except BaseException as error:
+                    errors.append(error)
+                    if isinstance(dialog, QDialog):
+                        dialog.reject()
+            QTimer.singleShot(0, respond)
+            first.command_buttons[0].click()
+            if errors:
+                raise errors[0]
+            self.assertFalse(first.command_confirmation_open)
+            self.assertEqual([body] if action == 'run' else [], first.terminal.commands)
+            self.assertEqual([], second.terminal.commands)
+
+    def test_confirmation_acceptance_does_not_retarget_a_stopped_restarted_or_removed_tab(self):
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_confirmation import CommandConfirmation
+        first = self.window.current_tab()
+        self.ready(first)
+        entry = {'label': 'Reviewed', 'command': 'echo reviewed', 'confirm': True}
+        first.data['buttons'] = [entry]
+        first.build_buttons()
+        self.window.new_tab()
+        for change in ('stop', 'restart', 'remove'):
+            first.terminal.process = object()
+            def accept(dialog):
+                if change == 'stop':
+                    first.terminal.process = None
+                elif change == 'restart':
+                    first.terminal.process = object()
+                else:
+                    self.window.tabs.removeTab(self.window.tabs.indexOf(first))
+                return QDialog.DialogCode.Accepted
+            with patch.object(CommandConfirmation, 'exec', accept):
+                first.run_button_command(entry)
+            self.assertEqual([], first.terminal.commands)
+        first.deleteLater()
+
+    def test_confirmation_edits_follow_reordering_and_outer_cancel_or_failed_save(self):
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_editor import CommandEditor
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = copy.deepcopy(tab.data)
+        original_file = self.path.read_bytes()
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        editor.table.selectRow(0)
+        def edit(inner):
+            inner.confirm.setChecked(True)
+            inner.confirmation_message.setText('Apply these changes?')
+            inner.commit()
+            return inner.result()
+        with patch.object(CommandEditor, 'exec', edit):
+            editor.edit_button()
+        editor.move_row(1)
+        self.assertTrue(editor.row_data(1)['confirm'])
+        self.assertEqual('Apply these changes?', editor.row_data(1)['confirmation_message'])
+        self.assertNotIn('confirm', editor.row_data(0))
+        self.assertEqual(original, tab.data)
+        editor.reject()
+        self.assertIsNone(editor.result_data)
+        editor.commit()
+        with patch('bashdock.app.SettingsDialog', return_value=editor), \
+                patch.object(editor, 'exec', lambda: QDialog.DialogCode.Accepted), \
+                patch('bashdock.app.config.save', side_effect=OSError('disk full')), \
+                patch('bashdock.app.QMessageBox.warning'):
+            self.window.configure(tab)
+        self.assertEqual(original, tab.data)
+        self.assertEqual(original_file, self.path.read_bytes())
+        with patch('bashdock.app.SettingsDialog', return_value=editor), \
+                patch.object(editor, 'exec', lambda: QDialog.DialogCode.Accepted):
+            self.window.configure(tab)
+        self.assertTrue(tab.data['buttons'][1]['confirm'])
+        self.assertEqual('Apply these changes?', config.read(self.path)['tabs'][0]['buttons'][1]['confirmation_message'])
+        self.assertEqual([], tab.terminal.commands)
+        self.assertEqual(0, tab.terminal.stops)
+        editor.deleteLater()
+
     def test_multiline_editor_stages_cancels_reorders_and_saves_only_after_outer_save(self):
         from PySide6.QtWidgets import QDialog
         from bashdock.command_editor import CommandEditor
@@ -127,7 +239,8 @@ class WorkspaceTests(unittest.TestCase):
         with patch.object(CommandEditor, 'exec', accept):
             editor.add_button()
         editor.commit()
-        expected = {'label': 'Multiline', 'command': body}
+        expected = {'label': 'Multiline', 'command': body, 'confirm': False,
+                    'confirmation_message': 'Are you sure?'}
         self.assertEqual(expected, editor.result_data['buttons'][-1])
         with patch('bashdock.app.SettingsDialog', return_value=editor), \
                 patch.object(editor, 'exec', return_value=QDialog.DialogCode.Accepted), \
@@ -150,7 +263,9 @@ class WorkspaceTests(unittest.TestCase):
     def test_multiline_buttons_survive_workspace_export_import_and_backup_recovery(self):
         body = '\nfunction greet() {\n  printf "%s" "café 世界"\n}\n\ngreet\n'
         tab = self.window.current_tab()
-        tab.data['buttons'] = [{'label': 'Script', 'command': body}]
+        entry = {'label': 'Script', 'command': body, 'confirm': True,
+                 'confirmation_message': 'Execute this script?'}
+        tab.data['buttons'] = [entry]
         tab.build_buttons()
         self.ready(tab)
         self.assertTrue(self.window.save_workspace('Scripts', [0]))
@@ -160,13 +275,13 @@ class WorkspaceTests(unittest.TestCase):
         self.window.import_settings(path=exported)
         restored = self.window.current_tab()
         self.ready(restored)
-        self.assertEqual(body, restored.data['buttons'][0]['command'])
+        self.assertEqual(entry, restored.data['buttons'][0])
         self.assertEqual([], restored.terminal.commands)
-        self.assertEqual(body, self.window.data['workspaces'][0]['tabs'][0]['buttons'][0]['command'])
+        self.assertEqual(entry, self.window.data['workspaces'][0]['tabs'][0]['buttons'][0])
         config.save(self.window.snapshot(), self.path)
-        self.assertEqual(body, config.read(config.backup_path(self.path))['tabs'][0]['buttons'][0]['command'])
+        self.assertEqual(entry, config.read(config.backup_path(self.path))['tabs'][0]['buttons'][0])
         self.assertTrue(self.window.open_workspace(0, replace=True))
-        self.assertEqual(body, self.window.current_tab().data['buttons'][0]['command'])
+        self.assertEqual(entry, self.window.current_tab().data['buttons'][0])
         self.assertEqual([], self.window.current_tab().terminal.commands)
 
     def test_command_editor_opens_from_table_keyboard_and_double_click(self):
