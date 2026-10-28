@@ -84,3 +84,9 @@ not a newly published public release.
 - The existing install/rollback and local-update transaction tests passed; their
   assertions were unchanged. No new manual end-to-end installed update/rollback
   pass is claimed.
+
+## Subsequent resource optimization
+
+Development 1.6.5 additionally omits debug WebEngine packs and verifies frozen
+rendering: [results and test evidence](WEBENGINE-RESOURCES-1.6.5.md). The 1.6.4
+measurements above remain the updater-only baseline.

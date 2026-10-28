@@ -65,24 +65,26 @@ The updater executable was read as a PyInstaller CArchive using PyInstaller 6.22
 - Includes Qt Gui/Core/Quick/QML/PDF libraries, platform plugins, and software OpenGL.
 - **223 embedded entries** are byte-identical (SHA-256 compared) to files in the main installation: 41.48 MiB packed inside the updater, 108.73 MiB unpacked.
 - Duplication alone does not make these entries removable. The helper intentionally carries its own Python/TLS runtime so folder replacement cannot break it.
-- `update_status.py` uses ctypes/Windows APIs. Source inspection suggests GUI dependencies can enter through shared config/icon imports (including imports inside functions that PyInstaller analyzes). This is a candidate import-boundary investigation, not a validated lean-helper build.
+- `update_status.py` uses ctypes/Windows APIs. Source inspection suggests GUI dependencies can enter through shared config/icon imports (including imports inside functions that PyInstaller analyzes). This was a candidate import-boundary investigation at baseline; completed optimization results are linked below.
 - Packed inner bytes are not additive to the outer ZIP table and are not a promise of equal ZIP savings after rebuilding.
 
 ## Optimization follow-up
 
 The updater dependency isolation was completed and measured in development
 1.6.4: see [the before/after results](UPDATER-SIZE-1.6.4.md). The baseline above
-is preserved as measured. The remaining resource/locale candidates are unchanged.
+is preserved as measured. Debug resources were subsequently omitted and verified
+in [1.6.5](WEBENGINE-RESOURCES-1.6.5.md); locale, release developer-tools and QML
+candidates remain for separate investigation.
 
 ## Follow-up experiments, in suggested order
 
-1. **Isolate the updater from GUI imports.** Investigate its 31.49 MiB of packed Qt/PySide payload while preserving independent Python/TLS support, the status window, install/rollback, startup health, local staging and acceptance modes.
-2. **Debug WebEngine resource packs: 17.35 MiB compressed.** Five `.debug.pak` / `.debug.bin` entries are present. Validate release-mode resource loading before excluding them.
+1. **Completed in 1.6.4: isolate the updater from GUI imports.** GUI dependencies were isolated while retaining independent Python/TLS support and validating updater behavior; its ZIP contribution fell from 45.17 to 10.82 MiB.
+2. **Completed in 1.6.5: debug WebEngine resource packs, 17.35 MiB compressed.** Five `.debug.pak` / `.debug.bin` entries were omitted after validating release counterparts and frozen rendering; the net download fell by 17.35 MiB.
 3. **QML inventory: 7.95 MiB compressed, 2,401 files.** Audit which QML files/plugins and related libraries are actually needed. Widgets-based application UI alone does not prove WebEngine has no Qt Quick/QML dependencies.
 4. **Translations: 12.73 MiB compressed, 210 files.** Measure the tradeoff of retaining a smaller locale set; test fallback on different Windows language settings before deciding.
 5. **Release developer-tools resources: 10.50 MiB compressed.** Investigate separately from debug packs; removing them needs validation of WebEngine startup and any developer-tools use.
 
-These are candidate budgets, not validated removable totals. Related DLL/resource requirements may overlap. Do not sum them into a guaranteed saving. Retain current licenses, notices and source access. No files have been deleted from any installation.
+Remaining items 3–5 are candidate budgets, not validated removable totals. Related DLL/resource requirements may overlap; do not sum them into a guaranteed saving. Retain current licenses, notices and source access. The original baseline measurement did not delete any files; subsequent build optimizations and their validation are linked above.
 
 ## Reproduce or compare a future ZIP
 
