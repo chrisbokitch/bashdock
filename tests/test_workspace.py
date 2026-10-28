@@ -1574,6 +1574,45 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue(self.window.persist())
         self.assertEqual(1, len(config.load(self.path)["tabs"]))
 
+    def test_close_active_tab_restores_native_focus_to_surviving_terminal(self):
+        from PySide6.QtWidgets import QTabBar, QToolButton
+
+        first = self.window.current_tab()
+        self.ready(first)
+        self.window.new_tab()
+        self.ready(self.window.current_tab())
+        self.window.show()
+        self.app.processEvents()
+        bar = self.window.tabs.tabBar()
+        bar.setFocus()
+        close = bar.tabButton(1, QTabBar.ButtonPosition.RightSide).findChild(QToolButton, 'tabClose')
+        before = first.terminal.focus_requests
+        with patch.object(self.window, 'isActiveWindow', return_value=True):
+            close.click()
+            self.assertIs(first, self.window.current_tab())
+            self.assertEqual(before + 1, first.terminal.focus_requests)
+            self.app.processEvents()
+        self.assertEqual(before + 2, first.terminal.focus_requests)
+        self.assertIs(first.terminal, QApplication.focusWidget())
+
+    def test_close_tab_deferred_focus_respects_tab_switch_modal_and_inactive_window(self):
+        for blocked in ('switch', 'modal', 'inactive'):
+            with self.subTest(blocked=blocked):
+                survivor = self.window.current_tab()
+                self.window.new_tab()
+                self.app.processEvents()
+                before = survivor.terminal.focus_requests
+                self.window.close_tab(self.window.tabs.currentIndex())
+                self.assertEqual(before + 1, survivor.terminal.focus_requests)
+                if blocked == 'switch':
+                    other = self.window.add_tab(config.default_tab('Other'))
+                    self.window.tabs.setCurrentWidget(other)
+                with patch.object(self.window, 'isActiveWindow', return_value=blocked != 'inactive'), \
+                        patch('bashdock.app.QApplication.activeModalWidget',
+                              return_value=self.window if blocked == 'modal' else None):
+                    self.app.processEvents()
+                self.assertEqual(before + 1, survivor.terminal.focus_requests)
+
     def test_missing_remembered_folder_falls_back_to_startup_folder(self):
         tab = self.window.current_tab()
         tab.data["current_folder"] = str(Path(self.temp.name) / "removed")

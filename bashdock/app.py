@@ -1556,6 +1556,15 @@ class MainWindow(QMainWindow):
         self.tabs.removeTab(index)
         tab.deleteLater()
         self.refresh_tab_colors()
+        current = self.current_tab()
+        current.terminal.focus_terminal()
+        # Finish after the close dialog and tab removal have restored Qt focus.
+        # Bind to the surviving tab so deletion cancels the pending callback.
+        def finish_focus():
+            if (self.current_tab() is current and self.isActiveWindow() and
+                    QApplication.activeModalWidget() is None):
+                current.terminal.focus_terminal()
+        QTimer.singleShot(0, current, finish_focus)
         self.schedule_save()
 
     def set_confirm_on_exit(self, enabled):
