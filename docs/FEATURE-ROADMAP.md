@@ -16,6 +16,7 @@ release numbers.
 | 5 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
 | 6 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
 | 7 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
+| 8 | Command-button preset bundles | Queued: preview and apply useful starter button sets to a tab. |
 
 The workspace toggle, tab icons/compact overflow and button wrapping are
 released in 1.3.0. The multiline command editor is the next queued UI improvement.
@@ -209,6 +210,72 @@ Investigation areas:
   without unexpectedly changing saved workspaces.
 - Add actual Windows acceptance tests for each shell: typing, Ctrl+C, Unicode,
   resizing, multiline buttons, templates, directory restoration and external launch.
+
+
+## Command-button preset bundles
+
+Queued at the owner's request. Goal: help people start with useful command
+buttons by applying a curated bundle to a tab. This adds a roadmap item; it does
+not change the current implementation or reorder the next queued work.
+
+Proposed first iteration:
+
+- Add **Presets…** to Configure tab, with bundle descriptions and a preview of
+  every button label and exact command before applying.
+- Let users select individual buttons from a bundle. Default to **Append**;
+  offer **Replace existing buttons** as an explicit choice with a clear preview
+  of what will be removed.
+- Stage the changes in Configure tab. Save persists them; Cancel leaves existing
+  buttons and running shells untouched. Applying, saving, importing or restoring
+  a preset never executes its commands.
+- Copy the selected definitions into ordinary, editable per-tab buttons.
+  Preserve button order, tab identity, focus restoration and wrapping behavior.
+  Later catalog changes must not silently overwrite customized buttons.
+- Describe required tools and shell/platform compatibility for each bundle.
+  Applying a preset must not install tools. The initial examples target Git Bash
+  on Windows; "Universal" describes broad usefulness, not cross-shell portability.
+- Clearly mark destructive commands in previews. Explain their scope before
+  users add them; decide separately whether individual destructive buttons need
+  opt-in execution confirmation. Do not introduce blanket command confirmations.
+- Decide how repeat applications expose duplicates without silently removing or
+  replacing existing definitions. User-saved/shared bundles are a possible later
+  extension; the first iteration can ship a small bundled catalog.
+
+### Initial catalog candidates
+
+Preserve the owner's starting examples for review before implementation:
+
+| Bundle | Button | Command |
+| --- | --- | --- |
+| AI Rescue Pack (Universal) | Git Undo | `git checkout -- .` |
+| AI Rescue Pack (Universal) | Nuke Untracked | `git clean -fd` |
+| AI Rescue Pack (Universal) | Diff Context | `git diff \| clip` |
+| Python / Backend Developer | Run Pytest | `pytest -v` |
+| Python / Backend Developer | Lint & Fix | `black . && ruff check --fix .` |
+| Python / Backend Developer | Freeze Deps | `pip freeze > requirements.txt` |
+| Web Dev (Node/Ecosystem) | Dev Server | `npm run dev` |
+| Web Dev (Node/Ecosystem) | Quick Test | `npm test` |
+| Web Dev (Node/Ecosystem) | Nuke Modules | `rm -rf node_modules package-lock.json && npm install` |
+
+Catalog review should distinguish inspection from destructive recovery:
+Git Undo discards tracked working-tree edits in its path scope; Nuke Untracked
+deletes untracked files/directories; both can remove work unrelated to an AI.
+Offer an untracked-file preview (`git clean -nd`) as another candidate.
+Diff Context copies the unstaged tracked diff and uses Windows' `clip`; it does
+not include all possible repository changes. Freeze Deps overwrites its output
+file, while Nuke Modules removes the lockfile as well as installed modules.
+Consider a separate lockfile-preserving reinstall option rather than presenting
+lockfile deletion as routine maintenance.
+
+Other bundle ideas to curate later: Git inspection, Docker/Compose,
+.NET, Rust/Cargo, and project diagnostics. Catalog size is open; prioritize useful,
+documented sets over filling the picker with near-duplicates.
+
+Acceptance: previews match the saved commands exactly; append/replace,
+individual selection and cancellation work predictably; applying any bundle
+sends no shell input. Applied buttons survive workspaces/export/import/recovery
+and remain editable, with no changes to running shells. Cover duplicate review,
+long labels, wrapped rows and commands whose required tools are unavailable.
 
 ## Shared foundations and release boundaries
 
