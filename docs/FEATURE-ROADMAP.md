@@ -17,6 +17,7 @@ release numbers.
 | 6 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
 | 7 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
 | 8 | Command-button preset bundles | Queued: preview and apply useful starter button sets to a tab. |
+| 9 | Per-button command confirmation | Queued: optional Confirm before using toggle, enabled for destructive presets. |
 
 The workspace toggle, tab icons/compact overflow and button wrapping are
 released in 1.3.0. The multiline command editor is the next queued UI improvement.
@@ -234,9 +235,9 @@ Proposed first iteration:
 - Describe required tools and shell/platform compatibility for each bundle.
   Applying a preset must not install tools. The initial examples target Git Bash
   on Windows; "Universal" describes broad usefulness, not cross-shell portability.
-- Clearly mark destructive commands in previews. Explain their scope before
-  users add them; decide separately whether individual destructive buttons need
-  opt-in execution confirmation. Do not introduce blanket command confirmations.
+- Clearly mark destructive commands in previews and explain their scope before
+  users add them. Destructive preset buttons enable the per-button **Confirm
+  before using** option described below; users can review or change that setting.
 - Decide how repeat applications expose duplicates without silently removing or
   replacing existing definitions. User-saved/shared bundles are a possible later
   extension; the first iteration can ship a small bundled catalog.
@@ -276,6 +277,40 @@ individual selection and cancellation work predictably; applying any bundle
 sends no shell input. Applied buttons survive workspaces/export/import/recovery
 and remain editable, with no changes to running shells. Cover duplicate review,
 long labels, wrapped rows and commands whose required tools are unavailable.
+
+## Per-button command confirmation
+
+Queued at the owner's request. Add a **Confirm before using** toggle to each
+button's definition in Configure tab, available for manually authored buttons
+as well as applied presets.
+
+- Existing buttons migrate with confirmation off, preserving their behavior.
+  Ordinary new buttons default to off; known destructive buttons in bundled
+  presets enable it by default, visibly in the preset preview and editor.
+- This is explicit, editable button metadata. Do not attempt to decide whether
+  arbitrary shell commands are destructive through keyword detection.
+- When enabled, clicking the command button opens a confirmation dialog showing
+  its label, exact command (including multiline content), and target tab.
+  Make **Cancel** the default; **Run command** explicitly accepts execution.
+- Confirm before sending any part of the command, including a first character,
+  newline or queued startup submission. Cancel or closing the dialog sends no
+  input. Acceptance submits the reviewed command once to the reviewed tab;
+  do not silently redirect it if selection changes.
+- If command templates are added, show the resolved command after value entry
+  and before execution. Avoid duplicate confirmation prompts for one invocation.
+- Stage toggle edits until Configure tab is saved. Cancel or a failed save
+  leaves the saved definition and running shell unchanged.
+- Preserve the flag with buttons through reordering, saved workspaces, settings
+  export/import and recovery. Applying presets or restoring settings never runs
+  commands or opens execution-confirmation dialogs.
+- Keep normal terminal typing and clipboard behavior unchanged. Confirmation
+  covers this button's invocation, not commands typed directly into the shell.
+
+Acceptance: unchecked buttons retain existing execution behavior; enabled
+buttons require explicit acceptance. Test Cancel, dialog close, default action,
+target-tab binding, exactly-once execution, multiline command previews, saved
+flag round trips and legacy defaults. Neither previews nor diagnostics should
+introduce command-content logging.
 
 ## Shared foundations and release boundaries
 
