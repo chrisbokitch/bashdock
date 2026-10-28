@@ -15,7 +15,8 @@ from PySide6.QtWidgets import (
     QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu, QStyleOptionTab,
 )
 
-from . import config, terminal_preferences
+from . import config, terminal_preferences, tab_icons
+from .tab_icon_picker import TabIconPicker
 from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
 from .window_theme import install_titlebar_theme
@@ -186,6 +187,11 @@ class SettingsDialog(QDialog):
         form = QFormLayout()
         self.name = QLineEdit(data["name"])
         form.addRow("Tab name", self.name)
+        self.icon_key = data.get('icon', next(iter(tab_icons.GENERIC)))
+        self.icon_button = QPushButton()
+        self.update_icon_button()
+        self.icon_button.clicked.connect(self.choose_icon)
+        form.addRow("Tab icon", self.icon_button)
         self.bash = QLineEdit(QDir.toNativeSeparators(data["bash_path"] or config.find_bash()))
         self.folder = QLineEdit(QDir.toNativeSeparators(data["startup_folder"]))
         for label, edit, is_folder in (("Git Bash executable", self.bash, False),
@@ -233,6 +239,18 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
+    def update_icon_button(self):
+        self.icon_button.setIcon(tab_icons.icon(self.icon_key))
+        self.icon_button.setText(f"{tab_icons.CATALOG[self.icon_key][0]} — Choose icon…")
+        self.icon_button.setAccessibleName(f"Tab icon: {tab_icons.CATALOG[self.icon_key][0]}. Choose icon")
+
+    def choose_icon(self):
+        dialog = TabIconPicker(self.icon_key, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.icon_key = dialog.selected_icon()
+            self.update_icon_button()
+        dialog.deleteLater()
+
     def update_terminal_summary(self):
         self.terminal_summary.setText("Using terminal defaults" if self.terminal_override is None else "Custom settings for this tab")
 
@@ -278,6 +296,7 @@ class SettingsDialog(QDialog):
 
     def commit(self):
         data = {"name": self.name.text().strip(), "bash_path": QDir.toNativeSeparators(self.bash.text().strip()),
+                "icon": self.icon_key,
                 "current_folder": self.original["current_folder"],
                 "terminal": copy.deepcopy(self.terminal_override),
                 "startup_folder": QDir.toNativeSeparators(self.folder.text().strip()), "buttons": []}
@@ -431,10 +450,47 @@ class TabStrip(QTabBar):
         super().__init__(parent)
         self.top_inset = 0
         self.inset_pending = False
+        self.inset_timer = QTimer(self)
+        self.inset_timer.setSingleShot(True)
+        self.inset_timer.timeout.connect(self.update_tab_inset)
         self.selected_background = '#10141c'
         self.selected_foreground = '#dde4ef'
         self.terminal_themes = []
+        self.compact = False
+        self.compact_timer = QTimer(self)
+        self.compact_timer.setSingleShot(True)
+        self.compact_timer.timeout.connect(self.update_compact_mode)
+        if parent is not None:
+            parent.installEventFilter(self)
+        self.setUsesScrollButtons(True)
+        self.setElideMode(Qt.TextElideMode.ElideNone)
+        self.setIconSize(QSize(18, 18))
         self.currentChanged.connect(self.position_close_buttons)
+
+    def eventFilter(self, watched, event):
+        if event.type() in (QEvent.Type.Resize, QEvent.Type.Show, QEvent.Type.LayoutRequest):
+            self.compact_timer.start(0)
+        return super().eventFilter(watched, event)
+
+    def update_compact_mode(self):
+        parent = self.parentWidget()
+        if not isinstance(parent, QTabWidget):
+            return
+        corner = parent.cornerWidget(Qt.Corner.TopRightCorner)
+        available = parent.contentsRect().right() + 1 - self.x() - (corner.width() if corner else 0)
+        natural = sum(QTabBar.tabSizeHint(self, i).width() for i in range(self.count()))
+        compact = natural > max(0, available)
+        if compact != self.compact:
+            self.compact = compact
+            # Invalidate Qt's cached tab measurements as well as repainting labels.
+            QApplication.sendEvent(self, QEvent(QEvent.Type.StyleChange))
+            self.updateGeometry()
+            self.update()
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        if self.compact:
+            option.text = ''
 
     def set_terminal_themes(self, themes):
         self.terminal_themes = [terminal_preferences.inactive_tab_colors(theme) for theme in themes]
@@ -514,10 +570,12 @@ class TabStrip(QTabBar):
         super().changeEvent(event)
         if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange) and not self.inset_pending:
             self.inset_pending = True
-            QTimer.singleShot(0, self.update_tab_inset)
+            self.inset_timer.start(0)
 
     def tabLayoutChange(self):
         super().tabLayoutChange()
+        if hasattr(self, 'compact_timer'):
+            self.compact_timer.start(0)
         self.position_close_buttons()
         self.layout_changed.emit()
 
@@ -546,6 +604,9 @@ class TabStrip(QTabBar):
 
     def tabSizeHint(self, index):
         size = super().tabSizeHint(index)
+        if self.compact:
+            text_width = self.fontMetrics().size(Qt.TextFlag.TextShowMnemonic, self.tabText(index)).width()
+            size.setWidth(max(self.iconSize().width() + 38, size.width() - text_width - 4))
         size.setHeight(max(size.height(), self.corner_row_height()))
         return size
 
@@ -579,6 +640,7 @@ class MainWindow(QMainWindow):
             self.data = config.defaults()
             self.config_error = str(error)
         self.allow_save = not bool(self.config_error)
+        tab_icons.assign_missing(self.data)
         self.data["bash_path"] = self.data["bash_path"] or config.find_bash()
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
@@ -912,6 +974,8 @@ class MainWindow(QMainWindow):
         self.import_settings(path=config.backup_path())
 
     def replace_workspace(self, data, description, *, backup_label="before-import"):
+        data = copy.deepcopy(data)
+        tab_icons.assign_missing(data)
         running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))
         contents = "tabs and settings" if backup_label == "before-import" else "tabs"
         if QMessageBox.question(self, "Replace workspace?",
@@ -1033,6 +1097,7 @@ class MainWindow(QMainWindow):
         existing = {tab["id"] for tab in data["tabs"]}
         missing = [tab for tab in workspace["tabs"] if tab["id"] not in existing]
         data["tabs"].extend(missing)
+        tab_icons.assign_missing(data)
         active_id = workspace["tabs"][workspace["active_tab"]]["id"]
         data["active_tab"] = next(i for i, tab in enumerate(data["tabs"]) if tab["id"] == active_id)
         if not missing:
@@ -1062,6 +1127,9 @@ class MainWindow(QMainWindow):
     def add_tab(self, profile):
         profile = copy.deepcopy(profile)
         profile.setdefault("id", str(uuid4()))
+        if 'icon' not in profile:
+            used = [self.tabs.widget(i).data['icon'] for i in range(self.tabs.count())]
+            profile['icon'] = tab_icons.next_generic(used)
         for i in range(self.tabs.count()):
             existing = self.tabs.widget(i)
             if existing.data["id"] == profile["id"]:
@@ -1073,7 +1141,9 @@ class MainWindow(QMainWindow):
         tab.terminal.ended.connect(lambda text: self.on_ended(tab, text))
         tab.terminal.problem.connect(lambda text: self.show_status(tab, text))
         tab.terminal.directory_changed.connect(lambda path: self.directory_changed(tab, path))
-        index = self.tabs.addTab(tab, profile["name"])
+        index = self.tabs.addTab(tab, tab_icons.icon(profile['icon']), profile["name"])
+        self.tabs.setTabToolTip(index, profile['name'])
+        self.tabs.tabBar().setAccessibleTabName(index, profile['name'])
         # Native tab close controls clamp the image size on some Windows styles.
         close = QToolButton()
         close.setObjectName("tabClose")
@@ -1110,6 +1180,8 @@ class MainWindow(QMainWindow):
         if accepted and name.strip():
             tab.data["name"] = name.strip()
             self.tabs.setTabText(index, tab.data["name"])
+            self.tabs.setTabToolTip(index, tab.data['name'])
+            self.tabs.tabBar().setAccessibleTabName(index, tab.data['name'])
             self.schedule_save()
 
     def tab_changed(self, *args):
@@ -1128,6 +1200,8 @@ class MainWindow(QMainWindow):
                   for i in range(self.tabs.count())]
         self.tabs.tabBar().set_terminal_themes(themes)
         for i in range(self.tabs.count()):
+            color = themes[i]['foreground'] if i == self.tabs.currentIndex() else terminal_preferences.inactive_tab_colors(themes[i])['foreground']
+            self.tabs.setTabIcon(i, tab_icons.icon(self.tabs.widget(i).data['icon'], color))
             self.tabs.widget(i).top_border.update()
         tab = self.current_tab()
         if tab:
@@ -1381,6 +1455,8 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Cannot save tab", "Changes were not saved. Check the status bar for details.")
                 return
             self.tabs.setTabText(self.tabs.indexOf(tab), tab.data["name"])
+            self.tabs.setTabToolTip(self.tabs.indexOf(tab), tab.data['name'])
+            self.tabs.tabBar().setAccessibleTabName(self.tabs.indexOf(tab), tab.data['name'])
             tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
             self.refresh_tab_colors()
             tab.build_buttons()

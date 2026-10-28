@@ -11,15 +11,14 @@ release numbers.
 | --- | --- | --- |
 | 1 | Workspace submenu: Replace current toggle | Complete in development 1.1.0; owner visual check passed. |
 | 2 | Wrapping command buttons | Wrap the command bar into additional rows as the window narrows. |
-| 3 | Tab icons and compact overflow | Optional tab icons, with an icon-only treatment when labels no longer fit. |
+| 3 | Tab icons and compact overflow | Implemented in development 1.2.0; owner visual check pending. |
 | 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
 | 5 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
 | 6 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
 | 7 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
 
-Start with the workspace toggle because the replacement confirmation and backup
-behavior already exist. Button wrapping follows; tab icons/compact overflow
-need decisions about icon selection and label fallback before implementation.
+The workspace toggle and tab icons/compact overflow are implemented. Button
+wrapping is the next queued UI improvement.
 Deliver each UI enhancement separately with focused regression checks and a
 short owner visual check.
 
@@ -68,17 +67,20 @@ or submit commands.
 
 ## Tab icons and compact overflow
 
-Support optional icons for tabs. When the window is too narrow for the full tab
-labels, explore switching to icons so more tabs fit.
+Implemented in development **1.2.0**, moved ahead of button wrapping at the
+owner's request. Owner visual check pending.
 
-- Decide the initial icon set/selection UI and the fallback for tabs without an
-  icon. Avoid requiring every existing tab to be configured before it can fit.
-- Keep the tab name available through tooltips and accessible labels in compact
-  mode; active-tab identity and close controls must remain clear.
-- Define when compact mode begins and how labels return as space becomes
-  available. Retain a usable overflow treatment if icons alone still do not fit.
-- Preserve tab identities, order, icons and selected state through settings,
-  saved workspaces, export/import and recovery, with backward-compatible defaults.
+- New and legacy tabs receive generic shapes automatically: use each of the 12
+  shapes before repeating the least-used shape. Assignments persist; shared legacy
+  saved/open tab identities receive the same initial icon.
+- **Configure tab → Tab icon → Choose icon…** offers 36 original bundled line
+  icons, including folders, servers, branches, tools and geometric shapes.
+  Selection is staged until Configure tab is saved. Icons follow tab theme colors.
+- When full labels exceed the space beside the New tab control, tabs show icons
+  and close controls. Widening restores labels. Names remain available through
+  tooltips and accessibility; native scroll arrows handle further overflow.
+- Existing settings without icons remain valid. Icons persist through saved
+  workspaces, export/import and recovery without changing tab identity or shells.
 
 Acceptance: resizing changes the presentation without changing the selected tab
 or shell; rename/reorder/close remain usable, and old settings without icons

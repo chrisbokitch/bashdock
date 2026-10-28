@@ -7,7 +7,7 @@ import tempfile
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 from pathlib import Path
-from . import terminal_preferences
+from . import terminal_preferences, tab_icons
 
 
 def config_path():
@@ -48,6 +48,8 @@ def validate_buttons(buttons):
 def validate_tab(tab):
     if not isinstance(tab, dict):
         raise ValueError("Each tab must be an object.")
+    if "icon" in tab and (not isinstance(tab['icon'], str) or tab['icon'] not in tab_icons.CATALOG):
+        raise ValueError("Tab icon must be one of the bundled icons.")
     if "id" in tab:
         try:
             if not isinstance(tab["id"], str):

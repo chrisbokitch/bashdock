@@ -123,6 +123,14 @@ Each tab has a persistent random UUID, preserved across renaming, configuration 
 
 **Manage → Workspaces → Replace current** changes how saved workspace menu entries open. Unchecked (the default), they add missing tabs and focus tabs already open. Checked, they replace the current tabs after confirmation and a backup. Changing the toggle alone does not open or close tabs. The mode is remembered across launches and included in settings exports/backups; the workspace manager’s explicit Open and Replace controls keep their own behavior.
 
+Tabs receive distinct generic shape icons automatically, using all 12 shapes before
+repeating the least-used shape. **Configure tab → Tab icon → Choose icon…** offers
+36 bundled shapes and symbols. Save applies your choice; Cancel keeps the original.
+Icons are remembered with tabs and saved workspaces, including exports and backups.
+When full tab labels no longer fit beside the New tab button, the bar switches to
+icons with close controls. Hover for a tab's full name; widening the window restores
+labels. If even the compact tabs do not fit, use the tab bar's scroll arrows.
+
 Workspaces start fresh shell sessions. They preserve command buttons such as an SSH **Connect** button, but do not run those commands or reconnect SSH automatically. They are included in settings exports, imports, and automatic backups. Existing settings files start with an empty workspace library.
 
 ## Command buttons

@@ -8,6 +8,23 @@ from bashdock import config
 
 
 class ConfigTests(unittest.TestCase):
+    def test_tab_icons_are_optional_for_legacy_settings_and_validated_in_saved_workspaces(self):
+        import copy
+        data = config.defaults()
+        self.assertNotIn('icon', data['tabs'][0])
+        config.validate(data)
+        data['tabs'][0]['icon'] = 'server'
+        data['workspaces'] = [{'name': 'Icons', 'tabs': copy.deepcopy(data['tabs']), 'active_tab': 0}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'settings.json'
+            config.save(data, path)
+            self.assertEqual(data, config.read(path))
+        for value in (None, True, 1, [], {}, 'unknown', '../icon.svg'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                invalid = copy.deepcopy(data)
+                invalid['workspaces'][0]['tabs'][0]['icon'] = value
+                config.validate(invalid)
+
     def test_tab_ids_are_unique_uuids_and_legacy_saved_profiles_share_live_identity(self):
         from uuid import UUID
         import copy

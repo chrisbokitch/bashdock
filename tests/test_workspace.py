@@ -12,7 +12,7 @@ if sys.platform != "win32":
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QApplication, QWidget, QMessageBox, QPushButton
-from bashdock import config
+from bashdock import config, tab_icons
 from bashdock.app import MainWindow, SettingsDialog
 
 
@@ -87,6 +87,151 @@ class WorkspaceTests(unittest.TestCase):
     def ready(self, tab):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
+
+    def test_tab_icons_automatic_assignment_persistence_and_shared_workspace_identity(self):
+        from bashdock import tab_icons
+        for _ in range(len(tab_icons.GENERIC) + 1):
+            self.window.new_tab()
+        tabs = [self.window.tabs.widget(i) for i in range(self.window.tabs.count())]
+        keys = [tab.data['icon'] for tab in tabs]
+        self.assertEqual(len(tab_icons.GENERIC), len(set(keys[:len(tab_icons.GENERIC)])))
+        self.assertTrue(all(key in tab_icons.GENERIC for key in keys))
+        tabs[2].data['icon'] = 'server'
+        keys[2] = 'server'
+        self.assertTrue(self.window.save_workspace('Icons', [0, 2, 4]))
+        self.assertTrue(self.window.persist())
+        saved = config.read(self.path)
+        self.assertEqual(keys, [tab['icon'] for tab in saved['tabs']])
+        self.assertEqual([keys[i] for i in (0, 2, 4)],
+                         [tab['icon'] for tab in saved['workspaces'][0]['tabs']])
+        self.assertTrue(self.window.open_workspace(0, replace=True))
+        self.assertEqual([keys[i] for i in (0, 2, 4)],
+                         [self.window.tabs.widget(i).data['icon'] for i in range(3)])
+        exported = Path(self.temp.name) / 'icons-export.json'
+        with patch('bashdock.app.QFileDialog.getSaveFileName', return_value=(str(exported), '')):
+            self.window.export_settings()
+        self.window.import_settings(path=exported)
+        self.assertEqual(['circle', 'server', 'hexagon'],
+                         [self.window.tabs.widget(i).data['icon'] for i in range(3)])
+        # Legacy profiles gain icons only when used by the UI; shared IDs agree.
+        legacy = copy.deepcopy(saved)
+        for tab in legacy['tabs'] + legacy['workspaces'][0]['tabs']:
+            del tab['icon']
+        before = copy.deepcopy(legacy)
+        self.assertEqual(before, config.migrate(legacy))
+        tab_icons.assign_missing(legacy)
+        for tab in legacy['workspaces'][0]['tabs']:
+            live = next(item for item in legacy['tabs'] if item['id'] == tab['id'])
+            self.assertEqual(live['icon'], tab['icon'])
+        resolved = copy.deepcopy(legacy)
+        tab_icons.assign_missing(legacy)
+        self.assertEqual(resolved, legacy)
+
+    def test_tab_icon_picker_cancel_save_and_failed_save_preserve_live_shell(self):
+        from PySide6.QtWidgets import QDialog
+        from bashdock.tab_icon_picker import TabIconPicker
+        from bashdock import tab_icons
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = copy.deepcopy(tab.data)
+        dialog = SettingsDialog(dict(tab.data, bash_path=str(self.bash)))
+        picker = TabIconPicker(dialog.icon_key)
+        try:
+            self.assertEqual(len(tab_icons.CATALOG), picker.icons.count())
+            row = list(tab_icons.CATALOG).index('server')
+            picker.icons.setCurrentRow(row)
+            self.assertEqual('server', picker.selected_icon())
+            self.assertEqual('Server', picker.icons.currentItem().text())
+            with patch('bashdock.app.TabIconPicker.exec', return_value=QDialog.DialogCode.Rejected):
+                dialog.choose_icon()
+            self.assertEqual(original['icon'], dialog.icon_key)
+            with patch('bashdock.app.TabIconPicker.exec', return_value=QDialog.DialogCode.Accepted), \
+                    patch('bashdock.app.TabIconPicker.selected_icon', return_value='server'):
+                dialog.choose_icon()
+            self.assertEqual('server', dialog.icon_key)
+            self.assertEqual(original, tab.data)
+            dialog.commit()
+            self.assertEqual('server', dialog.result_data['icon'])
+            with patch.object(dialog, 'exec', return_value=QDialog.DialogCode.Accepted), \
+                    patch('bashdock.app.SettingsDialog', return_value=dialog), \
+                    patch('bashdock.app.config.save', side_effect=OSError('disk full')), \
+                    patch('bashdock.app.QMessageBox.warning'):
+                self.window.configure(tab)
+            self.assertEqual(original, tab.data)
+            with patch('bashdock.app.SettingsDialog', return_value=dialog), \
+                    patch.object(dialog, 'exec', return_value=QDialog.DialogCode.Accepted):
+                self.window.configure(tab)
+            self.assertEqual('server', tab.data['icon'])
+            self.assertEqual('server', config.read(self.path)['tabs'][0]['icon'])
+            self.assertEqual(0, tab.terminal.stops)
+            self.assertEqual([], tab.terminal.commands)
+            self.assertEqual(1, len(tab.terminal.starts))
+        finally:
+            picker.deleteLater()
+            dialog.deleteLater()
+            self.app.processEvents()
+
+    def test_tab_compact_overflow_preserves_names_icons_selection_and_shells(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QStyleOptionTab, QToolButton
+        for _ in range(3):
+            self.window.new_tab()
+        tabs = [self.window.tabs.widget(i) for i in range(4)]
+        for index, tab in enumerate(tabs):
+            tab.data['name'] = f'Project {index} with a long tab name'
+            self.window.tabs.setTabText(index, tab.data['name'])
+            self.window.tabs.setTabToolTip(index, tab.data['name'])
+            self.window.tabs.tabBar().setAccessibleTabName(index, tab.data['name'])
+            self.ready(tab)
+        self.window.show()
+        bar = self.window.tabs.tabBar()
+        self.window.resize(1600, 760)
+        for _ in range(8):
+            self.app.processEvents()
+        self.assertFalse(bar.compact)
+        full_width = bar.tabRect(0).width()
+        for width in (640, 1600, 640, 1600, 640):
+            self.window.resize(width, 760)
+            for _ in range(8):
+                self.app.processEvents()
+            self.assertEqual(width == 640, bar.compact)
+            option = QStyleOptionTab()
+            bar.initStyleOption(option, 0)
+            self.assertEqual('' if bar.compact else tabs[0].data['name'], option.text)
+            for index, tab in enumerate(tabs):
+                self.assertEqual(tab.data['name'], self.window.tabs.tabText(index))
+                self.assertEqual(tab.data['name'], bar.tabToolTip(index))
+                self.assertEqual(tab.data['name'], bar.accessibleTabName(index))
+                self.assertFalse(bar.tabIcon(index).isNull())
+            if bar.compact:
+                self.assertLess(bar.tabRect(0).width(), full_width)
+            self.assertIs(tabs[3], self.window.current_tab())
+        QTest.mouseClick(bar, Qt.MouseButton.LeftButton, pos=bar.tabRect(0).center())
+        self.assertIs(tabs[0], self.window.current_tab())
+        bar.moveTab(0, 2)
+        self.assertIs(tabs[0], self.window.current_tab())
+        self.assertEqual(tabs[0].data['name'], bar.tabToolTip(2))
+        self.assertEqual([0] * 4, [tab.terminal.stops for tab in tabs])
+        self.assertEqual([[]] * 4, [tab.terminal.commands for tab in tabs])
+        self.assertTrue(all(len(tab.terminal.starts) == 1 for tab in tabs))
+        QTest.keyClick(bar, Qt.Key.Key_Right)
+        self.assertEqual(3, self.window.tabs.currentIndex())
+        closed = self.window.tabs.widget(1)
+        close = bar.tabButton(1, bar.ButtonPosition.RightSide).findChild(QToolButton)
+        QTest.mouseClick(close, Qt.MouseButton.LeftButton)
+        self.assertEqual(3, self.window.tabs.count())
+        self.assertEqual(1, closed.terminal.stops)
+        # Extreme overflow retains Qt's native scroll controls and active tab.
+        for _ in range(15):
+            self.window.new_tab()
+        for _ in range(8):
+            self.app.processEvents()
+        self.assertTrue(bar.compact)
+        arrows = [button for button in bar.findChildren(QToolButton)
+                  if button.arrowType() in (Qt.ArrowType.LeftArrow, Qt.ArrowType.RightArrow)]
+        self.assertTrue(any(button.isVisible() for button in arrows))
+        self.assertEqual(self.window.tabs.count() - 1, self.window.tabs.currentIndex())
 
     def test_save_subset_preserves_order_active_tab_and_independent_command_bars(self):
         for name in ("Website", "Droplet", "CIDR Manager"):
@@ -416,6 +561,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual("Imported two", self.window.current_tab().data["name"])
         self.assertEqual(22, self.window.current_tab().terminal.preferences["font_size"])
         self.assertFalse(self.window.confirm_exit_action.isChecked())
+        tab_icons.assign_missing(imported)
         self.assertEqual(imported, config.read(self.path))
         archives = list((self.path.parent / "backups").glob("settings-before-import-*.json"))
         self.assertEqual(1, len(archives))
@@ -477,6 +623,7 @@ class WorkspaceTests(unittest.TestCase):
         self.app.processEvents()
         self.assertTrue(self.window.allow_save)
         self.assertEqual("", self.window.config_error)
+        tab_icons.assign_missing(expected)
         self.assertEqual(expected, config.read(self.path))
         archives = list((self.path.parent / "backups").glob("settings-damaged-*.json"))
         self.assertEqual([damaged], [p.read_bytes() for p in archives])
@@ -519,6 +666,7 @@ class WorkspaceTests(unittest.TestCase):
         restored = config.read(self.path)
         expected = config.defaults()
         expected["tabs"][0]["id"] = restored["tabs"][0]["id"]
+        tab_icons.assign_missing(expected)
         self.assertEqual(expected, restored)
         archives = list((self.path.parent / "backups").glob("settings-damaged-*.json"))
         self.assertEqual([damaged], [p.read_bytes() for p in archives])
@@ -623,6 +771,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue(self.window.allow_save)
         self.assertEqual('', self.window.config_error)
         self.assertEqual('Recovered from export', self.window.current_tab().data['name'])
+        tab_icons.assign_missing(exported)
         self.assertEqual(exported, config.read(self.path))
         self.assertEqual(backup, config.backup_path(self.path).read_bytes())
         archives = list((self.path.parent / 'backups').glob('settings-damaged-*.json'))

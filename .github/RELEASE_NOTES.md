@@ -1,4 +1,12 @@
-BashDock 1.1 adds **Manage → Workspaces → Replace current**.
+BashDock 1.2 adds tab icons and compact tab overflow.
+
+Tabs receive generic shape icons automatically. **Configure tab → Tab icon**
+offers 36 bundled shapes and symbols. Icons are remembered with tabs, saved
+workspaces, settings exports and backups. When tab labels no longer fit, the
+bar switches to icons with full names in tooltips. Widening the window restores
+labels; scroll arrows remain available when compact tabs also overflow.
+
+Also included from 1.1: **Manage → Workspaces → Replace current**.
 
 Leave it unchecked to add missing workspace tabs. Check it to replace the current
 tabs, using the existing confirmation and backup. The mode is remembered across
