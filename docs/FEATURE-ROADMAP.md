@@ -9,7 +9,7 @@ release numbers.
 
 | Order | Feature | Scope |
 | --- | --- | --- |
-| 1 | Workspace submenu: Replace current toggle | Implemented in development 1.1.0; owner visual check pending. |
+| 1 | Workspace submenu: Replace current toggle | Complete in development 1.1.0; owner visual check passed. |
 | 2 | Wrapping command buttons | Wrap the command bar into additional rows as the window narrows. |
 | 3 | Tab icons and compact overflow | Optional tab icons, with an icon-only treatment when labels no longer fit. |
 | 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |

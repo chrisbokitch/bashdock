@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTimer, QUrl, Qt, Signal, Slot
+from PySide6.QtGui import QColor
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -119,6 +120,8 @@ class Terminal(QWebEngineView):
         self.trace = CommandTrace()
         self.preferences = terminal_preferences.defaults()
         self.setPage(LocalPage(self))
+        # Cover Chromium's empty page before the terminal HTML is painted.
+        self.page().setBackgroundColor(QColor(self.preferences['background']))
         self.settings().setAttribute(QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False)
         self.channel = QWebChannel(self.page())
         self.bridge = Bridge(self)
@@ -132,6 +135,7 @@ class Terminal(QWebEngineView):
 
     def apply_settings(self, settings):
         self.preferences = terminal_preferences.validated(settings)
+        self.page().setBackgroundColor(QColor(self.preferences['background']))
         self.bridge.settingsChanged.emit(json.dumps(self.preferences))
 
     def start(self, bash_path, folder):

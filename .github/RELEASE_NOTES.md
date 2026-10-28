@@ -4,6 +4,10 @@ Leave it unchecked to add missing workspace tabs. Check it to replace the curren
 tabs, using the existing confirmation and backup. The mode is remembered across
 launches; changing the toggle alone leaves running shells untouched.
 
+New terminal views start with a dark background while loading, avoiding a white
+flash when adding tabs or replacing a workspace. The background follows the
+terminal's configured theme.
+
 Download the Windows x64 ZIP, extract the complete `bashdock` folder, and run `bashdock.exe`. Git for Windows must be installed; Python and Node are not required.
 
 The `.sha256` file verifies the ZIP. Build information records the source commit and dependency versions.
