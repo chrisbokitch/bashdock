@@ -1,11 +1,24 @@
 """Edit a command definition without submitting anything to a terminal."""
 from PySide6.QtGui import QFontDatabase
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QLabel, QLineEdit,
     QMessageBox, QPlainTextEdit, QVBoxLayout, QHBoxLayout, QCheckBox,
 )
 
 from .config import validate_buttons, DEFAULT_CONFIRMATION_MESSAGE
+
+
+class CommandBody(QPlainTextEdit):
+    leave_editor = Signal(bool)
+
+    def keyPressEvent(self, event):
+        if (event.key() in (Qt.Key.Key_Tab, Qt.Key.Key_Backtab)
+                and event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+            self.leave_editor.emit(bool(event.modifiers() & Qt.KeyboardModifier.ShiftModifier))
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
 
 class CommandEditor(QDialog):
@@ -21,7 +34,7 @@ class CommandEditor(QDialog):
         form.addRow("Button &label", self.label)
         layout.addLayout(form)
         heading = QLabel("Bash &command")
-        self.command = QPlainTextEdit()
+        self.command = CommandBody()
         self.command.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         self.command.setTabStopDistance(self.command.fontMetrics().horizontalAdvance(' ') * 4)
         self.command.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
@@ -40,6 +53,9 @@ class CommandEditor(QDialog):
         self.confirmation_message.setStyleSheet(
             "QLineEdit:disabled { color:#77818f;background:#1b222d; }")
         self.confirm.toggled.connect(self.confirmation_message.setEnabled)
+        self.command.leave_editor.connect(lambda backwards:
+            self.label.setFocus(Qt.FocusReason.BacktabFocusReason) if backwards else
+            self.confirm.setFocus(Qt.FocusReason.TabFocusReason))
         confirmation.addWidget(self.confirm)
         confirmation.addWidget(self.confirmation_message, 1)
         layout.addLayout(confirmation)
