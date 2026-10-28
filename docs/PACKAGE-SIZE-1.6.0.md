@@ -68,6 +68,12 @@ The updater executable was read as a PyInstaller CArchive using PyInstaller 6.22
 - `update_status.py` uses ctypes/Windows APIs. Source inspection suggests GUI dependencies can enter through shared config/icon imports (including imports inside functions that PyInstaller analyzes). This is a candidate import-boundary investigation, not a validated lean-helper build.
 - Packed inner bytes are not additive to the outer ZIP table and are not a promise of equal ZIP savings after rebuilding.
 
+## Optimization follow-up
+
+The updater dependency isolation was completed and measured in development
+1.6.4: see [the before/after results](UPDATER-SIZE-1.6.4.md). The baseline above
+is preserved as measured. The remaining resource/locale candidates are unchanged.
+
 ## Follow-up experiments, in suggested order
 
 1. **Isolate the updater from GUI imports.** Investigate its 31.49 MiB of packed Qt/PySide payload while preserving independent Python/TLS support, the status window, install/rollback, startup health, local staging and acceptance modes.
