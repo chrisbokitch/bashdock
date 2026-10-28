@@ -250,7 +250,7 @@ class UpdateCleanupTests(unittest.TestCase):
 class UpdateCleanupControllerTests(GuiTestCase):
     def test_packaged_startup_schedules_background_cleanup_and_cancel_prevents_it(self):
         from bashdock import update_controller
-        target = Path(tempfile.gettempdir()) / "BashDock cleanup controller fixture"
+        target = (Path(tempfile.gettempdir()) / "BashDock cleanup controller fixture").resolve()
         with patch.object(update_controller.sys, 'platform', 'win32'), patch.object(
                 update_controller.sys, 'frozen', True, create=True), patch.object(
                 update_controller.QTimer, 'singleShot') as timer:
