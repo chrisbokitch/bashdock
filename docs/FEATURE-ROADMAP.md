@@ -2,8 +2,9 @@
 
 BashDock 1.3.0 is released; the 1.0 acceptance checks remain complete. The owner
 prioritized the smaller UI quality-of-life improvements first on 2026-10-27.
-This is an investigation and sequencing document, not a commitment to dates or
-release numbers.
+The three command-button additions have passed owner checks and are being
+prepared for public release 1.6.0. Publication and exact draft-ZIP acceptance
+remain pending. Broader candidates have no committed dates or release numbers.
 
 ## Agreed next sequence
 
@@ -17,7 +18,7 @@ command-button workflow, then a reassessment before taking on broader features.
 | Complete | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
 | 1 | Multiline command editor | Implemented in development 1.4.0; owner visual check passed. |
 | 2 | Per-button command confirmation | Implemented in development 1.5.0; owner visual check passed. |
-| 3 | Command-button preset bundles | Implemented in development 1.6.0; owner visual check pending. |
+| 3 | Command-button preset bundles | Implemented in development 1.6.0; owner visual check passed. |
 | Candidate | Prompted command variables | Reassess after the three focused additions; not scheduled. |
 | Candidate | Variables with choices | Depends on prompted variables; not scheduled. |
 | Candidate | Different shells per tab | Broader architectural work; not scheduled. |
@@ -232,7 +233,7 @@ Investigation areas:
 
 ## Command-button preset bundles
 
-Implemented in development **1.6.0**; owner visual check pending. **Presets…**
+Implemented in development **1.6.0**; owner visual check passed. **Presets…**
 next to Add / Edit… in Configure tab opens a group list and selectable command
 buttons, with exact command, tool requirements and confirmation-message previews.
 

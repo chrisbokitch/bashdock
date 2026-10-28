@@ -1,28 +1,57 @@
-BashDock 1.3 adds wrapping command buttons.
+BashDock 1.6 improves command buttons with multiline editing, optional confirmation prompts, and curated presets.
 
-Command buttons wrap into additional rows as the window narrows, keeping their
-configured order. Widening returns space to the terminal; the configure gear
-stays beside the first row. Long labels shorten visually, with the full label
-and command in a tooltip. Unusually large command bars scroll vertically to
-preserve terminal space. Resizing keeps the running shell and its contents.
+## Multiline command editor
 
-Also included from 1.2: tab icons and compact tab overflow.
+Configure tab now opens a dedicated editor for a button's label and command body.
+Write multiple lines with indentation, blank lines, quotes and Unicode, including
+Bash loops, functions, continuation lines and heredocs. Commands run in the tab's
+existing shell and retain its directory and environment. Bash syntax controls
+whether later commands run after a failure; there is no automatic stop-on-error.
 
-Tabs receive generic shape icons automatically. **Configure tab → Tab icon**
-offers 36 bundled shapes and symbols. Icons are remembered with tabs, saved
-workspaces, settings exports and backups. When tab labels no longer fit, the
-bar switches to icons with full names in tooltips. Widening the window restores
-labels; scroll arrows remain available when compact tabs also overflow.
+Use Add / Edit…, double-click a row, or press F2/Enter. Enter adds a line, Tab
+inserts indentation, and Ctrl+Tab moves focus out of the command body. Save in the
+editor stages changes until Configure tab is saved; Cancel discards staged edits.
 
-Also included from 1.1: **Manage → Workspaces → Replace current**.
+## Confirm before using
 
-Leave it unchecked to add missing workspace tabs. Check it to replace the current
-tabs, using the existing confirmation and backup. The mode is remembered across
-launches; changing the toggle alone leaves running shells untouched.
+Each command button can request confirmation with a custom message, defaulting
+to “Are you sure?”. The message field is disabled until confirmation is enabled.
+The execution prompt shows the message, button label, target tab and exact
+command. Cancel is the default; Run command submits the reviewed command once
+to the reviewed shell. Existing buttons keep confirmation off unless enabled.
 
-New terminal views start with a dark background while loading, avoiding a white
-flash when adding tabs or replacing a workspace. The background follows the
-terminal's configured theme.
+Confirmation settings stay with buttons in saved workspaces, settings exports,
+imports and backups. Editing, applying or restoring definitions never runs them.
+
+## Command presets
+
+Configure tab → Presets… offers 18 editable starter buttons in five groups:
+
+- Git essentials
+- Git recovery / AI Rescue
+- Python / Backend
+- Web / Node
+- Docker Compose
+
+Choose individual buttons or all new buttons in a group. Review exact commands,
+required tools and confirmation messages before applying. Presets append by
+default; replacement previews the removed buttons and requires confirmation.
+Exact label-and-command duplicates are marked Already added and skipped by
+Select all new buttons, with explicit duplicate selection still available.
+
+Applying only stages ordinary editable buttons in Configure tab. Save keeps them;
+Cancel preserves the existing buttons. Presets do not install tools. Commands
+that discard, overwrite or stop work have confirmation enabled by default, with
+specific messages that remain editable.
+
+## Fixes and validation
+
+- Preserve literal tabs in button commands with standard Bash Readline bindings.
+- Fix Ctrl+Tab navigation from the command editor on Windows.
+- Close the HTTPS response when rejecting an insecure update redirect, avoiding
+  an unclosed response without weakening certificate or redirect verification.
+- Improve Windows test cleanup and cover confirmation, preset persistence,
+  cancellation, keyboard access and short-window layout across Python versions.
 
 Download the Windows x64 ZIP, extract the complete `bashdock` folder, and run `bashdock.exe`. Git for Windows must be installed; Python and Node are not required.
 
