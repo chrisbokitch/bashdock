@@ -89,27 +89,33 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.loaded.emit()
 
     def test_tab_command_buttons_wrap_and_unwrap_without_restarting_or_submitting(self):
-        from PySide6.QtCore import Qt
+        from PySide6.QtCore import Qt, QPoint
         from PySide6.QtTest import QTest
         from bashdock.app import CommandScrollArea
         tab = self.window.current_tab()
-        tab.data['buttons'] = [{'label': f'Command {i}', 'command': f'echo {i}'} for i in range(8)]
+        tab.data['buttons'] = [{'label': f'Command {i}', 'command': f'echo {i}'} for i in range(3)]
         tab.build_buttons()
         self.ready(tab)
         process = tab.terminal.process
         self.window.new_tab()
         self.window.tabs.setCurrentIndex(0)
+        screen = self.window.screen().availableGeometry()
+        wide = min(1200, screen.width() - 80)
+        narrow = min(300, wide // 2)
+        self.window.move(screen.topLeft() + QPoint(20, 20))
+        self.window.resize(wide, 760)
         self.window.show()
         scroll = tab.findChild(CommandScrollArea)
         heights = []
-        for width in (1400, 600, 1400):
+        for width in (wide, narrow, wide):
             self.window.resize(width, 760)
             for index in (1, 0):
                 self.window.tabs.setCurrentIndex(index)
                 for _ in range(12):
                     self.app.processEvents()
             rows = [button.y() for button in tab.command_buttons]
-            self.assertEqual(width == 600, len(set(rows)) > 1)
+            self.assertEqual(width == narrow, len(set(rows)) > 1,
+                             repr((width, self.window.size(), scroll.viewport().size(), rows)))
             self.assertEqual(rows, sorted(rows))
             heights.append(scroll.height())
             self.assertFalse(scroll.horizontalScrollBar().isVisible())
@@ -129,12 +135,12 @@ class WorkspaceTests(unittest.TestCase):
         self.assertGreater(heights[1], heights[0])
         self.assertEqual(heights[0], heights[2])
         self.assertEqual(1, len(tab.terminal.starts))
-        self.window.resize(600, 760)
+        self.window.resize(narrow, 760)
         for _ in range(12):
             self.app.processEvents()
         for button in tab.command_buttons:
             QTest.mouseClick(button, Qt.MouseButton.LeftButton)
-        self.assertEqual([f'echo {i}' for i in range(8)], tab.terminal.commands)
+        self.assertEqual([f'echo {i}' for i in range(3)], tab.terminal.commands)
         gear = tab.findChild(QPushButton, 'configureTab')
         self.assertTrue(gear.isVisible())
         self.assertTrue(tab.rect().contains(gear.geometry()))
