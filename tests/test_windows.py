@@ -8,15 +8,17 @@ import tempfile
 import threading
 import time
 import unittest
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 
 from bashdock.config import find_bash
 from bashdock.shell_integration import create_init_file
+from qt_lifecycle import GuiTestCase
 
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
-class WindowsTests(unittest.TestCase):
+class WindowsTests(GuiTestCase):
     @contextmanager
     def interactive_session(self):
         """Real xterm/ConPTY session with a predictable prompt and file receipts."""
@@ -861,7 +863,11 @@ class WindowsTests(unittest.TestCase):
                 # QTest sends events directly; establish its active window first.
                 window.raise_()
                 window.activateWindow()
-                QApplication.setActiveWindow(window)
+                # Still required for deterministic native focus in this harness.
+                with warnings.catch_warnings():
+                    warnings.filterwarnings('ignore', category=DeprecationWarning,
+                        message=r"Function: 'QApplication\.setActiveWindow\b")
+                    QApplication.setActiveWindow(window)
                 QTest.mouseClick(other, Qt.MouseButton.LeftButton)
                 wait_for(other.hasFocus)
                 QTest.mouseClick(button, Qt.MouseButton.LeftButton)
