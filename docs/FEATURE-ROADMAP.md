@@ -15,7 +15,7 @@ command-button workflow, then a reassessment before taking on broader features.
 | Complete | Workspace submenu: Replace current toggle | Released in 1.3.0; owner visual check passed. |
 | Complete | Wrapping command buttons | Released in 1.3.0; owner visual check passed. |
 | Complete | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
-| 1 | Multiline command editor | Next: improve the button editor and validate existing multiline transport. |
+| 1 | Multiline command editor | Implemented in development 1.4.0; owner visual check pending. |
 | 2 | Per-button command confirmation | Add an optional Confirm before using toggle. |
 | 3 | Command-button preset bundles | Preview and apply useful starter sets; destructive preset buttons enable confirmation. |
 | Candidate | Prompted command variables | Reassess after the three focused additions; not scheduled. |
@@ -98,6 +98,15 @@ or shell; rename/reorder/close remain usable, and old settings without icons
 continue to restore normally.
 
 ## Multiline commands attached to buttons
+
+Implemented in development **1.4.0**; owner visual check pending. Add and Edit…
+open a dedicated label/body editor; double-click and F2/Enter also open existing
+buttons. The table keeps a compact preview, with full commands in tooltips. Inner
+Save stages edits until Configure tab is saved. Literal tabs are quoted at the
+button write boundary to preserve them with standard Bash Readline bindings.
+Automated checks cover editing/cancellation, persistence, and real-shell syntax
+and state. Windows compatibility CI includes the multiline case in its repeated
+button execution sequence.
 
 Goal: edit and run a short sequence or script from a command button, in that
 tab's existing shell.

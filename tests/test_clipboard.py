@@ -2,14 +2,14 @@
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 if sys.platform != 'win32':
     os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 from PySide6.QtCore import QMimeData
 from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
-from bashdock.terminal import Bridge
+from bashdock.terminal import Bridge, Terminal
 
 
 class ClipboardTests(unittest.TestCase):
@@ -73,3 +73,13 @@ class ClipboardTests(unittest.TestCase):
             self.bridge.requestPaste()
             question.assert_not_called()
         self.assertEqual([''], self.pasted)
+
+    def test_only_button_writes_quote_literal_tabs_and_keep_the_first_character_guard(self):
+        from types import SimpleNamespace
+        receiver = SimpleNamespace(process=Mock(), trace=Mock(), problem=Mock())
+        text = "printf '%s' 'literal\ttab'\r"
+        Terminal.write(receiver, text, command_id=7)
+        receiver.process.write.assert_called_once_with(" \x7fprintf '%s' 'literal\x16\ttab'\r")
+        receiver.process.write.reset_mock()
+        Terminal.write(receiver, text)
+        receiver.process.write.assert_called_once_with(text)

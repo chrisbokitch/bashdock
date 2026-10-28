@@ -135,7 +135,7 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 
 ## Command buttons
 
-Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command. Double-click a cell to edit. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
+Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command preview. Select a row and click **Edit…**, double-click it, or press **F2/Enter** to open the command editor. **Add** opens the same editor for a new button. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
 
 Command buttons wrap into additional rows as the window narrows, keeping their
 configured order. Widening returns space to the terminal, and the configure gear
@@ -154,6 +154,19 @@ Examples:
 | Update | `git pull --ff-only` |
 
 Commands run in the **tab's existing shell**, preserving its directory, variables, aliases, and shell functions. Commands support normal Bash syntax, including pipes and `&&`.
+
+The command editor supports multiple lines, blank lines, indentation, quotes and
+Unicode. Enter adds a line; Tab inserts a literal tab, and Ctrl+Tab moves focus
+out of the command body. The editor keeps long lines intact with horizontal
+scrolling. Save stages the definition in Configure tab; that dialog's Save keeps
+it, while Cancel discards its staged changes. Editing and saving never run commands.
+
+Multiline buttons use the same existing shell, including Bash functions, loops,
+continuation lines and heredocs. There is no automatic stop on error: use Bash
+syntax such as `&&` when later commands should depend on earlier success. Literal
+tabs use Bash Readline's standard Ctrl+V quoted-insert binding rather than triggering
+completion. Customized Readline bindings can affect button input, as can running
+buttons in another program or a remote shell instead of at the local Bash prompt.
 
 An interactive Bash init file loads `/etc/profile` followed by the first available `~/.bash_profile`, `~/.bash_login`, or `~/.profile`, then appends a directory-reporting hook to `PROMPT_COMMAND`. Existing prompt commands are preserved. This follows login startup-file order, but the shell itself runs with `--rcfile -i`, so Bash's `login_shell` flag is unset. User profile scripts that check that flag may behave differently. Commands are appended to Bash's configured history file at each prompt, so they survive normal app closure. Replacing `PROMPT_COMMAND` later in the session can disable directory tracking; restarting the shell reinstalls it.
 
@@ -249,6 +262,6 @@ unconfigured. Full signed-update VM validation is required before 1.0. See the
 
 ## Feature roadmap
 
-See the [post-1.0 feature roadmap](docs/FEATURE-ROADMAP.md) for proposed multiline
-command editing, prompted command variables and choices, and per-tab shell support.
+See the [post-1.0 feature roadmap](docs/FEATURE-ROADMAP.md) for the next command-confirmation and
+preset-bundle improvements, plus longer-term command variables and shell candidates.
 These investigations are separate from the [1.0 release checklist](docs/ROADMAP-1.0.md).

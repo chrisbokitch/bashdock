@@ -88,6 +88,119 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def test_multiline_editor_stages_cancels_reorders_and_saves_only_after_outer_save(self):
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_editor import CommandEditor
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = copy.deepcopy(tab.data)
+        original_file = self.path.read_bytes()
+        body = '\n  printf "%s" "café 世界"\n\n\t# a comment\nprintf done\n'
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        editor.table.selectRow(0)
+
+        def accept(inner):
+            self.assertIsInstance(inner, CommandEditor)
+            inner.label.setText('Multiline')
+            inner.command.setPlainText(body)
+            inner.commit()
+            return inner.result()
+
+        with patch.object(CommandEditor, 'exec', lambda inner: QDialog.DialogCode.Rejected):
+            editor.edit_button()
+            editor.add_button()
+        self.assertEqual(len(original['buttons']), editor.table.rowCount())
+        self.assertEqual(original['buttons'][0]['command'], editor.table.item(0, 1).text())
+        with patch.object(CommandEditor, 'exec', accept):
+            editor.edit_button()
+        self.assertEqual(body, editor.table.item(0, 1).text())
+        self.assertEqual(body, editor.table.item(0, 1).toolTip())
+        editor.move_row(1)
+        self.assertEqual(body, editor.table.item(1, 1).text())
+        self.assertEqual(original, tab.data)
+        self.assertEqual(original_file, self.path.read_bytes())
+        editor.reject()
+        self.assertIsNone(editor.result_data)
+        editor.deleteLater()
+
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        with patch.object(CommandEditor, 'exec', accept):
+            editor.add_button()
+        editor.commit()
+        expected = {'label': 'Multiline', 'command': body}
+        self.assertEqual(expected, editor.result_data['buttons'][-1])
+        with patch('bashdock.app.SettingsDialog', return_value=editor), \
+                patch.object(editor, 'exec', return_value=QDialog.DialogCode.Accepted), \
+                patch('bashdock.app.config.save', side_effect=OSError('disk full')), \
+                patch('bashdock.app.QMessageBox.warning'):
+            self.window.configure(tab)
+        self.assertEqual(original, tab.data)
+        self.assertEqual(original_file, self.path.read_bytes())
+        with patch('bashdock.app.SettingsDialog', return_value=editor), \
+                patch.object(editor, 'exec', return_value=QDialog.DialogCode.Accepted):
+            self.window.configure(tab)
+        self.assertEqual(expected, tab.data['buttons'][-1])
+        self.assertEqual(expected, config.read(self.path)['tabs'][0]['buttons'][-1])
+        self.assertEqual([], tab.terminal.commands)
+        self.assertEqual(0, tab.terminal.stops)
+        tab.command_buttons[-1].click()
+        self.assertEqual([body], tab.terminal.commands)
+        editor.deleteLater()
+
+    def test_multiline_buttons_survive_workspace_export_import_and_backup_recovery(self):
+        body = '\nfunction greet() {\n  printf "%s" "café 世界"\n}\n\ngreet\n'
+        tab = self.window.current_tab()
+        tab.data['buttons'] = [{'label': 'Script', 'command': body}]
+        tab.build_buttons()
+        self.ready(tab)
+        self.assertTrue(self.window.save_workspace('Scripts', [0]))
+        exported = Path(self.temp.name) / 'export.json'
+        with patch('bashdock.app.QFileDialog.getSaveFileName', return_value=(str(exported), '')):
+            self.window.export_settings()
+        self.window.import_settings(path=exported)
+        restored = self.window.current_tab()
+        self.ready(restored)
+        self.assertEqual(body, restored.data['buttons'][0]['command'])
+        self.assertEqual([], restored.terminal.commands)
+        self.assertEqual(body, self.window.data['workspaces'][0]['tabs'][0]['buttons'][0]['command'])
+        config.save(self.window.snapshot(), self.path)
+        self.assertEqual(body, config.read(config.backup_path(self.path))['tabs'][0]['buttons'][0]['command'])
+        self.assertTrue(self.window.open_workspace(0, replace=True))
+        self.assertEqual(body, self.window.current_tab().data['buttons'][0]['command'])
+        self.assertEqual([], self.window.current_tab().terminal.commands)
+
+    def test_command_editor_opens_from_table_keyboard_and_double_click(self):
+        from PySide6.QtCore import Qt, QPoint
+        from PySide6.QtTest import QTest
+        from PySide6.QtWidgets import QDialog
+        editor = SettingsDialog(dict(self.window.current_tab().data, bash_path=str(self.bash)), self.window)
+        editor.show()
+        editor.table.selectRow(0)
+        editor.table.setFocus()
+        self.app.processEvents()
+        opened = []
+
+        def cancel(inner):
+            opened.append(inner.windowTitle())
+            return QDialog.DialogCode.Rejected
+
+        with patch('bashdock.app.CommandEditor.exec', cancel):
+            QTest.keyClick(editor.table, Qt.Key.Key_F2)
+            self.assertEqual(1, len(opened))
+            QTest.keyClick(editor.table, Qt.Key.Key_Return)
+            self.assertEqual(2, len(opened))
+            rect = editor.table.visualItemRect(editor.table.item(0, 1))
+            QTest.mouseClick(editor.table.viewport(), Qt.MouseButton.LeftButton,
+                            pos=rect.center())
+            QTest.mouseDClick(editor.table.viewport(), Qt.MouseButton.LeftButton,
+                             pos=rect.center())
+            self.assertEqual(3, len(opened))
+            for text in ('Edit…', 'Add'):
+                next(button for button in editor.findChildren(QPushButton) if button.text() == text).click()
+            self.assertEqual(5, len(opened))
+        editor.reject()
+        editor.deleteLater()
+
     def test_tab_command_buttons_wrap_and_unwrap_without_restarting_or_submitting(self):
         from PySide6.QtCore import Qt, QPoint
         from PySide6.QtTest import QTest

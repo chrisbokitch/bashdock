@@ -106,6 +106,53 @@ class WindowsTests(GuiTestCase):
             app.processEvents()
             retry(temporary.cleanup, timeout=5)
 
+    def test_command_button_multiline_script_preserves_syntax_order_and_shell_state(self):
+        from bashdock.command_editor import CommandEditor
+        with self.interactive_session() as s:
+            process = s.terminal.process
+            # The body passes through the real editor, WebChannel, xterm and ConPTY.
+            body = ("mkdir 'script folder'\n"
+                    "cd 'script folder'\n"
+                    "export BASHDOCK_MULTILINE='café 世界'\n\n"
+                    "write_lines() {\n"
+                    "  for value in first second; do\n"
+                    "    printf '%s\\n' \"$value\"\n"
+                    "  done\n"
+                    "}\n"
+                    "write_lines > lines.txt\n"
+                    "printf '%s' \\\n"
+                    "  'continued' > continuation.txt\n"
+                    "printf '%s' 'literal\ttab' > tab.txt\n"
+                    "cat <<'BASHDOCK_END' > heredoc.txt\n"
+                    "literal $HOME and \"quotes\"\n\n"
+                    "  preserved spaces\n\tliteral tab\n"
+                    "BASHDOCK_END\n"
+                    "printf '%s' \"$BASHDOCK_MULTILINE\" > unicode.txt\n"
+                    "false\n"
+                    "printf done > ../script-done.txt")
+            editor = CommandEditor('Script', body)
+            editor.commit()
+            self.assertEqual(body, editor.result_data['command'])
+            s.terminal.run_command(editor.result_data['command'])
+            s.receipt('script-done.txt', 'done')
+            s.receipt('script folder/lines.txt', 'first\nsecond\n')
+            s.receipt('script folder/heredoc.txt', 'literal $HOME and "quotes"\n\n  preserved spaces\n\tliteral tab\n')
+            s.receipt('script folder/continuation.txt', 'continued')
+            s.receipt('script folder/tab.txt', 'literal\ttab')
+            s.receipt('script folder/unicode.txt', 'café 世界')
+            # A later invocation sees the directory, variable and function.
+            s.terminal.run_command("write_lines > later.txt; "
+                                   "printf '%s' \"$BASHDOCK_MULTILINE\" > later-unicode.txt")
+            s.receipt('script folder/later.txt', 'first\nsecond\n')
+            s.receipt('script folder/later-unicode.txt', 'café 世界')
+            self.assertIs(process, s.terminal.process)
+            # Both standard Readline editing modes preserve literal tabs.
+            s.terminal.run_command("set -o vi; printf ready > vi-ready.txt")
+            s.receipt('script folder/vi-ready.txt', 'ready')
+            s.terminal.run_command("printf '%s' 'vi\ttab' > vi-tab.txt")
+            s.receipt('script folder/vi-tab.txt', 'vi\ttab')
+            editor.deleteLater()
+
     def test_m4_history_editing_completion_interrupt_and_unicode(self):
         with self.interactive_session() as s:
             key, qt = s.key, s.qt

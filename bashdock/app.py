@@ -7,17 +7,18 @@ from pathlib import Path
 from uuid import uuid4
 
 from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint, QDir
-from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor, QPen
+from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor, QPen, QShortcut, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit, QStyle,
-    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu, QStyleOptionTab,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu, QStyleOptionTab, QStyledItemDelegate,
 )
 
 from . import config, terminal_preferences, tab_icons
 from .tab_icon_picker import TabIconPicker
 from .command_bar import CommandButton, CommandFlowLayout, CommandScrollArea
+from .command_editor import CommandEditor
 from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
 from .window_theme import install_titlebar_theme
@@ -174,6 +175,12 @@ class FooterBar(QStatusBar):
         self.showMessage("")
 
 
+class CommandPreviewDelegate(QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.text = option.text.replace('\n', ' ↵ ').replace('\t', '    ')
+
+
 class SettingsDialog(QDialog):
     def __init__(self, data, parent=None, *, terminal_defaults=None):
         super().__init__(parent)
@@ -221,12 +228,22 @@ class SettingsDialog(QDialog):
         self.table.setHorizontalHeaderLabels(["Button label", "Bash command"])
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.setWordWrap(False)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setItemDelegateForColumn(1, CommandPreviewDelegate(self.table))
+        self.table.setAccessibleName("Command buttons. Press F2 or Enter to edit the selected button.")
+        self.table.cellDoubleClicked.connect(lambda row, column: self.edit_button())
+        for key in ('F2', 'Return', 'Enter'):
+            shortcut = QShortcut(QKeySequence(key), self.table)
+            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(self.edit_button)
         self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         for button in data["buttons"]:
             self.add_row(button["label"], button["command"])
         layout.addWidget(self.table)
         actions = QHBoxLayout()
-        for label, callback in (("Add", lambda: self.add_row("New button", "pwd")),
+        for label, callback in (("Add", self.add_button),
+                                ("Edit…", self.edit_button),
                                 ("Delete", self.delete_row),
                                 ("Move left", lambda: self.move_row(-1)),
                                 ("Move right", lambda: self.move_row(1))):
@@ -276,7 +293,28 @@ class SettingsDialog(QDialog):
         self.table.insertRow(row)
         self.table.setItem(row, 0, QTableWidgetItem(label))
         self.table.setItem(row, 1, QTableWidgetItem(command))
+        self.table.item(row, 1).setToolTip(command)
         self.table.selectRow(row)
+
+    def add_button(self):
+        self.edit_button(new=True)
+
+    def edit_button(self, *, new=False):
+        row = self.table.currentRow()
+        if not new and row < 0:
+            return
+        label, command = (('New button', 'pwd') if new else
+                          tuple(self.table.item(row, col).text() for col in range(2)))
+        dialog = CommandEditor(label, command, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            values = dialog.result_data
+            if new:
+                self.add_row(values['label'], values['command'])
+            else:
+                self.table.item(row, 0).setText(values['label'])
+                self.table.item(row, 1).setText(values['command'])
+                self.table.item(row, 1).setToolTip(values['command'])
+        dialog.deleteLater()
 
     def delete_row(self):
         row = self.table.currentRow()
@@ -738,7 +776,7 @@ class MainWindow(QMainWindow):
             QPushButton:hover { border-color:#70dcc2; }
             QPushButton:disabled { color:#77818f; }
             QPushButton#configureTab,QPushButton#newTab { background:#111b2b;padding:6px; }
-            QLineEdit,QTableWidget { background:#10141c;selection-background-color:#365e66; }
+            QLineEdit,QTableWidget,QPlainTextEdit { background:#10141c;selection-background-color:#365e66; }
             QLineEdit { padding:6px; }
             QStatusBar { background:#111b2b;border-top:1px solid #27384d; }
             QStatusBar::item { border:0; }

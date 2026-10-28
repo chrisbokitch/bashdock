@@ -205,7 +205,11 @@ class Terminal(QWebEngineView):
             # At the empty prompt required for command buttons, this space
             # and Backspace cancel out even when the space is swallowed.
             # Unlike a leading-space workaround, no space remains in history.
-            data = ' \x7f' + data
+            # Readline otherwise treats literal tabs as completion requests,
+            # even inside quotes and heredocs. Quote tabs at the final write
+            # boundary; stored commands and WebChannel integrity checks stay
+            # literal. Ctrl+V is quoted-insert in Bash's Emacs/vi insert maps.
+            data = ' \x7f' + data.replace('\t', '\x16\t')
         self.trace.record('write_attempt', command=command_id, characters=len(data),
             utf8_bytes=len(data.encode('utf-8', errors='surrogatepass')), running=bool(self.process))
         if self.process:
