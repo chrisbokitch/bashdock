@@ -17,7 +17,7 @@ command-button workflow, then a reassessment before taking on broader features.
 | Complete | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
 | 1 | Multiline command editor | Implemented in development 1.4.0; owner visual check passed. |
 | 2 | Per-button command confirmation | Implemented in development 1.5.0; owner visual check passed. |
-| 3 | Command-button preset bundles | Preview and apply useful starter sets; destructive preset buttons enable confirmation. |
+| 3 | Command-button preset bundles | Implemented in development 1.6.0; owner visual check pending. |
 | Candidate | Prompted command variables | Reassess after the three focused additions; not scheduled. |
 | Candidate | Variables with choices | Depends on prompted variables; not scheduled. |
 | Candidate | Different shells per tab | Broader architectural work; not scheduled. |
@@ -232,69 +232,63 @@ Investigation areas:
 
 ## Command-button preset bundles
 
-Queued at the owner's request. Goal: help people start with useful command
-buttons by applying a curated bundle to a tab. This adds a roadmap item; it does
-not change the current implementation. Presets follow the multiline editor and
-per-button confirmation in the agreed next sequence.
+Implemented in development **1.6.0**; owner visual check pending. **Presets…**
+next to Add / Edit… in Configure tab opens a group list and selectable command
+buttons, with exact command, tool requirements and confirmation-message previews.
 
-Proposed first iteration:
+- Select individual buttons or all new buttons in a group; selections persist
+  while browsing groups. Applied buttons follow catalog group/entry order.
+- Append is the default. Exact label-and-command duplicates are marked Already
+  added, start unchecked and are skipped by Select all new buttons. Users can
+  explicitly check them to add another copy. No definitions are silently deduplicated.
+- Replace existing buttons previews all removed labels and commands and requires
+  confirmation, with No as default. Applying with no selection is disabled.
+- Applying only stages copied definitions in Configure tab. They remain ordinary
+  editable buttons, including confirmation settings. Outer Save persists them;
+  Cancel or a failed save preserves existing buttons, running shells and settings.
+- Applying, saving, importing and restoring never execute commands or install
+  tools. Required tools, project scripts/files and shell assumptions are explained
+  in the picker. Initial packs target Git Bash on Windows.
+- Future catalog changes do not overwrite customized copies. User-saved/shared
+  bundles are a possible later extension, outside this implementation.
+- Keyboard checkbox selection, Cancel/close, short-window scrolling and visible
+  action controls have automated coverage. Settings/workspace/export/import/backup
+  round trips retain commands and confirmation messages.
 
-- Add **Presets…** to Configure tab, with bundle descriptions and a preview of
-  every button label and exact command before applying.
-- Let users select individual buttons from a bundle. Default to **Append**;
-  offer **Replace existing buttons** as an explicit choice with a clear preview
-  of what will be removed.
-- Stage the changes in Configure tab. Save persists them; Cancel leaves existing
-  buttons and running shells untouched. Applying, saving, importing or restoring
-  a preset never executes its commands.
-- Copy the selected definitions into ordinary, editable per-tab buttons.
-  Preserve button order, tab identity, focus restoration and wrapping behavior.
-  Later catalog changes must not silently overwrite customized buttons.
-- Describe required tools and shell/platform compatibility for each bundle.
-  Applying a preset must not install tools. The initial examples target Git Bash
-  on Windows; "Universal" describes broad usefulness, not cross-shell portability.
-- Clearly mark destructive commands in previews and explain their scope before
-  users add them. Destructive preset buttons enable the per-button **Confirm
-  before using** option described below; users can review or change that setting.
-- Decide how repeat applications expose duplicates without silently removing or
-  replacing existing definitions. User-saved/shared bundles are a possible later
-  extension; the first iteration can ship a small bundled catalog.
+### Bundled catalog
 
-### Initial catalog candidates
+Commands marked **Confirm** enable Confirm before using with a specific message.
 
-Preserve the owner's starting examples for review before implementation:
+| Group | Button | Command | Confirm |
+| --- | --- | --- | --- |
+| Git essentials | Status | `git status --short --branch` | No |
+| Git essentials | Diff | `git diff` | No |
+| Git essentials | Recent commits | `git log --oneline -15` | No |
+| Git essentials | Copy diff | `git diff \| clip` | No |
+| Git recovery / AI Rescue | Discard unstaged changes | `git restore --worktree .` | Yes |
+| Git recovery / AI Rescue | Preview untracked cleanup | `git clean -nd` | No |
+| Git recovery / AI Rescue | Delete untracked files | `git clean -fd` | Yes |
+| Python / Backend | Run tests | `python -m pytest -v` | No |
+| Python / Backend | Format and fix | `black . && ruff check --fix .` | Yes |
+| Python / Backend | Freeze dependencies | `python -m pip freeze > requirements.txt` | Yes |
+| Web / Node | Dev server | `npm run dev` | No |
+| Web / Node | Run tests | `npm test` | No |
+| Web / Node | Build | `npm run build` | No |
+| Web / Node | Clean install | `npm ci` | Yes |
+| Docker Compose | Start services | `docker compose up -d` | No |
+| Docker Compose | Service status | `docker compose ps` | No |
+| Docker Compose | Follow logs | `docker compose logs --tail=100 -f` | No |
+| Docker Compose | Stop services | `docker compose stop` | Yes |
 
-| Bundle | Button | Command |
-| --- | --- | --- |
-| AI Rescue Pack (Universal) | Git Undo | `git checkout -- .` |
-| AI Rescue Pack (Universal) | Nuke Untracked | `git clean -fd` |
-| AI Rescue Pack (Universal) | Diff Context | `git diff \| clip` |
-| Python / Backend Developer | Run Pytest | `pytest -v` |
-| Python / Backend Developer | Lint & Fix | `black . && ruff check --fix .` |
-| Python / Backend Developer | Freeze Deps | `pip freeze > requirements.txt` |
-| Web Dev (Node/Ecosystem) | Dev Server | `npm run dev` |
-| Web Dev (Node/Ecosystem) | Quick Test | `npm test` |
-| Web Dev (Node/Ecosystem) | Nuke Modules | `rm -rf node_modules package-lock.json && npm install` |
+Git recovery operates under the current directory. Restore discards unstaged
+tracked changes; cleanup deletes untracked files/directories while respecting
+ignore rules. Copy diff uses Windows clip and includes unstaged tracked changes
+only. Freeze dependencies overwrites requirements.txt using the current Python
+environment. Clean install replaces node_modules using a matching lockfile without
+rewriting it. Stop services does not remove containers or volumes.
 
-Catalog review should distinguish inspection from destructive recovery:
-Git Undo discards tracked working-tree edits in its path scope; Nuke Untracked
-deletes untracked files/directories; both can remove work unrelated to an AI.
-Offer an untracked-file preview (`git clean -nd`) as another candidate.
-Diff Context copies the unstaged tracked diff and uses Windows' `clip`; it does
-not include all possible repository changes. Freeze Deps overwrites its output
-file, while Nuke Modules removes the lockfile as well as installed modules.
-Consider a separate lockfile-preserving reinstall option rather than presenting
-lockfile deletion as routine maintenance.
-
-Other bundle ideas to curate later: Git inspection, Docker/Compose,
-.NET, Rust/Cargo, and project diagnostics. Catalog size is open; prioritize useful,
-documented sets over filling the picker with near-duplicates.
-
-Acceptance: previews match the saved commands exactly; append/replace,
-individual selection and cancellation work predictably; applying any bundle
-sends no shell input. Applied buttons survive workspaces/export/import/recovery
-and remain editable, with no changes to running shells. Cover duplicate review,
-long labels, wrapped rows and commands whose required tools are unavailable.
+After the owner check, reassess broader features before committing to more work.
+Other optional pack ideas include .NET, Rust/Cargo and project diagnostics.
 
 ## Per-button command confirmation
 

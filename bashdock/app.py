@@ -20,6 +20,7 @@ from .tab_icon_picker import TabIconPicker
 from .command_bar import CommandButton, CommandFlowLayout, CommandScrollArea
 from .command_editor import CommandEditor
 from .command_confirmation import CommandConfirmation
+from .preset_picker import PresetPicker
 from shiboken6 import isValid
 from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
@@ -246,6 +247,7 @@ class SettingsDialog(QDialog):
         actions = QHBoxLayout()
         for label, callback in (("Add", self.add_button),
                                 ("Edit…", self.edit_button),
+                                ("Presets…", self.choose_presets),
                                 ("Delete", self.delete_row),
                                 ("Move left", lambda: self.move_row(-1)),
                                 ("Move right", lambda: self.move_row(1))):
@@ -301,6 +303,15 @@ class SettingsDialog(QDialog):
 
     def add_button(self):
         self.edit_button(new=True)
+
+    def choose_presets(self):
+        dialog = PresetPicker([self.row_data(row) for row in range(self.table.rowCount())], self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            if dialog.result_data['replace']:
+                self.table.setRowCount(0)
+            for entry in dialog.result_data['buttons']:
+                self.add_row(entry['label'], entry['command'], entry)
+        dialog.deleteLater()
 
     def row_data(self, row):
         data = copy.deepcopy(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) or {})

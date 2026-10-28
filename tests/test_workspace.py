@@ -88,6 +88,112 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def test_command_presets_stage_append_replace_cancel_and_failed_save_without_shell_input(self):
+        from PySide6.QtWidgets import QDialog
+        from bashdock.preset_picker import PresetPicker
+        from bashdock.command_presets import GROUPS
+        from bashdock.command_editor import CommandEditor
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = copy.deepcopy(tab.data)
+        original_file = self.path.read_bytes()
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        existing = [editor.row_data(row) for row in range(editor.table.rowCount())]
+        def cancel(picker):
+            picker.select_all.click()
+            picker.reject()
+            return picker.result()
+        with patch.object(PresetPicker, 'exec', cancel):
+            next(button for button in editor.findChildren(QPushButton) if button.text() == 'Presets…').click()
+        self.assertEqual(existing, [editor.row_data(row) for row in range(editor.table.rowCount())])
+        def append(picker):
+            picker.groups.setCurrentRow(1)
+            picker.select_all.click()
+            picker.commit()
+            return picker.result()
+        with patch.object(PresetPicker, 'exec', append):
+            editor.choose_presets()
+        appended = [button.definition() for button in GROUPS[1].buttons]
+        self.assertEqual(existing + appended, [editor.row_data(row) for row in range(editor.table.rowCount())])
+        self.assertEqual(original, tab.data)
+        self.assertEqual(original_file, self.path.read_bytes())
+        editor.reject()
+        self.assertIsNone(editor.result_data)
+        editor.deleteLater()
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        def replace(picker):
+            picker.groups.setCurrentRow(1)
+            picker.select_all.click()
+            picker.replace.setChecked(True)
+            picker.commit()
+            return picker.result()
+        with patch.object(PresetPicker, 'exec', replace):
+            editor.choose_presets()
+        self.assertEqual(appended, [editor.row_data(row) for row in range(editor.table.rowCount())])
+        editor.table.selectRow(0)
+        editor.move_row(1)
+        self.assertEqual(appended[0], editor.row_data(1))
+        def customize(inner):
+            self.assertTrue(inner.confirm.isChecked())
+            inner.label.setText('My recovery button')
+            inner.confirmation_message.setText('Discard my unstaged edits?')
+            inner.commit()
+            return inner.result()
+        with patch.object(CommandEditor, 'exec', customize):
+            editor.edit_button()
+        editor.commit()
+        with patch('bashdock.app.SettingsDialog', return_value=editor), \
+                patch.object(editor, 'exec', lambda: QDialog.DialogCode.Accepted), \
+                patch('bashdock.app.config.save', side_effect=OSError('disk full')), \
+                patch('bashdock.app.QMessageBox.warning'):
+            self.window.configure(tab)
+        self.assertEqual(original, tab.data)
+        self.assertEqual(original_file, self.path.read_bytes())
+        with patch('bashdock.app.SettingsDialog', return_value=editor), \
+                patch.object(editor, 'exec', lambda: QDialog.DialogCode.Accepted):
+            self.window.configure(tab)
+        self.assertEqual('My recovery button', tab.data['buttons'][1]['label'])
+        self.assertEqual('Discard my unstaged edits?', tab.data['buttons'][1]['confirmation_message'])
+        self.assertEqual(tab.data['buttons'], config.read(self.path)['tabs'][0]['buttons'])
+        self.assertEqual([], tab.terminal.commands)
+        self.assertEqual(0, tab.terminal.stops)
+        self.assertEqual(1, len(tab.terminal.starts))
+        self.assertEqual(original['id'], tab.data['id'])
+        editor.deleteLater()
+
+    def test_command_presets_survive_saved_workspace_export_import_and_recovery_as_normal_buttons(self):
+        from bashdock.command_presets import GROUPS
+        from bashdock.preset_picker import PresetPicker
+        tab = self.window.current_tab()
+        self.ready(tab)
+        picker = PresetPicker([])
+        for group in range(len(GROUPS)):
+            picker.groups.setCurrentRow(group)
+            picker.select_all.click()
+        picker.commit()
+        tab.data['buttons'] = copy.deepcopy(picker.result_data['buttons'])
+        tab.build_buttons()
+        self.assertEqual(18, len(tab.command_buttons))
+        self.assertTrue(self.window.save_workspace('Presets', [0]))
+        export = Path(self.temp.name) / 'presets-export.json'
+        with patch('bashdock.app.QFileDialog.getSaveFileName', return_value=(str(export), '')):
+            self.window.export_settings()
+        self.window.import_settings(path=export)
+        expected = picker.result_data['buttons']
+        self.assertEqual(expected, self.window.current_tab().data['buttons'])
+        self.assertEqual(expected, self.window.data['workspaces'][0]['tabs'][0]['buttons'])
+        config.save(self.window.snapshot(), self.path)
+        self.assertEqual(expected, config.read(config.backup_path(self.path))['tabs'][0]['buttons'])
+        self.assertTrue(self.window.open_workspace(0, replace=True))
+        self.assertEqual(expected, self.window.current_tab().data['buttons'])
+        self.assertEqual([], self.window.current_tab().terminal.commands)
+        repeated = PresetPicker(expected)
+        repeated.select_all.click()
+        self.assertEqual(set(), repeated.selected)
+        self.assertTrue(all('Already added' in repeated.entries.item(row).text() for row in range(4)))
+        repeated.deleteLater()
+        picker.deleteLater()
+
     def test_command_confirmation_cancel_default_and_accept_bind_to_reviewed_tab_once(self):
         from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QDialog

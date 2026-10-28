@@ -67,7 +67,9 @@ jobs:
         run: |
           .venv/Scripts/python.exe -m unittest discover -s tests -p test_command_editor.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k command_confirmation -k confirmation_acceptance -k confirmation_edits -k multiline -v
+          .venv/Scripts/python.exe -m unittest discover -s tests -p test_command_presets.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k command_confirmation -k confirmation_acceptance -k confirmation_edits -k multiline -k command_presets -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Check updater TLS response cleanup
         shell: pwsh

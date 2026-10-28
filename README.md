@@ -137,6 +137,22 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 
 Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command preview. Select a row and click **Edit…**, double-click it, or press **F2/Enter** to open the command editor. **Add** opens the same editor for a new button. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
 
+**Configure tab → Presets…** offers 18 starter buttons in five groups: Git
+essentials, Git recovery / AI Rescue, Python / Backend, Web / Node, and Docker
+Compose. Select individual buttons or all new buttons in a group. Switching groups
+keeps your selections. The picker shows exact commands, tool requirements and
+confirmation messages; commands that discard, overwrite or stop work have
+confirmation enabled by default. Tools must already be installed, and project
+scripts/files must exist; applying a preset does not install tools or run commands.
+
+Presets append by default. Exact label-and-command matches are marked **Already
+added** and skipped by Select all new buttons; you can explicitly check one to add
+another copy. **Replace existing buttons** previews the labels and commands being
+removed and asks for confirmation. Applying returns to Configure tab with staged,
+ordinary editable buttons. Save keeps them; Cancel discards changes. Buttons keep
+their commands and confirmation settings through workspaces, export/import and
+recovery, independently of future preset-catalog changes.
+
 Command buttons wrap into additional rows as the window narrows, keeping their
 configured order. Widening returns space to the terminal, and the configure gear
 stays beside the first row. Long labels shorten visually; hover to see the full
@@ -275,6 +291,6 @@ unconfigured. Full signed-update VM validation is required before 1.0. See the
 
 ## Feature roadmap
 
-See the [post-1.0 feature roadmap](docs/FEATURE-ROADMAP.md) for the next preset-bundle
-improvement, plus longer-term command variables and shell candidates.
+See the [post-1.0 feature roadmap](docs/FEATURE-ROADMAP.md) for the command-button
+improvements and longer-term command variables and shell candidates.
 These investigations are separate from the [1.0 release checklist](docs/ROADMAP-1.0.md).
