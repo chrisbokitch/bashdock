@@ -284,7 +284,7 @@ class WorkspaceTests(unittest.TestCase):
             self.app.processEvents()
 
     def test_tab_compact_overflow_preserves_names_icons_selection_and_shells(self):
-        from PySide6.QtCore import Qt
+        from PySide6.QtCore import Qt, QPoint
         from PySide6.QtTest import QTest
         from PySide6.QtWidgets import QStyleOptionTab, QToolButton, QTabBar
         for _ in range(3):
@@ -292,16 +292,20 @@ class WorkspaceTests(unittest.TestCase):
         tabs = [self.window.tabs.widget(i) for i in range(4)]
         for tab in tabs:
             self.ready(tab)
+        screen = self.window.screen().availableGeometry()
+        wide = min(1200, screen.width() - 80)
+        narrow = min(640, wide - 160)
+        self.window.move(screen.topLeft() + QPoint(20, 20))
+        self.window.resize(wide, 760)
         self.window.show()
         bar = self.window.tabs.tabBar()
-        self.window.resize(1600, 760)
         for _ in range(8):
             self.app.processEvents()
-        # Windows/headless desktops can clamp the requested 1600px window.
-        # Choose labels that fit its actual wide size and overflow at 640px.
+        # Keep both window sizes on-screen, including at fractional scaling.
+        # Choose labels that fit its actual wide size and overflow when narrow.
         corner_width = self.window.tabs.cornerWidget().width()
         available = self.window.tabs.width() - corner_width - 6
-        target = (available + 640 - corner_width - 12) // 2
+        target = (available + narrow - corner_width - 12) // 2
         suffix = ''
         while True:
             for index, tab in enumerate(tabs):
@@ -318,11 +322,14 @@ class WorkspaceTests(unittest.TestCase):
             self.app.processEvents()
         self.assertFalse(bar.compact, repr((self.window.size(), available, natural)))
         full_width = bar.tabRect(0).width()
-        for width in (640, 1600, 640, 1600, 640):
+        for width in (narrow, wide, narrow, wide, narrow):
             self.window.resize(width, 760)
             for _ in range(8):
                 self.app.processEvents()
-            self.assertEqual(width == 640, bar.compact)
+            self.assertEqual(width == narrow, bar.compact,
+                repr(dict(requested=width, actual=self.window.size(), bar=bar.geometry(),
+                          contents=self.window.tabs.contentsRect(), corner=corner_width,
+                          natural=sum(QTabBar.tabSizeHint(bar, i).width() for i in range(4)))))
             option = QStyleOptionTab()
             bar.initStyleOption(option, 0)
             self.assertEqual('' if bar.compact else tabs[0].data['name'], option.text)
