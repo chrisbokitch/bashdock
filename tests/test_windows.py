@@ -610,7 +610,7 @@ class WindowsTests(unittest.TestCase):
         from PySide6.QtTest import QTest
         from PySide6.QtWidgets import QApplication, QMessageBox
         from bashdock import config
-        from bashdock.app import MainWindow
+        from bashdock.app import MainWindow, CommandScrollArea
         from bashdock.terminal import Terminal
         from bashdock.update_helper import retry
 
@@ -635,7 +635,7 @@ class WindowsTests(unittest.TestCase):
             tab.update(startup_folder=str(folder), current_folder=str(folder))
         profile = config.default_tab('Saved command')
         profile.update(startup_folder=str(folder), current_folder=str(folder),
-                       buttons=[{'label': f'Command {i}', 'command': ':'} for i in range(4)] +
+                       buttons=[{'label': 'First', 'command': ':'}] +
                                [{'label': 'Write receipt', 'command':
                                  f"printf '%s' clicked > {shlex.quote(receipt.as_posix())}"}])
         data['workspaces'] = [{'name': 'Button project', 'tabs': [profile], 'active_tab': 0}]
@@ -648,7 +648,11 @@ class WindowsTests(unittest.TestCase):
                     return
                 app.processEvents()
                 time.sleep(0.01)
-            self.fail('Saved-workspace shell/button did not become ready')
+            tab = window.current_tab()
+            area = tab.findChild(CommandScrollArea)
+            self.fail(repr(dict(window=window.geometry(), viewport=area.viewport().size(),
+                                buttons=[(b.geometry(), b.sizeHint()) for b in tab.command_buttons],
+                                terminal=tab.terminal.size(), dimensions=tab.terminal.dimensions)))
 
         def fitted_rows(terminal):
             states = []
@@ -696,6 +700,25 @@ class WindowsTests(unittest.TestCase):
                         process = tab.terminal.process
                         window.move(screen.topLeft() + QPoint(20, 20))
                         window.resize(wide, height)
+                        fitted_rows(tab.terminal)
+                        area = tab.findChild(CommandScrollArea)
+                        wide_space = area.viewport().width()
+                        window.resize(narrow, height)
+                        fitted_rows(tab.terminal)
+                        narrow_space = area.viewport().width()
+                        self.assertLess(narrow_space, wide_space)
+                        window.resize(wide, height)
+                        # Size the fixture labels from the real viewport/font,
+                        # rather than assuming a desktop width or font metrics.
+                        target = (wide_space + narrow_space) // 2
+                        label = 'First'
+                        while True:
+                            tab.command_buttons[0].setText(label)
+                            total = sum(button.sizeHint().width() for button in tab.command_buttons) + 6
+                            if total >= target:
+                                break
+                            label += 'x'
+                        self.assertLess(total, wide_space)
                         wait_for(lambda: len({button.y() for button in tab.command_buttons}) == 1)
                         rows = fitted_rows(tab.terminal)
                         window.resize(narrow, height)
