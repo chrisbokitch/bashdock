@@ -84,8 +84,22 @@ class UpdateTLSTests(unittest.TestCase):
                         self.assertEqual(b'verified TLS', updates.read_url(f'https://localhost:{port}/', 100))
                         with self.assertRaises(urllib.error.URLError):
                             updates.read_url(f'https://127.0.0.1:{port}/', 100)
-                        with self.assertRaisesRegex(ValueError, 'insecure redirect'):
-                            updates.read_url(f'https://localhost:{port}/redirect', 100)
+                        responses = []
+                        redirect = updates.HTTPSRedirect.redirect_request
+
+                        def observe(handler, request, response, *arguments):
+                            responses.append(response)
+                            return redirect(handler, request, response, *arguments)
+
+                        with patch.object(updates.HTTPSRedirect, 'redirect_request', observe):
+                            with self.assertRaisesRegex(ValueError, 'insecure redirect'):
+                                updates.read_url(f'https://localhost:{port}/redirect', 100)
+                        self.assertEqual(1, len(responses))
+                        try:
+                            self.assertTrue(responses[0].closed,
+                                            'Rejecting an insecure redirect must close its TLS response')
+                        finally:
+                            responses[0].close()
             finally:
                 server.shutdown()
                 server.server_close()

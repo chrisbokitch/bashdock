@@ -64,6 +64,9 @@ def parse_manifest(raw, signature, key, verify=verify_signature):
 class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request, fp, code, message, headers, url):
         if urllib.parse.urlsplit(url).scheme != 'https':
+            # urllib closes this response only after redirect_request returns.
+            # Rejection raises instead, so close it here before leaving.
+            fp.close()
             raise ValueError('An update download attempted an insecure redirect.')
         return super().redirect_request(request, fp, code, message, headers, url)
 

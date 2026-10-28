@@ -15,8 +15,8 @@ command-button workflow, then a reassessment before taking on broader features.
 | Complete | Workspace submenu: Replace current toggle | Released in 1.3.0; owner visual check passed. |
 | Complete | Wrapping command buttons | Released in 1.3.0; owner visual check passed. |
 | Complete | Tab icons and compact overflow | Released in 1.3.0; owner visual check passed. |
-| 1 | Multiline command editor | Implemented in development 1.4.0; owner visual check pending. |
-| 2 | Per-button command confirmation | Implemented in development 1.5.0; owner visual check pending. |
+| 1 | Multiline command editor | Implemented in development 1.4.0; owner visual check passed. |
+| 2 | Per-button command confirmation | Implemented in development 1.5.0; owner visual check passed. |
 | 3 | Command-button preset bundles | Preview and apply useful starter sets; destructive preset buttons enable confirmation. |
 | Candidate | Prompted command variables | Reassess after the three focused additions; not scheduled. |
 | Candidate | Variables with choices | Depends on prompted variables; not scheduled. |
@@ -99,7 +99,7 @@ continue to restore normally.
 
 ## Multiline commands attached to buttons
 
-Implemented in development **1.4.0**; owner visual check pending. Add and Edit…
+Implemented in development **1.4.0**; owner visual check passed. Add and Edit…
 open a dedicated label/body editor; double-click and F2/Enter also open existing
 buttons. The table keeps a compact preview, with full commands in tooltips. Inner
 Save stages edits until Configure tab is saved. Literal tabs are quoted at the
@@ -298,7 +298,7 @@ long labels, wrapped rows and commands whose required tools are unavailable.
 
 ## Per-button command confirmation
 
-Implemented in development **1.5.0**; owner visual check pending. The command
+Implemented in development **1.5.0**; owner visual check passed. The command
 editor places **Confirm before using** and a message field below the command body.
 The field is disabled until checked, defaults to **Are you sure?**, and supports
 custom text. Turning confirmation off retains the message; saving an empty field

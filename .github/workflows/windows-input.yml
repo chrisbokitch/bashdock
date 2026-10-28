@@ -69,6 +69,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k command_confirmation -k confirmation_acceptance -k confirmation_edits -k multiline -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Check updater TLS response cleanup
+        shell: pwsh
+        run: |
+          .venv/Scripts/python.exe -m unittest discover -s tests -p test_update_tls.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Repeat hidden-tab and resize command execution checks
         shell: pwsh
         run: |
