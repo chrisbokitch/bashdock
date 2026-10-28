@@ -1,4 +1,12 @@
-BashDock 1.2 adds tab icons and compact tab overflow.
+BashDock 1.3 adds wrapping command buttons.
+
+Command buttons wrap into additional rows as the window narrows, keeping their
+configured order. Widening returns space to the terminal; the configure gear
+stays beside the first row. Long labels shorten visually, with the full label
+and command in a tooltip. Unusually large command bars scroll vertically to
+preserve terminal space. Resizing keeps the running shell and its contents.
+
+Also included from 1.2: tab icons and compact tab overflow.
 
 Tabs receive generic shape icons automatically. **Configure tab → Tab icon**
 offers 36 bundled shapes and symbols. Icons are remembered with tabs, saved

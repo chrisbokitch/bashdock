@@ -10,15 +10,15 @@ release numbers.
 | Order | Feature | Scope |
 | --- | --- | --- |
 | 1 | Workspace submenu: Replace current toggle | Complete in development 1.1.0; owner visual check passed. |
-| 2 | Wrapping command buttons | Wrap the command bar into additional rows as the window narrows. |
-| 3 | Tab icons and compact overflow | Implemented in development 1.2.0; owner visual check pending. |
+| 2 | Wrapping command buttons | Implemented in development 1.3.0; owner visual check pending. |
+| 3 | Tab icons and compact overflow | Complete in development 1.2.0; owner visual check passed. |
 | 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
 | 5 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
 | 6 | Variables with choices | Extend the same prompt system with dropdowns and validation. |
 | 7 | Different shells per tab | Introduce shell profiles and shell-specific integration. |
 
-The workspace toggle and tab icons/compact overflow are implemented. Button
-wrapping is the next queued UI improvement.
+The workspace toggle, tab icons/compact overflow and button wrapping are
+implemented. The multiline command editor is the next queued UI improvement.
 Deliver each UI enhancement separately with focused regression checks and a
 short owner visual check.
 
@@ -48,8 +48,8 @@ clear; cancelling replacement preserves current shells and settings.
 
 ## Wrapping command buttons
 
-When a window is too narrow for all command buttons, wrap them onto a second or
-subsequent row instead of requiring horizontal scrolling.
+Implemented in development **1.3.0**. Owner visual check pending. When a window
+is too narrow for all command buttons, they wrap onto additional rows.
 
 - Keep button order and each tab's independent command bar.
 - Grow the footer to fit complete rows and return space to the terminal when
@@ -58,8 +58,9 @@ subsequent row instead of requiring horizontal scrolling.
   directory, environment and scrollback.
 - Cover restored hidden tabs, tab switches, long labels, window resizing and
   fractional display scaling; avoid reintroducing the clipped-footer regression.
-- Decide how exceptionally long labels and very short windows behave while
-  retaining usable terminal space.
+- Long labels shorten visually while retaining the full label and command in
+  the tooltip. Large command areas are capped at 40% of the tab height (at least
+  one complete row) and scroll vertically to retain usable terminal space.
 
 Acceptance: buttons remain fully visible/clickable across row changes, order and
 focus restoration are preserved, and narrowing/widening does not restart shells
@@ -68,7 +69,7 @@ or submit commands.
 ## Tab icons and compact overflow
 
 Implemented in development **1.2.0**, moved ahead of button wrapping at the
-owner's request. Owner visual check pending.
+owner's request. Owner visual check passed.
 
 - New and legacy tabs receive generic shapes automatically: use each of the 12
   shapes before repeating the least-used shape. Assignments persist; shared legacy

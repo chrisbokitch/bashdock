@@ -11,12 +11,13 @@ from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainte
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
-    QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit, QStyle,
+    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit, QStyle,
     QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu, QStyleOptionTab,
 )
 
 from . import config, terminal_preferences, tab_icons
 from .tab_icon_picker import TabIconPicker
+from .command_bar import CommandButton, CommandFlowLayout, CommandScrollArea
 from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
 from .window_theme import install_titlebar_theme
@@ -318,40 +319,6 @@ class SettingsDialog(QDialog):
         self.accept()
 
 
-class CommandScrollArea(QScrollArea):
-    """Fit the button height, reserving scrollbar space only when needed."""
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.fit_timer = QTimer(self)
-        self.fit_timer.setSingleShot(True)
-        self.fit_timer.timeout.connect(self.fit_height)
-
-    def schedule_fit(self):
-        # Resizing the scroll area inside its child's Resize event can nest
-        # another resize before Qt lays out the original size. That leaves
-        # buttons positioned for the old height when a hidden tab is shown.
-        self.fit_timer.start(0)
-
-    def fit_height(self):
-        if self.widget() is None:
-            return
-        size = self.widget().minimumSizeHint()
-        height = max(1, size.height())
-        if size.width() > self.viewport().width():
-            height += self.horizontalScrollBar().sizeHint().height()
-        if self.height() != height:
-            self.setFixedHeight(height)
-
-    def eventFilter(self, watched, event):
-        if event.type() in (QEvent.Type.LayoutRequest, QEvent.Type.Resize, QEvent.Type.Show):
-            self.schedule_fit()
-        return super().eventFilter(watched, event)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.schedule_fit()
-
-
 class ShellTopBorder(QWidget):
     """One shell-wide rule, open beneath the selected tab's interior."""
     def __init__(self, tab_bar, background, parent):
@@ -397,12 +364,9 @@ class ShellTab(QWidget):
         layout.addWidget(self.terminal, 1)
         footer = QHBoxLayout()
         footer.setContentsMargins(3, 6, 3, 6)
-        scroll = CommandScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll = CommandScrollArea(self)
         self.bar = QWidget()
-        self.bar_layout = QHBoxLayout(self.bar)
+        self.bar_layout = CommandFlowLayout(self.bar)
         self.bar_layout.setContentsMargins(0, 0, 0, 0)
         scroll.setWidget(self.bar)
         self.bar.installEventFilter(scroll)
@@ -415,7 +379,7 @@ class ShellTab(QWidget):
         configure.setToolTip("Configure tab…")
         configure.setAccessibleName("Configure tab…")
         configure.clicked.connect(self.configure_requested.emit)
-        footer.addWidget(configure)
+        footer.addWidget(configure, 0, Qt.AlignmentFlag.AlignTop)
         layout.addLayout(footer)
         self.command_buttons = []
         self.build_buttons()
@@ -427,15 +391,14 @@ class ShellTab(QWidget):
                 item.widget().deleteLater()
         self.command_buttons = []
         for entry in self.data["buttons"]:
-            button = QPushButton(entry["label"])
-            button.setToolTip(entry["command"])
+            button = CommandButton(entry["label"])
+            button.setToolTip(f"{entry['label']}\n{entry['command']}")
             # A mouse click should return input to this tab's terminal.
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.clicked.connect(lambda checked=False, command=entry["command"]:
                                    self.terminal.run_command(command))
             self.bar_layout.addWidget(button)
             self.command_buttons.append(button)
-        self.bar_layout.addStretch()
         self.set_running(bool(self.terminal.process))
 
     def set_running(self, running):

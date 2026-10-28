@@ -88,6 +88,118 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def test_tab_command_buttons_wrap_and_unwrap_without_restarting_or_submitting(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from bashdock.app import CommandScrollArea
+        tab = self.window.current_tab()
+        tab.data['buttons'] = [{'label': f'Command {i}', 'command': f'echo {i}'} for i in range(8)]
+        tab.build_buttons()
+        self.ready(tab)
+        process = tab.terminal.process
+        self.window.new_tab()
+        self.window.tabs.setCurrentIndex(0)
+        self.window.show()
+        scroll = tab.findChild(CommandScrollArea)
+        heights = []
+        for width in (1400, 600, 1400):
+            self.window.resize(width, 760)
+            for index in (1, 0):
+                self.window.tabs.setCurrentIndex(index)
+                for _ in range(12):
+                    self.app.processEvents()
+            rows = [button.y() for button in tab.command_buttons]
+            self.assertEqual(width == 600, len(set(rows)) > 1)
+            self.assertEqual(rows, sorted(rows))
+            heights.append(scroll.height())
+            self.assertFalse(scroll.horizontalScrollBar().isVisible())
+            self.assertFalse(scroll.verticalScrollBar().isVisible())
+            previous = None
+            for button in tab.command_buttons:
+                self.assertTrue(scroll.viewport().rect().contains(
+                    button.geometry().translated(tab.bar.pos())))
+                self.assertEqual(Qt.FocusPolicy.NoFocus, button.focusPolicy())
+                self.assertGreaterEqual(button.height(), button.sizeHint().height())
+                if previous is not None and previous.y() == button.y():
+                    self.assertLess(previous.geometry().right(), button.x())
+                previous = button
+            self.assertIs(process, tab.terminal.process)
+            self.assertEqual([], tab.terminal.commands)
+            self.assertEqual(0, tab.terminal.stops)
+        self.assertGreater(heights[1], heights[0])
+        self.assertEqual(heights[0], heights[2])
+        self.assertEqual(1, len(tab.terminal.starts))
+        self.window.resize(600, 760)
+        for _ in range(12):
+            self.app.processEvents()
+        for button in tab.command_buttons:
+            QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+        self.assertEqual([f'echo {i}' for i in range(8)], tab.terminal.commands)
+        gear = tab.findChild(QPushButton, 'configureTab')
+        self.assertTrue(gear.isVisible())
+        self.assertTrue(tab.rect().contains(gear.geometry()))
+
+    def test_tab_command_buttons_long_labels_and_empty_rebuild_fit_the_viewport(self):
+        from bashdock.app import CommandScrollArea
+        tab = self.window.current_tab()
+        label = 'A very long label ' * 40
+        tab.data['buttons'] = [{'label': label, 'command': 'printf long'},
+                               {'label': 'Second', 'command': 'printf second'}]
+        tab.build_buttons()
+        self.ready(tab)
+        self.window.show()
+        self.window.resize(600, 760)
+        for _ in range(12):
+            self.app.processEvents()
+        scroll = tab.findChild(CommandScrollArea)
+        first, second = tab.command_buttons
+        self.assertLessEqual(first.width(), scroll.viewport().width())
+        self.assertEqual(label, first.text())
+        self.assertIn(label, first.toolTip())
+        self.assertIn('printf long', first.toolTip())
+        self.assertGreater(second.y(), first.y())
+        self.assertFalse(scroll.horizontalScrollBar().isVisible())
+        row_height = first.sizeHint().height()
+        tab.data['buttons'] = []
+        tab.build_buttons()
+        for _ in range(12):
+            self.app.processEvents()
+        self.assertEqual([], tab.command_buttons)
+        self.assertEqual(0, tab.bar_layout.count())
+        self.assertLessEqual(scroll.height(), row_height)
+        self.assertTrue(tab.findChild(QPushButton, 'configureTab').isVisible())
+
+    def test_tab_command_buttons_extreme_rows_keep_terminal_and_gear_accessible(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from bashdock.app import CommandScrollArea
+        tab = self.window.current_tab()
+        tab.data['buttons'] = [{'label': f'Long command button {i}', 'command': f'echo {i}'} for i in range(45)]
+        tab.build_buttons()
+        self.ready(tab)
+        self.window.show()
+        self.window.resize(600, 380)
+        for _ in range(16):
+            self.app.processEvents()
+        scroll = tab.findChild(CommandScrollArea)
+        self.assertTrue(scroll.verticalScrollBar().isVisible())
+        self.assertFalse(scroll.horizontalScrollBar().isVisible())
+        self.assertLessEqual(scroll.height(), int(tab.height() * 0.4))
+        self.assertGreater(tab.terminal.height(), scroll.height())
+        last = tab.command_buttons[-1]
+        scroll.ensureWidgetVisible(last)
+        self.app.processEvents()
+        self.assertTrue(scroll.viewport().rect().contains(last.geometry().translated(tab.bar.pos())))
+        QTest.mouseClick(last, Qt.MouseButton.LeftButton)
+        self.assertEqual(['echo 44'], tab.terminal.commands)
+        self.assertTrue(tab.findChild(QPushButton, 'configureTab').isVisible())
+        previous = scroll.height()
+        self.window.resize(600, 900)
+        for _ in range(16):
+            self.app.processEvents()
+        self.assertGreater(scroll.height(), previous)
+        self.assertEqual(0, tab.terminal.stops)
+
     def test_tab_icons_automatic_assignment_persistence_and_shared_workspace_identity(self):
         from bashdock import tab_icons
         for _ in range(len(tab_icons.GENERIC) + 1):

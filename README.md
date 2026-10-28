@@ -137,6 +137,13 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 
 Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command. Double-click a cell to edit. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
 
+Command buttons wrap into additional rows as the window narrows, keeping their
+configured order. Widening returns space to the terminal, and the configure gear
+stays beside the first row. Long labels shorten visually; hover to see the full
+label and command. If there are too many rows to fit comfortably, the command
+area uses vertical scrolling and takes at most 40% of the tab height (or one row
+in an exceptionally short window), keeping the terminal usable.
+
 Examples:
 
 | Label | Command |

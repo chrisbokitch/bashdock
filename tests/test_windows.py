@@ -634,7 +634,8 @@ class WindowsTests(unittest.TestCase):
             tab.update(startup_folder=str(folder), current_folder=str(folder))
         profile = config.default_tab('Saved command')
         profile.update(startup_folder=str(folder), current_folder=str(folder),
-                       buttons=[{'label': 'Write receipt', 'command':
+                       buttons=[{'label': f'Command {i}', 'command': ':'} for i in range(7)] +
+                               [{'label': 'Write receipt', 'command':
                                  f"printf '%s' clicked > {shlex.quote(receipt.as_posix())}"}])
         data['workspaces'] = [{'name': 'Button project', 'tabs': [profile], 'active_tab': 0}]
         config.save(data, settings)
@@ -665,11 +666,22 @@ class WindowsTests(unittest.TestCase):
                         tab = window.current_tab()
                         wait_for(lambda: tab.terminal.ready and tab.terminal.command_startup.ready)
                         QTest.qWait(500)
+                        process = tab.terminal.process
+                        window.resize(1400, 760)
+                        wait_for(lambda: len({button.y() for button in tab.command_buttons}) == 1)
+                        QTest.qWait(100)
+                        rows = tab.terminal.dimensions[0]
+                        window.resize(600, 760)
+                        wait_for(lambda: tab.command_buttons[-1].y() > tab.command_buttons[0].y())
+                        wait_for(lambda: tab.terminal.dimensions[0] < rows)
+                        self.assertIs(process, tab.terminal.process)
                         self.assertEqual([], tab.terminal.submitted)
                         self.assertFalse(receipt.exists(), 'A saved button ran without a click')
-                        tab.command_buttons[0].click()
+                        tab.command_buttons[-1].click()
                         wait_for(lambda: receipt.exists() and receipt.read_text() == 'clicked')
-                        self.assertEqual([profile['buttons'][0]['command']], tab.terminal.submitted)
+                        self.assertEqual([profile['buttons'][-1]['command']], tab.terminal.submitted)
+                        window.resize(1400, 760)
+                        wait_for(lambda: tab.terminal.dimensions[0] == rows)
                         receipt.unlink()
         finally:
             if window is not None:
