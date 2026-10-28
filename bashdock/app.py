@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint, QDir
+from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint, QPointF, QDir
 from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor, QPen, QShortcut, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
@@ -492,9 +492,9 @@ class ShellTab(QWidget):
 
 
 class NewTabButton(QPushButton):
-    """A quiet circular control with a full-size keyboard focus target."""
+    """A quiet circular control with a geometrically centered plus."""
     def __init__(self, parent):
-        super().__init__('+', parent)
+        super().__init__(parent)
         self.setObjectName('newTab')
         self.setFixedSize(self.sizeHint())
         self.setToolTip('New tab')
@@ -502,7 +502,19 @@ class NewTabButton(QPushButton):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
     def sizeHint(self):
-        return QSize(28, 28)
+        return QSize(18, 18)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = (QColor('#ffffff') if self.isDown() else
+                 QColor(221, 228, 239, 255 if self.underMouse() or self.hasFocus() else 89))
+        painter.setPen(QPen(color, 1.5,
+                            Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        center = QPointF(self.width() / 2, self.height() / 2)
+        painter.drawLine(center + QPointF(-4, 0), center + QPointF(4, 0))
+        painter.drawLine(center + QPointF(0, -4), center + QPointF(0, 4))
 
 
 class TabStrip(QTabBar):
@@ -567,9 +579,8 @@ class TabStrip(QTabBar):
         if sum(self.tabRect(i).width() for i in range(self.count())) > self.width():
             right = corner.x() + 3
         tab = self.tabRect(self.currentIndex())
-        top = self.y() + tab.top() + self.top_inset
         self.add_button.move(min(right, corner.x() + 3),
-                             top + (tab.height() - self.top_inset - self.add_button.height()) // 2)
+                             self.y() + tab.bottom() + 1 - 5 - self.add_button.height())
         self.add_button.raise_()
 
     def initStyleOption(self, option, index):
@@ -860,11 +871,10 @@ class MainWindow(QMainWindow):
             QPushButton#configureTab { background:#111b2b;padding:6px; }
             QPushButton#newTab {
                 background:rgba(60,75,96,35);color:rgba(221,228,239,89);
-                border:1px solid rgba(112,135,163,70);border-radius:14px;
-                padding:0;font-size:22px;font-weight:normal;
+                border:0;border-radius:9px;padding:0;
             }
             QPushButton#newTab:hover,QPushButton#newTab:focus {
-                background:rgba(60,75,96,220);color:#dde4ef;border-color:#7087a3;
+                background:rgba(60,75,96,220);color:#dde4ef;
             }
             QPushButton#newTab:pressed { background:#53647c;color:#ffffff; }
             QLineEdit,QTableWidget,QPlainTextEdit { background:#10141c;selection-background-color:#365e66; }
