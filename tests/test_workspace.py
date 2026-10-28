@@ -309,10 +309,12 @@ class WorkspaceTests(unittest.TestCase):
         suffix = ''
         while True:
             for index, tab in enumerate(tabs):
-                tab.data['name'] = f'Project {index}{suffix}'
+                tab.data['name'] = f'{index}{suffix}'
                 self.window.tabs.setTabText(index, tab.data['name'])
                 self.window.tabs.setTabToolTip(index, tab.data['name'])
                 bar.setAccessibleTabName(index, tab.data['name'])
+            for _ in range(4):
+                self.app.processEvents()
             natural = sum(QTabBar.tabSizeHint(bar, i).width() for i in range(4))
             if natural >= target:
                 break
