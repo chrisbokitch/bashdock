@@ -85,9 +85,11 @@ class ReleasePackagingTests(unittest.TestCase):
 
             with patch.object(verify_release, "ROOT", root), \
                     patch.object(verify_release, "verify_startup_health") as health, \
+                    patch.object(verify_release, "verify_webengine") as webengine, \
                     patch.object(verify_release.subprocess, "run", side_effect=smoke) as launch:
                 verify_release.main()
                 launch.assert_called_once()
+                webengine.assert_called_once()
                 health.assert_called_once()
                 self.assertEqual('0.6.4', health.call_args.args[2])
                 source_asset.write_bytes(b'corrupted source')

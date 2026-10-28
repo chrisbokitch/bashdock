@@ -231,6 +231,8 @@ jobs:
           name: windows-build-diagnostics
           path: |
             build/*.json
+            build/webengine-*.png
+            build/extracted-webengine/*
             build/bashdock/warn-bashdock.txt
           if-no-files-found: ignore
           retention-days: 14

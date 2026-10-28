@@ -5,6 +5,9 @@ if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--shell-smoke-test":
         from bashdock.packaged_smoke import run
         sys.exit(run(sys.argv[2]))
+    elif len(sys.argv) == 3 and sys.argv[1] == "--webengine-smoke-test":
+        from bashdock.webengine_smoke import run
+        sys.exit(run(sys.argv[2]))
     else:
         from bashdock.app import main
         main()

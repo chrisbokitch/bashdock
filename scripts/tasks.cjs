@@ -77,6 +77,7 @@ if (task === 'stage-update') {
   run(python, ['-m', 'PyInstaller', '--clean', '--noconfirm', 'updater.spec']);
   copyFileSync(path.join(root, 'dist', 'bashdock-updater.exe'), path.join(root, 'dist', 'bashdock', 'bashdock-updater.exe'));
   run(python, ['scripts/check_updater.py']);
+  run(python, ['scripts/check_webengine.py', 'dist/bashdock/bashdock.exe'], { timeout: 360000 });
   const executable = path.join(root, 'dist', 'bashdock', 'bashdock.exe');
   if (!existsSync(executable)) {
     console.error(`Build completed without the expected executable: ${executable}`);

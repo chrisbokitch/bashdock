@@ -57,6 +57,23 @@ dependency archives are separate from the application download. The helper
 retains its own Python/TLS runtime so updates do not depend on files in the
 installation being replaced.
 
+Release packaging also selects WebEngine's release resources explicitly. It
+requires a release Qt build and a complete, nonempty set of release resource
+packs plus the V8 snapshot before excluding the five known debug variants.
+Unknown debug-resource names stop the build for review; installed wheels are
+not modified. Qt's corresponding selection is documented in its
+[6.10.3 resource loader](https://github.com/qt/qtwebengine/blob/v6.10.3/src/core/web_engine_library_info.cpp)
+and [deployment support](https://github.com/qt/qtwebengine/blob/v6.10.3/src/core/api/Qt6WebEngineCoreDeploySupport.cmake).
+
+`scripts/check_webengine.py` runs the compiled application with fresh profiles,
+default rendering at 100%, and GPU-disabled rendering at 100%, 125% and 150%.
+It checks that resources come from the bundle, all release files are present,
+debug variants are absent, and real Bash output travels through WebChannel to
+xterm (including ANSI/Unicode), then captures a nonuniform rendered frame.
+The extracted ZIP repeats these checks. JSON results, resource-selection
+inventory and rendering PNGs are retained in Windows build diagnostics. The
+existing backend-only shell smoke and startup-health checks remain separate.
+
 ## Validate the draft before publishing
 
 This section is the reusable procedure, not a ledger of unfinished work. See
