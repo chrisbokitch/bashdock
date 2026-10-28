@@ -60,8 +60,13 @@ class WindowsTests(GuiTestCase):
             })()""")
 
         def prompt():
-            wait(lambda: evaluate("terminal.modes.bracketedPasteMode") and
-                 screen().rstrip().endswith('M4>'))
+            try:
+                wait(lambda: evaluate("terminal.modes.bracketedPasteMode") and
+                     screen().rstrip().endswith('M4>'))
+            except AssertionError:
+                self.fail(f'Expected interactive M4 prompt; '
+                          f'bracketed_paste={evaluate("terminal.modes.bracketedPasteMode")!r}; '
+                          f'focus={QApplication.focusWidget()!r}; screen={screen()!r}')
 
         def key(code, modifiers=Qt.KeyboardModifier.NoModifier):
             QTest.keyClick(QApplication.focusWidget() or terminal.focusProxy() or terminal,
@@ -239,8 +244,14 @@ class WindowsTests(GuiTestCase):
             key(qt.Key.Key_Return)
             s.receipt('completion.txt', 'completed')
 
-            s.command('printf running > started.txt; sleep 30; printf bad > not-interrupted.txt')
-            s.wait(lambda: (s.folder / 'started.txt').exists())
+            # Signal readiness from the foreground child, after the interactive
+            # shell has launched its job. A receipt written by the parent before
+            # spawning sleep races Ctrl+C against foreground-job creation.
+            # exec keeps the same foreground process through the handoff to sleep.
+            s.command("bash -c 'printf running > started.txt; exec sleep 30'; "
+                      'printf bad > not-interrupted.txt')
+            s.wait(lambda: (s.folder / 'started.txt').is_file() and
+                   (s.folder / 'started.txt').read_text(encoding='utf-8') == 'running')
             key(qt.Key.Key_C, qt.KeyboardModifier.ControlModifier)
             s.prompt()
             self.assertFalse((s.folder / 'not-interrupted.txt').exists())
