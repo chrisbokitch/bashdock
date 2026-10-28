@@ -10,7 +10,7 @@ release numbers.
 | Order | Feature | Scope |
 | --- | --- | --- |
 | 1 | Workspace submenu: Replace current toggle | Complete in development 1.1.0; owner visual check passed. |
-| 2 | Wrapping command buttons | Implemented in development 1.3.0; owner visual check pending. |
+| 2 | Wrapping command buttons | Complete in development 1.3.0; owner visual check passed. |
 | 3 | Tab icons and compact overflow | Complete in development 1.2.0; owner visual check passed. |
 | 4 | Multiline command editor | Improve the button editor and validate existing multiline transport. |
 | 5 | Prompted command variables | Add opt-in templates, one prompt dialog, and predictable substitution. |
@@ -48,7 +48,7 @@ clear; cancelling replacement preserves current shells and settings.
 
 ## Wrapping command buttons
 
-Implemented in development **1.3.0**. Owner visual check pending. When a window
+Implemented in development **1.3.0**. Owner visual check passed. When a window
 is too narrow for all command buttons, they wrap onto additional rows.
 
 - Keep button order and each tab's independent command bar.

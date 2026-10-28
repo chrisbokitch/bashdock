@@ -49,6 +49,14 @@ M1–M9/U1–U7 checks. Preserve recorded historical passes; select outstanding 
 and retests warranted by the candidate's changes. A new candidate still needs
 its own identity/checksum and final smoke result (F1–F3).
 
+For a small UI update with unchanged dependencies and updater/install behavior,
+use a focused release check: passing Windows CI and compatibility jobs, owner
+checks of the changed UI, and a short smoke of the exact draft ZIP (checksum,
+launch/version, typed and button commands, changed UI, close/reopen). Record the
+selected scope and package identity. Do not repeat the entire 1.0 clean-VM,
+recovery and updater failure matrix unless relevant changes warrant it. Keep
+the signed metadata, asset/source inventory and public download checks.
+
 Download the ZIP attached to the draft and test that exact file on the clean Windows VM:
 
 - Start without Git installed: check the missing-Git guidance.

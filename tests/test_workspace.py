@@ -286,22 +286,37 @@ class WorkspaceTests(unittest.TestCase):
     def test_tab_compact_overflow_preserves_names_icons_selection_and_shells(self):
         from PySide6.QtCore import Qt
         from PySide6.QtTest import QTest
-        from PySide6.QtWidgets import QStyleOptionTab, QToolButton
+        from PySide6.QtWidgets import QStyleOptionTab, QToolButton, QTabBar
         for _ in range(3):
             self.window.new_tab()
         tabs = [self.window.tabs.widget(i) for i in range(4)]
-        for index, tab in enumerate(tabs):
-            tab.data['name'] = f'Project {index} with a long tab name'
-            self.window.tabs.setTabText(index, tab.data['name'])
-            self.window.tabs.setTabToolTip(index, tab.data['name'])
-            self.window.tabs.tabBar().setAccessibleTabName(index, tab.data['name'])
+        for tab in tabs:
             self.ready(tab)
         self.window.show()
         bar = self.window.tabs.tabBar()
         self.window.resize(1600, 760)
         for _ in range(8):
             self.app.processEvents()
-        self.assertFalse(bar.compact)
+        # Windows/headless desktops can clamp the requested 1600px window.
+        # Choose labels that fit its actual wide size and overflow at 640px.
+        corner_width = self.window.tabs.cornerWidget().width()
+        available = self.window.tabs.width() - corner_width - 6
+        target = (available + 640 - corner_width - 12) // 2
+        suffix = ''
+        while True:
+            for index, tab in enumerate(tabs):
+                tab.data['name'] = f'Project {index}{suffix}'
+                self.window.tabs.setTabText(index, tab.data['name'])
+                self.window.tabs.setTabToolTip(index, tab.data['name'])
+                bar.setAccessibleTabName(index, tab.data['name'])
+            natural = sum(QTabBar.tabSizeHint(bar, i).width() for i in range(4))
+            if natural >= target:
+                break
+            suffix += 'x'
+        self.assertLess(natural, available)
+        for _ in range(8):
+            self.app.processEvents()
+        self.assertFalse(bar.compact, repr((self.window.size(), available, natural)))
         full_width = bar.tabRect(0).width()
         for width in (640, 1600, 640, 1600, 640):
             self.window.resize(width, 760)
