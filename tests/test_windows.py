@@ -723,7 +723,7 @@ class WindowsTests(unittest.TestCase):
                         rows = fitted_rows(tab.terminal)
                         window.resize(narrow, height)
                         wait_for(lambda: tab.command_buttons[-1].y() > tab.command_buttons[0].y())
-                        self.assertLess(fitted_rows(tab.terminal), rows)
+                        wait_for(lambda: fitted_rows(tab.terminal) < rows)
                         self.assertIs(process, tab.terminal.process)
                         self.assertEqual([], tab.terminal.submitted)
                         self.assertFalse(receipt.exists(), 'A saved button ran without a click')
@@ -732,7 +732,7 @@ class WindowsTests(unittest.TestCase):
                         self.assertEqual([profile['buttons'][-1]['command']], tab.terminal.submitted)
                         window.resize(wide, height)
                         wait_for(lambda: len({button.y() for button in tab.command_buttons}) == 1)
-                        self.assertEqual(rows, fitted_rows(tab.terminal))
+                        wait_for(lambda: fitted_rows(tab.terminal) == rows)
                         receipt.unlink()
         finally:
             if window is not None:
