@@ -257,6 +257,10 @@ def main():
             str(args.acceptance_test / 'acceptance-results.json'), 'Updater acceptance test passed', 0x40)
         return
     if args.self_test:
+        # The acceptance mode shares settings defaults/validation, but must
+        # not acquire the tab UI's Qt rendering dependencies through them.
+        from .config import defaults, validate
+        validate(defaults())
         from .update_security import KEY_FILE
         json.loads(KEY_FILE.read_text(encoding='utf-8'))
         from .updates import tls_context

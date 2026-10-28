@@ -41,6 +41,22 @@ The tag rebuilds and validates that exact revision, then creates a **draft GitHu
 
 The workflow uses GitHub's built-in token; no personal access token is required. Actions must be enabled for the repository and allowed by any organization policy. The build job has read-only contents access; only the tag's draft-release job receives contents-write access.
 
+The independent updater must stay GUI-free. Settings validation imports the pure
+`tab_icon_catalog` module; Qt rendering belongs in `tab_icons`. PyInstaller also
+collects imports inside functions, so moving Qt imports inside a function does
+not isolate the helper. Tests check its complete project import graph, including
+acceptance mode, and `scripts/check_updater.py` rejects Qt/PySide/shiboken entries
+in the actual frozen binary and Python archive. The helper is then run outside
+the app folder to check settings defaults/validation, its embedded public key,
+native TLS configuration and the Windows status window.
+
+CI records `build/updater-size.json` and `build/package-size.json` in build
+diagnostics. The latter reports exact compressed/installed ZIP contributions.
+Compare candidates against [the 1.6.0 baseline](PACKAGE-SIZE-1.6.0.md); source
+dependency archives are separate from the application download. The helper
+retains its own Python/TLS runtime so updates do not depend on files in the
+installation being replaced.
+
 ## Validate the draft before publishing
 
 This section is the reusable procedure, not a ledger of unfinished work. See

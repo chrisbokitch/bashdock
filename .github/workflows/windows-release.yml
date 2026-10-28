@@ -208,6 +208,12 @@ jobs:
           }
       - name: Compile, test executable, and create portable ZIP
         run: npm run package
+      - name: Measure portable ZIP and updater download contribution
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          .venv/Scripts/python.exe scripts/measure_package.py "release/bashdock-$version-windows-x64.zip" --json build/package-size.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify ZIP checksum and run extracted executable
         run: .venv/Scripts/python.exe scripts/verify_release.py
       - name: Upload portable build
