@@ -26,6 +26,7 @@ from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
 from .window_theme import install_titlebar_theme
 from .external_shell import open_external
+from .folder_browser import open_folder
 from .terminal_settings import TerminalSettingsDialog
 from .workspaces import WorkspacesDialog
 
@@ -1355,8 +1356,10 @@ class MainWindow(QMainWindow):
         elif label == 'Copy folder path':
             QApplication.clipboard().setText(QDir.toNativeSeparators(tab.data['current_folder']))
         elif label == 'Open folder in Explorer':
-            if not QDesktopServices.openUrl(QUrl.fromLocalFile(tab.data['current_folder'])):
-                QMessageBox.warning(self, 'Cannot open folder', 'The folder could not be opened.')
+            try:
+                open_folder(tab.data['current_folder'])
+            except (OSError, ValueError, RuntimeError) as error:
+                QMessageBox.warning(self, 'Cannot open folder', str(error))
         self.restore_terminal_focus()
 
     def restore_terminal_focus(self):

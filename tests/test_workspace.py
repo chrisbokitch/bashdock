@@ -161,9 +161,9 @@ class WorkspaceTests(unittest.TestCase):
         with self.choose_context_action('Copy folder path'):
             self.window.show_tab_menu(point)
         self.assertEqual(self.app.clipboard().text(), QDir.toNativeSeparators(tab.data['current_folder']))
-        with self.choose_context_action('Open folder in Explorer'), patch('bashdock.app.QDesktopServices.openUrl', return_value=True) as opened:
+        with self.choose_context_action('Open folder in Explorer'), patch('bashdock.app.open_folder') as opened:
             self.window.show_tab_menu(point)
-        opened.assert_called_once_with(QUrl.fromLocalFile(tab.data['current_folder']))
+        opened.assert_called_once_with(tab.data['current_folder'])
         with self.choose_context_action('Configure tab…'), patch.object(self.window, 'configure') as configure:
             self.window.show_tab_menu(point)
         configure.assert_called_once_with(tab)
@@ -176,6 +176,34 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(self.window.tabs.count(), 1)
         self.assertEqual(tab.terminal.stops, 1)
         self.assertIs(self.window.current_tab(), current)
+
+    def test_explorer_uses_each_clicked_folder_after_tab_reorder_and_reports_launch_errors(self):
+        from PySide6.QtCore import QDir
+        folders = [str(Path(self.temp.name) / name) for name in ('App', 'Website & café', 'Server #1')]
+        tabs = []
+        for index, folder in enumerate(folders):
+            Path(folder).mkdir()
+            if index:
+                self.window.new_tab()
+            tab = self.window.current_tab()
+            tab.terminal.directory_changed.emit(folder)
+            tabs.append(tab)
+        self.window.tabs.tabBar().moveTab(0, 2)
+        self.window.tabs.setCurrentWidget(tabs[1])
+        with patch('bashdock.app.open_folder') as opened:
+            for tab, folder in zip(tabs, folders):
+                point = self.window.tabs.tabBar().tabRect(self.window.tabs.indexOf(tab)).center()
+                with self.choose_context_action('Open folder in Explorer'):
+                    self.window.show_tab_menu(point)
+                self.assertEqual((folder,), opened.call_args.args)
+                with self.choose_context_action('Copy folder path'):
+                    self.window.show_tab_menu(point)
+                self.assertEqual(QDir.toNativeSeparators(folder), self.app.clipboard().text())
+                self.assertIs(self.window.current_tab(), tabs[1])
+            self.assertEqual(folders, [c.args[0] for c in opened.call_args_list])
+        with self.choose_context_action('Open folder in Explorer'), patch('bashdock.app.open_folder', side_effect=OSError('Access denied')), patch('bashdock.app.QMessageBox.warning') as warning:
+            self.window.show_tab_menu(self.window.tabs.tabBar().tabRect(0).center())
+        warning.assert_called_once_with(self.window, 'Cannot open folder', 'Access denied')
 
     def test_middle_click_closes_only_matching_tab_and_keeps_existing_confirmation(self):
         from PySide6.QtCore import Qt, QPoint
