@@ -17,4 +17,6 @@ def open_folder(folder):
     # Use the documented folder-specific verb with a native path on the GUI
     # thread, rather than Qt's worker-thread/default file-URL dispatch. No
     # command line, URL parsing, working-directory fallback, or shell expansion.
-    os.startfile(path, 'explore')
+    # Keep the final separator: an extensionless name beside e.g. name.com
+    # must be treated as a directory, not an executable name to resolve.
+    os.startfile(ntpath.join(path, ''), 'explore')
