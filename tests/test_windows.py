@@ -379,8 +379,9 @@ class WindowsTests(GuiTestCase):
             data['bash_path'] = find_bash()
             data['confirm_on_exit'] = False
             config.save(data, settings)
+            # A MagicMock on a QObject method can hang PySide's dynamic slot discovery.
             with patch('bashdock.config.config_path', return_value=settings), \
-                 patch('bashdock.terminal.Terminal.start'):
+                 patch('bashdock.terminal.Terminal.start', new=lambda self, *args, **kwargs: None):
                 window = MainWindow()
                 def wait(predicate):
                     deadline = time.monotonic() + 20
