@@ -26,6 +26,7 @@ class FakeTerminal(QWidget):
     ended = Signal(str)
     problem = Signal(str)
     directory_changed = Signal(str)
+    command_status = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,7 +50,7 @@ class FakeTerminal(QWidget):
     def apply_settings(self, settings):
         self.preferences = copy.deepcopy(settings)
 
-    def run_command(self, command):
+    def run_command(self, command, *, label=None):
         self.commands.append(command)
 
     def stop(self):
@@ -102,6 +103,22 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(matches[0].isEnabled())
             return matches[0]
         return patch('bashdock.app.PopupMenu.exec', choose)
+
+    def test_button_completion_footer_is_per_tab_and_survives_selection_changes(self):
+        first = self.window.current_tab()
+        self.window.new_tab()
+        second = self.window.current_tab()
+        first.terminal.command_status.emit('Update and Test running…')
+        self.assertEqual('Update and Test running…', first.status)
+        self.assertNotEqual(first.status, self.window.statusBar().currentMessage())
+        first.terminal.command_status.emit('Update and Test completed in 50.691s')
+        self.window.tabs.setCurrentWidget(first)
+        self.assertEqual('Update and Test completed in 50.691s', self.window.statusBar().currentMessage())
+        self.window.tabs.setCurrentWidget(second)
+        second.terminal.command_status.emit('Deploy failed after 1.234s · exit code 1')
+        self.assertEqual(second.status, self.window.statusBar().currentMessage())
+        self.window.tabs.setCurrentWidget(first)
+        self.assertEqual('Update and Test completed in 50.691s', self.window.statusBar().currentMessage())
 
     def test_context_events_reach_clicked_tab_and_button_without_running_commands(self):
         from PySide6.QtCore import Qt

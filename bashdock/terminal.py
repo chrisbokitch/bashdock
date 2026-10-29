@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from .shell_integration import valid_reported_directory
 from .shell_backend import spawn_shell
 from .command_startup import CommandStartup
+from .command_timing import CommandTiming
 from .input_diagnostics import CommandTrace
 from . import terminal_preferences
 
@@ -47,6 +48,8 @@ class Bridge(QObject):
 
     @Slot(str)
     def input(self, data):
+        if "\r" in data or "\n" in data:
+            self.terminal.at_prompt = False
         self.terminal.trace.record('terminal_input', characters=len(data),
             utf8_bytes=len(data.encode('utf-8', errors='surrogatepass')),
             has_escape='\x1b' in data, has_enter='\r' in data or '\n' in data)
@@ -62,12 +65,19 @@ class Bridge(QObject):
         self.terminal.trace.record('web_focus', focused=focused)
 
     @Slot(str)
+    def commandEvent(self, payload):
+        message = self.terminal.command_timing.event(payload)
+        if message:
+            self.terminal.command_status.emit(message)
+
+    @Slot(str)
     def shellReady(self, session_id):
         self.terminal.shell_ready(session_id)
 
     @Slot(str)
     def directory(self, path):
         if valid_reported_directory(path):
+            self.terminal.at_prompt = True
             self.terminal.directory_changed.emit(path)
 
     @Slot(str)
@@ -106,6 +116,7 @@ class Terminal(QWebEngineView):
     ended = Signal(str)
     problem = Signal(str)
     directory_changed = Signal(str)
+    command_status = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -117,6 +128,8 @@ class Terminal(QWebEngineView):
         self.reader = None
         self.init_file = None
         self.command_startup = CommandStartup()
+        self.command_timing = CommandTiming()
+        self.at_prompt = False
         self.trace = CommandTrace()
         self.preferences = terminal_preferences.defaults()
         self.setPage(LocalPage(self))
@@ -146,6 +159,8 @@ class Terminal(QWebEngineView):
         self.stopping.clear()
         self.cleanup_init_file()
         session_id = self.command_startup.begin()
+        self.command_timing.reset()
+        self.at_prompt = False
         self.trace.reset()
         self.trace.record('shell_start', rows=self.dimensions[0], cols=self.dimensions[1])
         self.process, self.init_file = spawn_shell(
@@ -192,6 +207,8 @@ class Terminal(QWebEngineView):
             else:
                 self.process = None
                 self.command_startup.reset()
+                self.command_timing.reset()
+                self.at_prompt = False
                 self.trace.reset()
                 self.trace.record('shell_stop')
                 self.cleanup_init_file()
@@ -201,6 +218,7 @@ class Terminal(QWebEngineView):
 
     def write(self, data, command_id=0):
         if command_id:
+            self.at_prompt = False
             # Git Bash can drop the first input character after a resize.
             # At the empty prompt required for command buttons, this space
             # and Backspace cancel out even when the space is swallowed.
@@ -219,9 +237,14 @@ class Terminal(QWebEngineView):
             except (OSError, RuntimeError, EOFError) as error:
                 self.trace.record('write_failed', command=command_id,
                     errno=getattr(error, 'errno', None), winerror=getattr(error, 'winerror', None))
+                if command_id:
+                    self.command_timing.reset()
                 self.problem.emit(str(error))
 
-    def run_command(self, command):
+    def run_command(self, command, *, label=None):
+        if (label and self.process and not self.command_timing.token and
+                (self.at_prompt or not self.command_startup.ready)):
+            command = self.command_timing.prepare(command, label, self.command_startup.session_id)
         # The button-command signal sends plain input plus Enter, not a clipboard paste.
         command_id = self.trace.prepare(command, ready=self.command_startup.ready, running=bool(self.process))
         if self.process:
@@ -265,6 +288,8 @@ class Terminal(QWebEngineView):
         self.trace.record('shell_stop')
         self.trace.reset()
         self.command_startup.reset()
+        self.command_timing.reset()
+        self.at_prompt = False
         self.stopping.set()
         process, self.process = self.process, None
         if process:

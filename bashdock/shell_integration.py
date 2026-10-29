@@ -18,6 +18,26 @@ if [[ -n ${BASHDOCK_START_DIR-} ]]; then
     cd -- "$BASHDOCK_START_DIR"
     unset BASHDOCK_START_DIR
 fi
+# Keep this private session token after the one-time startup acknowledgement.
+__bashdock_timing_session=${BASHDOCK_SESSION-}
+__bashdock_command_begin() {
+    local __bashdock_previous=$2
+    __bashdock_command_id=$1
+    builtin printf '\033]777;bashdock-command;%s;%s;start;%s\007' \
+        "$__bashdock_timing_session" "$__bashdock_command_id" "$EPOCHREALTIME"
+    return "$__bashdock_previous"
+}
+__bashdock_command_finish() {
+    local __bashdock_exit=$?
+    if [[ -n ${__bashdock_command_id-} ]]; then
+        builtin printf '\033]777;bashdock-command;%s;%s;done;%s;%s\007' \
+            "$__bashdock_timing_session" "$__bashdock_command_id" "$__bashdock_exit" "$EPOCHREALTIME"
+        unset __bashdock_command_id
+    fi
+    return "$__bashdock_exit"
+}
+# Capture the script's exit status before any user prompt hooks can alter it.
+PROMPT_COMMAND=(__bashdock_command_finish "${PROMPT_COMMAND[@]}")
 __bashdock_report_cwd() {
     local __bashdock_status=$?
     local __bashdock_path

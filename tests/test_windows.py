@@ -127,6 +127,42 @@ class WindowsTests(GuiTestCase):
             app.processEvents()
             retry(temporary.cleanup, timeout=5)
 
+    def test_button_timing_covers_multiline_failure_interrupt_and_remote_style_input(self):
+        with self.interactive_session() as s:
+            terminal = s.terminal
+            messages = []
+            terminal.command_status.connect(messages.append)
+            terminal.run_command("sleep 0.15\nexport BASHDOCK_TIMED=kept\nprintf '%s' 'café\tλ' > timed-unicode.txt\nprintf timed > timed.txt", label='Timed script')
+            s.wait(lambda: any('completed in' in message for message in messages))
+            self.assertEqual('timed', (s.folder / 'timed.txt').read_text())
+            self.assertEqual('café\tλ', (s.folder / 'timed-unicode.txt').read_text(encoding='utf-8'))
+            self.assertEqual(2, len(messages), messages)
+            self.assertEqual('Timed script running…', messages[0])
+            self.assertGreaterEqual(float(messages[1].split()[-1][:-1]), 0.15)
+            s.prompt()
+            terminal.run_command('(exit 7)', label='Failure')
+            s.wait(lambda: any('exit code 7' in message for message in messages))
+            self.assertIn('Failure failed after', messages[-1])
+            s.prompt()
+            terminal.run_command("bash -c 'printf started > timing-started.txt; exec sleep 30'", label='Interrupt me')
+            s.wait(lambda: (s.folder / 'timing-started.txt').is_file() and
+                   (s.folder / 'timing-started.txt').read_text() == 'started')
+            s.key(s.qt.Key.Key_C, s.qt.KeyboardModifier.ControlModifier)
+            s.wait(lambda: any('exit code 130' in message for message in messages))
+            s.prompt()
+            terminal.run_command('printf "%s" "$BASHDOCK_TIMED" > preserved.txt')
+            s.wait(lambda: (s.folder / 'preserved.txt').is_file())
+            self.assertEqual('kept', (s.folder / 'preserved.txt').read_text())
+            s.prompt()
+            # A typed interactive program has no host prompt. A labelled
+            # button must stay plain input rather than invoke host-only helpers.
+            s.command("printf ready > answer-ready.txt; IFS= read -er answer; printf '%s' \"$answer\" > answer.txt")
+            s.wait(lambda: (s.folder / 'answer-ready.txt').is_file() and not terminal.at_prompt)
+            terminal.run_command('literal answer', label='Answer')
+            s.wait(lambda: (s.folder / 'answer.txt').is_file())
+            self.assertEqual('literal answer', (s.folder / 'answer.txt').read_text())
+            s.prompt()
+
     def test_command_button_confirmation_sends_nothing_until_run_and_executes_once(self):
         from unittest.mock import patch
         from PySide6.QtCore import QTimer
@@ -177,7 +213,7 @@ class WindowsTests(GuiTestCase):
                         if action != 'run':
                             run.assert_not_called()
                             self.assertFalse((s.folder / 'confirmation.txt').exists())
-                    run.assert_called_once_with(body)
+                    run.assert_called_once_with(body, label='Reviewed script')
                     s.receipt('confirmation.txt', 'first\nsecond\n')
                     s.wait(lambda: s.evaluate("document.activeElement.classList.contains('xterm-helper-textarea')"))
         finally:
@@ -752,9 +788,9 @@ class WindowsTests(GuiTestCase):
                 super().__init__(parent)
                 self.submitted = []
 
-            def run_command(self, command):
+            def run_command(self, command, **options):
                 self.submitted.append(command)
-                super().run_command(command)
+                super().run_command(command, **options)
 
         app = QApplication.instance() or QApplication([])
         temporary = tempfile.TemporaryDirectory(prefix='bashdock saved workspace ')

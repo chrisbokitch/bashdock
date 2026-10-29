@@ -489,7 +489,7 @@ class ShellTab(QWidget):
         if (isValid(self) and isValid(terminal) and isValid(owner)
                 and owner.tabs.indexOf(self) >= 0 and self.terminal is terminal
                 and terminal.process is process):
-            terminal.run_command(entry['command'])
+            terminal.run_command(entry['command'], label=entry['label'])
 
     def set_running(self, running):
         for button in self.command_buttons:
@@ -1272,6 +1272,7 @@ class MainWindow(QMainWindow):
         tab.terminal.loaded.connect(lambda: self.start_shell(tab))
         tab.terminal.ended.connect(lambda text: self.on_ended(tab, text))
         tab.terminal.problem.connect(lambda text: self.show_status(tab, text))
+        tab.terminal.command_status.connect(lambda text: self.show_status(tab, text))
         tab.terminal.directory_changed.connect(lambda path: self.directory_changed(tab, path))
         index = self.tabs.addTab(tab, tab_icons.icon(profile['icon']), profile["name"])
         self.tabs.setTabToolTip(index, profile['name'])

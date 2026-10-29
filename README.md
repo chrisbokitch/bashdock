@@ -142,6 +142,18 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 
 ## Command buttons
 
+Button runs started at the local Bash prompt show progress and a result in the footer,
+for example **Update and Test completed in 50.691s** or **Test failed after 12.304s · exit code 1**.
+Ctrl+C reports an interrupted run. Each tab remembers its latest result for the current session;
+switching tabs shows that tab's status. Timing starts in Bash after startup/confirmation waits
+and ends before user prompt hooks run. A multiline button is evaluated as one script in the
+existing shell, retaining folder, variable, alias, and function changes. The shell's history/echo
+includes the timing/eval wrapper; stored button commands and confirmation previews stay literal.
+Background jobs are timed only until the launching script returns. Commands entered inside an
+already-running interactive program or remote session are left untimed. Scripts that exit or
+replace the host shell cannot report a normal completion. Timing markers contain execution IDs,
+timestamps, and exit codes; command text and labels are not added to diagnostic logs.
+
 Right-click a command button to **Edit…**, **Duplicate**, **Move left**, **Move right**, or **Delete** it. Changes save immediately; editing or organizing buttons never executes their commands. Duplicates keep the command and its confirmation settings. Move actions follow the button order across wrapped rows.
 
 Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command preview. Select a row and click **Edit…**, double-click it, or press **F2/Enter** to open the command editor. **Add** opens the same editor for a new button. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
