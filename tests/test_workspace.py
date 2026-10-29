@@ -104,6 +104,23 @@ class WorkspaceTests(unittest.TestCase):
             return matches[0]
         return patch('bashdock.app.PopupMenu.exec', choose)
 
+    def test_only_opted_in_buttons_request_timing_and_duplication_preserves_setting(self):
+        from PySide6.QtCore import QPoint
+        tab = self.window.current_tab()
+        self.ready(tab)
+        definition = tab.data['buttons'][0]
+        with patch.object(tab.terminal, 'run_command') as run:
+            tab.run_button_command(definition)
+            run.assert_called_once_with(definition['command'])
+            run.reset_mock()
+            definition['timing'] = True
+            tab.run_button_command(definition)
+            run.assert_called_once_with(definition['command'], label=definition['label'])
+        with self.choose_context_action('Duplicate'):
+            self.window.show_button_menu(tab, 0, QPoint())
+        self.assertTrue(tab.data['buttons'][1]['timing'])
+        self.assertTrue(config.load(self.path)['tabs'][0]['buttons'][1]['timing'])
+
     def test_button_completion_footer_is_per_tab_and_survives_selection_changes(self):
         first = self.window.current_tab()
         self.window.new_tab()
@@ -556,7 +573,7 @@ class WorkspaceTests(unittest.TestCase):
         with patch.object(CommandEditor, 'exec', accept):
             editor.add_button()
         editor.commit()
-        expected = {'label': 'Multiline', 'command': body, 'confirm': False,
+        expected = {'label': 'Multiline', 'command': body, 'confirm': False, 'timing': False,
                     'confirmation_message': 'Are you sure?'}
         self.assertEqual(expected, editor.result_data['buttons'][-1])
         with patch('bashdock.app.SettingsDialog', return_value=editor), \

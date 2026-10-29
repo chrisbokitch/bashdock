@@ -23,7 +23,7 @@ class CommandBody(QPlainTextEdit):
 
 class CommandEditor(QDialog):
     def __init__(self, label, command, parent=None, *, confirm=False,
-                 confirmation_message=DEFAULT_CONFIRMATION_MESSAGE, staged=True):
+                 confirmation_message=DEFAULT_CONFIRMATION_MESSAGE, staged=True, timing=False):
         super().__init__(parent)
         self.setWindowTitle("Edit command button")
         self.resize(680, 460)
@@ -59,6 +59,10 @@ class CommandEditor(QDialog):
         confirmation.addWidget(self.confirm)
         confirmation.addWidget(self.confirmation_message, 1)
         layout.addLayout(confirmation)
+        self.timing = QCheckBox("Show execution time")
+        self.timing.setChecked(timing)
+        self.timing.setToolTip("Show this button's elapsed time and exit status in the footer")
+        layout.addWidget(self.timing)
         note = QLabel("Enter adds a line; Tab inserts indentation. Use Ctrl+Tab to leave the editor.\n"
                       "Runs in this tab's existing shell at an empty prompt. Bash syntax controls\n"
                       "whether later commands run after a failure. Saving here only stages edits;\n"
@@ -76,7 +80,7 @@ class CommandEditor(QDialog):
     def commit(self):
         message = self.confirmation_message.text()
         data = {"label": self.label.text(), "command": self.command.toPlainText(),
-                "confirm": self.confirm.isChecked(),
+                "confirm": self.confirm.isChecked(), "timing": self.timing.isChecked(),
                 "confirmation_message": message if message.strip() else DEFAULT_CONFIRMATION_MESSAGE}
         try:
             validate_buttons([data])

@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-from .shell_integration import create_init_file
+from .shell_integration import create_init_file, command_file_for
 
 
 def spawn_shell(bash_path, folder, dimensions, *, session_id=""):
@@ -20,6 +20,7 @@ def spawn_shell(bash_path, folder, dimensions, *, session_id=""):
     env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", CHERE_INVOKING="1",
                BASHDOCK_START_DIR=Path(folder).as_posix(), BASHDOCK_SESSION=session_id)
     init_file = create_init_file()
+    env["BASHDOCK_COMMAND_FILE"] = command_file_for(init_file).as_posix()
     try:
         process = winpty.PtyProcess.spawn(
             [bash_path, "--rcfile", init_file.as_posix(), "-i"], cwd=folder, env=env,

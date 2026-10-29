@@ -35,6 +35,16 @@ class InputDiagnosticsTests(unittest.TestCase):
         for event in report['recent_activity']['events']:
             self.assertTrue(all(type(v) in (int, bool) for k, v in event.items() if k != 'event'))
 
+    def test_private_binding_integrity_is_distinguished_without_capturing_script_text(self):
+        recorder = Recorder()
+        trace = CommandTrace(recorder)
+        command = trace.prepare('secret script', ready=True, running=True, wire_text='\x18\x02')
+        trace.receive(command, '\x18\x02')
+        events = recorder.snapshot()['events']
+        self.assertTrue(events[0]['private_binding'])
+        self.assertTrue(events[1]['unchanged'])
+        self.assertNotIn('secret script', json.dumps(events))
+
     def test_integrity_checks_detect_first_character_loss_and_handle_unicode_newlines(self):
         recorder = Recorder()
         trace = CommandTrace(recorder)

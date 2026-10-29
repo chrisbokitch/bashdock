@@ -1,7 +1,23 @@
 """Track one foreground button script using shell-generated timestamps."""
 import re
-import shlex
+import os
+from pathlib import Path
+import tempfile
 from uuid import uuid4
+
+TRIGGER = '\x18\x02'  # Ctrl+X, Ctrl+B: passes through ConPTY as ordinary control input.
+
+
+def stage_command(path, token, command):
+    path = Path(path)
+    fd, temporary = tempfile.mkstemp(prefix=path.name + '.', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as stream:
+            stream.write(token + '\n' + command)
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
 
 STAMP = re.compile(r'([0-9]{1,14})\.([0-9]{6})\Z')
 
@@ -19,9 +35,7 @@ class CommandTiming:
     def prepare(self, command, label, session):
         self.session, self.token, self.label = session, uuid4().hex, label
         self.started = None
-        # eval runs the literal script in the current shell, without a function
-        # or subshell scope. One prompt follows the whole multiline script.
-        return f'__bashdock_command_begin {self.token} "$?"; eval -- {shlex.quote(command)}'
+        return self.token
 
     def event(self, payload):
         if len(payload) > 160:

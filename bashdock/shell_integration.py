@@ -20,6 +20,19 @@ if [[ -n ${BASHDOCK_START_DIR-} ]]; then
 fi
 # Keep this private session token after the one-time startup acknowledgement.
 __bashdock_timing_session=${BASHDOCK_SESSION-}
+__bashdock_command_file=${BASHDOCK_COMMAND_FILE-}
+unset BASHDOCK_COMMAND_FILE
+__bashdock_command_load() {
+    __bashdock_command_previous=$?
+    local __bashdock_payload
+    [[ -n $__bashdock_command_file && -f $__bashdock_command_file ]] || return 1
+    IFS= builtin read -r -d '' __bashdock_payload < "$__bashdock_command_file" || :
+    __bashdock_command_id=${__bashdock_payload%%$'\n'*}
+    __bashdock_command_body=${__bashdock_payload#*$'\n'}
+    [[ $__bashdock_command_id =~ ^[a-f0-9]{32}$ ]] || return 1
+    builtin printf '%s\n' "$__bashdock_command_body"
+    builtin history -s -- "$__bashdock_command_body" 2>/dev/null || :
+}
 __bashdock_command_begin() {
     local __bashdock_previous=$2
     __bashdock_command_id=$1
@@ -32,10 +45,19 @@ __bashdock_command_finish() {
     if [[ -n ${__bashdock_command_id-} ]]; then
         builtin printf '\033]777;bashdock-command;%s;%s;done;%s;%s\007' \
             "$__bashdock_timing_session" "$__bashdock_command_id" "$__bashdock_exit" "$EPOCHREALTIME"
-        unset __bashdock_command_id
+        unset __bashdock_command_id __bashdock_command_body __bashdock_command_previous
     fi
     return "$__bashdock_exit"
 }
+# Readline executes this binding's eval at shell scope, without putting its
+# implementation in the input line or history. Only the literal button script
+# is echoed and saved. Support both Emacs and vi keymaps.
+if [[ -n $__bashdock_command_file ]]; then
+    for __bashdock_keymap in emacs-standard vi-insert vi-command; do
+        bind -m "$__bashdock_keymap" -x '"\C-x\C-b":if __bashdock_command_load; then __bashdock_command_begin "$__bashdock_command_id" "$__bashdock_command_previous"; builtin eval -- "$__bashdock_command_body"; __bashdock_command_finish; __bashdock_report_cwd; fi'
+    done
+    unset __bashdock_keymap
+fi
 # Capture the script's exit status before any user prompt hooks can alter it.
 PROMPT_COMMAND=(__bashdock_command_finish "${PROMPT_COMMAND[@]}")
 __bashdock_report_cwd() {
@@ -67,3 +89,7 @@ def valid_reported_directory(path):
         return False
     drive, tail = ntpath.splitdrive(path)
     return bool(drive and tail.startswith(("/", "\\")))
+
+
+def command_file_for(init_file):
+    return Path(init_file).with_suffix('.command')

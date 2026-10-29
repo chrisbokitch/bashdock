@@ -326,7 +326,8 @@ class SettingsDialog(QDialog):
         original = {'label': 'New button', 'command': 'pwd'} if new else self.row_data(row)
         dialog = CommandEditor(original['label'], original['command'], self,
                                confirm=original.get('confirm', False),
-                               confirmation_message=original.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE))
+                               confirmation_message=original.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
+                               timing=original.get('timing', False))
         if dialog.exec() == QDialog.DialogCode.Accepted:
             values = dict(original, **dialog.result_data)
             if new:
@@ -489,7 +490,10 @@ class ShellTab(QWidget):
         if (isValid(self) and isValid(terminal) and isValid(owner)
                 and owner.tabs.indexOf(self) >= 0 and self.terminal is terminal
                 and terminal.process is process):
-            terminal.run_command(entry['command'], label=entry['label'])
+            if entry.get('timing', False):
+                terminal.run_command(entry['command'], label=entry['label'])
+            else:
+                terminal.run_command(entry['command'])
 
     def set_running(self, running):
         for button in self.command_buttons:
@@ -1397,7 +1401,7 @@ class MainWindow(QMainWindow):
             dialog = CommandEditor(entry['label'], entry['command'], self,
                                    confirm=entry.get('confirm', False),
                                    confirmation_message=entry.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
-                                   staged=False)
+                                   staged=False, timing=entry.get('timing', False))
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 dialog.deleteLater()
                 self.restore_terminal_focus()

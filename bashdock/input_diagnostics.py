@@ -20,7 +20,7 @@ from ._version import __version__
 # accidentally enter a report through this API, including error messages.
 SCHEMA = {
     'shell_start': {'rows', 'cols'}, 'shell_ready': {'accepted'}, 'shell_stop': set(),
-    'button_clicked': {'characters', 'utf8_bytes', 'ready', 'running'},
+    'button_clicked': {'characters', 'utf8_bytes', 'ready', 'running', 'private_binding'},
     'command_queued': set(), 'command_dispatched': set(),
     'command_received': {'characters', 'utf8_bytes', 'recognized', 'unchanged'},
     'terminal_input': {'characters', 'utf8_bytes', 'has_escape', 'has_enter'},
@@ -98,14 +98,15 @@ class CommandTrace:
     def _digest(self, text):
         return hmac.digest(self._key, text.encode('utf-8', errors='surrogatepass'), hashlib.sha256)
 
-    def prepare(self, text, *, ready, running):
+    def prepare(self, text, *, ready, running, wire_text=None):
         command = next(self._commands)
-        normalized = re.sub(r'\r?\n', '\r', text) + '\r'
+        normalized = wire_text if wire_text is not None else re.sub(r'\r?\n', '\r', text) + '\r'
         self._expected[command] = self._digest(normalized)
         while len(self._expected) > 128:
             self._expected.popitem(last=False)
         self.record('button_clicked', command=command, ready=ready, running=running,
-                    characters=len(text), utf8_bytes=len(text.encode('utf-8', errors='surrogatepass')))
+                    characters=len(text), utf8_bytes=len(text.encode('utf-8', errors='surrogatepass')),
+                    private_binding=wire_text is not None)
         return command
 
     def receive(self, command, text):

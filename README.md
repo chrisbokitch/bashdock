@@ -38,7 +38,7 @@ The executable and app window use the BashDock terminal-and-buttons icon. Its PN
 
 If a shell cannot start, the app shows the error. Startup and terminal-reader errors are also recorded in `%APPDATA%\bashdock\bashdock.log`, including when the executable runs without a console window.
 
-For intermittent input problems, use **Help → Save diagnostic report…** immediately after the problem occurs, before closing BashDock. This exports up to 4,096 recent events from a bounded in-memory buffer, plus application/runtime versions. Events include anonymous tab/command IDs, elapsed times, input lengths, resize dimensions, focus changes, whether a button command reached the UI bridge unchanged, and counts returned by the terminal backend. A completed write means the backend call returned; it does not prove what Bash ultimately received or executed. The report contains **no command text, terminal output, clipboard contents, tab names, folder paths, environment variables, or command fingerprints**. Integrity fingerprints use a temporary private key, remain only in memory, and are discarded after comparison or shell restart. The ordinary error log and settings file are not included. Nothing is uploaded automatically. Recent diagnostic activity is lost when the app closes; heavy activity can replace older events.
+For intermittent input problems, use **Help → Save diagnostic report…** immediately after the problem occurs, before closing BashDock. This exports up to 4,096 recent events from a bounded in-memory buffer, plus application/runtime versions. Events include anonymous tab/command IDs, elapsed times, input lengths, resize dimensions, focus changes, whether a button input frame reached the UI bridge unchanged (timed buttons identify their private binding separately), and counts returned by the terminal backend. A completed write means the backend call returned; it does not prove what Bash ultimately received or executed. The report contains **no command text, terminal output, clipboard contents, tab names, folder paths, environment variables, or command fingerprints**. Integrity fingerprints use a temporary private key, remain only in memory, and are discarded after comparison or shell restart. The ordinary error log and settings file are not included. Nothing is uploaded automatically. Recent diagnostic activity is lost when the app closes; heavy activity can replace older events.
 
 ## Versioning
 
@@ -142,13 +142,16 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 
 ## Command buttons
 
-Button runs started at the local Bash prompt show progress and a result in the footer,
+**Edit command button → Show execution time** enables timing for that button. It is off
+by default for existing buttons, new buttons, and presets. Opted-in runs started at the local
+Bash prompt show progress and a result in the footer,
 for example **Update and Test completed in 50.691s** or **Test failed after 12.304s · exit code 1**.
 Ctrl+C reports an interrupted run. Each tab remembers its latest result for the current session;
 switching tabs shows that tab's status. Timing starts in Bash after startup/confirmation waits
 and ends before user prompt hooks run. A multiline button is evaluated as one script in the
-existing shell, retaining folder, variable, alias, and function changes. The shell's history/echo
-includes the timing/eval wrapper; stored button commands and confirmation previews stay literal.
+existing shell, retaining folder, variable, alias, and function changes. The terminal and shell history show only the original script, without timing implementation
+wrappers. A private temporary command file is removed once Bash acknowledges loading
+it, and cleanup retries when the shell stops. Stored commands and confirmation previews stay literal.
 Background jobs are timed only until the launching script returns. Commands entered inside an
 already-running interactive program or remote session are left untimed. Scripts that exit or
 replace the host shell cannot report a normal completion. Timing markers contain execution IDs,

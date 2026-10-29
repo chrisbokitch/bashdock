@@ -74,6 +74,12 @@ new QWebChannel(qt.webChannelTransport, channel => {
     terminal.focus();
     bridge.commandInput(commandId, command.replace(/\r?\n/g, '\r') + '\r');
   });
+  // A private Readline binding reads the staged script without typing an
+  // implementation wrapper into the terminal or adding it to shell history.
+  bridge.timedButton.connect(commandId => {
+    terminal.focus();
+    bridge.commandInput(commandId, '\x18\x02');
+  });
   bridge.clipboardPaste.connect(text => terminal.paste(text));
   bridge.focus.connect(() => terminal.focus());
   terminal.attachCustomKeyEventHandler(event => {

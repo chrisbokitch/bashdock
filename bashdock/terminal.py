@@ -11,10 +11,10 @@ from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMessageBox
-from .shell_integration import valid_reported_directory
+from .shell_integration import valid_reported_directory, command_file_for
 from .shell_backend import spawn_shell
 from .command_startup import CommandStartup
-from .command_timing import CommandTiming
+from .command_timing import CommandTiming, TRIGGER, stage_command
 from .input_diagnostics import CommandTrace
 from . import terminal_preferences
 
@@ -27,6 +27,7 @@ class LocalPage(QWebEnginePage):
 class Bridge(QObject):
     output = Signal(str)
     paste = Signal(int, str)
+    timedButton = Signal(int)
     clipboardPaste = Signal(str)
     focus = Signal()
     settingsChanged = Signal(str)
@@ -66,8 +67,11 @@ class Bridge(QObject):
 
     @Slot(str)
     def commandEvent(self, payload):
+        pending = self.terminal.command_timing.started is None
         message = self.terminal.command_timing.event(payload)
         if message:
+            if pending:
+                self.terminal.clear_command_file()
             self.terminal.command_status.emit(message)
 
     @Slot(str)
@@ -239,25 +243,45 @@ class Terminal(QWebEngineView):
                     errno=getattr(error, 'errno', None), winerror=getattr(error, 'winerror', None))
                 if command_id:
                     self.command_timing.reset()
+                    self.clear_command_file()
                 self.problem.emit(str(error))
 
     def run_command(self, command, *, label=None):
-        if (label and self.process and not self.command_timing.token and
-                (self.at_prompt or not self.command_startup.ready)):
-            command = self.command_timing.prepare(command, label, self.command_startup.session_id)
-        # The button-command signal sends plain input plus Enter, not a clipboard paste.
-        command_id = self.trace.prepare(command, ready=self.command_startup.ready, running=bool(self.process))
+        timed = (label and self.process and self.init_file and not self.command_timing.token and
+                 (self.at_prompt or not self.command_startup.ready))
+        if timed:
+            token = self.command_timing.prepare(command, label, self.command_startup.session_id)
+            try:
+                stage_command(command_file_for(self.init_file), token, command)
+            except OSError as error:
+                self.command_timing.reset()
+                self.clear_command_file()
+                self.problem.emit(f'Could not prepare command: {error}')
+                return
+        command_id = self.trace.prepare(command, ready=self.command_startup.ready,
+                                        running=bool(self.process), wire_text=TRIGGER if timed else None)
         if self.process:
-            if not self.command_startup.submit((command_id, command)):
+            data = TRIGGER if timed else command
+            if not self.command_startup.submit((command_id, data)):
                 self.trace.record('command_queued', command=command_id)
                 self.focus_terminal()
                 return
-            self.dispatch_command(command_id, command)
+            self.dispatch_command(command_id, data)
 
     def dispatch_command(self, command_id, command):
         self.trace.record('command_dispatched', command=command_id)
         self.focus_terminal()
-        self.bridge.paste.emit(command_id, command)
+        if command == TRIGGER:
+            self.bridge.timedButton.emit(command_id)
+        else:
+            self.bridge.paste.emit(command_id, command)
+
+    def clear_command_file(self):
+        if self.init_file:
+            try:
+                command_file_for(self.init_file).unlink(missing_ok=True)
+            except OSError:
+                pass  # Retry on stop; a cleanup failure must not rerun a script.
 
     def focus_terminal(self):
         # Focusing xterm's textarea alone does not transfer native Qt focus
@@ -277,6 +301,7 @@ class Terminal(QWebEngineView):
             self.dispatch_command(command_id, command)
 
     def cleanup_init_file(self):
+        self.clear_command_file()
         if self.init_file:
             try:
                 self.init_file.unlink(missing_ok=True)

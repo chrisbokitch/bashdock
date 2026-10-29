@@ -9,7 +9,7 @@ function setup(TerminalClass) {
   const initial = {font_family: 'Cascadia Mono', font_size: 15, scrollback: 10000,
     cursor_style: 'block', cursor_blink: true, foreground: '#dde4ef', background: '#10141c',
     cursor_color: '#70dcc2', selection_color: '#365e66', copy_on_select: false, right_click_paste: false};
-  const bridge = {output: signal(), paste: signal(), clipboardPaste: signal(), focus: signal(),
+  const bridge = {output: signal(), paste: signal(), timedButton: signal(), clipboardPaste: signal(), focus: signal(),
     settingsChanged: signal(), inputs: [], input(text) {this.inputs.push(text);}, resize() {}, directory() {}, ready() {},
     timingEvents: [], commandEvent(payload) {this.timingEvents.push(payload);},
     readySessions: [], shellReady(token) {this.readySessions.push(token);},
@@ -298,4 +298,14 @@ test('button timing markers wait for xterm parsing and are kept out of ordinary 
   assert.deepEqual(s.bridge.timingEvents, [payload]);
   assert.equal(s.bridge.inputs.length, 0);
   assert.equal(s.terminal.osc('unrelated-osc'), false);
+});
+
+
+test('timed buttons send only the private key binding, without a wrapper or Enter', () => {
+  const s = setup();
+  s.bridge.timedButton.emit(17);
+  assert.equal(s.bridge.commands.length, 1);
+  assert.equal(s.bridge.commands[0].id, 17);
+  assert.equal(s.bridge.commands[0].text, '\x18\x02');
+  assert.equal(s.terminal.pasteCalls.length, 0);
 });

@@ -132,11 +132,16 @@ class WindowsTests(GuiTestCase):
             terminal = s.terminal
             messages = []
             terminal.command_status.connect(messages.append)
+            output = []
+            terminal.bridge.output.connect(output.append)
             terminal.run_command("sleep 0.15\nexport BASHDOCK_TIMED=kept\nprintf '%s' 'café\tλ' > timed-unicode.txt\nprintf timed > timed.txt", label='Timed script')
             s.wait(lambda: any('completed in' in message for message in messages))
             self.assertEqual('timed', (s.folder / 'timed.txt').read_text())
             self.assertEqual('café\tλ', (s.folder / 'timed-unicode.txt').read_text(encoding='utf-8'))
             self.assertEqual(2, len(messages), messages)
+            self.assertNotIn('__bashdock_command_', ''.join(output))
+            self.assertNotIn('eval --', ''.join(output))
+            self.assertFalse(terminal.init_file.with_suffix('.command').exists())
             self.assertEqual('Timed script running…', messages[0])
             self.assertGreaterEqual(float(messages[1].split()[-1][:-1]), 0.15)
             s.prompt()
@@ -153,6 +158,13 @@ class WindowsTests(GuiTestCase):
             terminal.run_command('printf "%s" "$BASHDOCK_TIMED" > preserved.txt')
             s.wait(lambda: (s.folder / 'preserved.txt').is_file())
             self.assertEqual('kept', (s.folder / 'preserved.txt').read_text())
+            s.prompt()
+            terminal.run_command('set -o vi')
+            s.prompt()
+            terminal.run_command('printf vi > timed-vi.txt', label='Vi mode')
+            s.wait(lambda: any('Vi mode completed in' in message for message in messages))
+            self.assertEqual('vi', (s.folder / 'timed-vi.txt').read_text())
+            terminal.run_command('set -o emacs')
             s.prompt()
             # A typed interactive program has no host prompt. A labelled
             # button must stay plain input rather than invoke host-only helpers.
@@ -213,7 +225,7 @@ class WindowsTests(GuiTestCase):
                         if action != 'run':
                             run.assert_not_called()
                             self.assertFalse((s.folder / 'confirmation.txt').exists())
-                    run.assert_called_once_with(body, label='Reviewed script')
+                    run.assert_called_once_with(body)
                     s.receipt('confirmation.txt', 'first\nsecond\n')
                     s.wait(lambda: s.evaluate("document.activeElement.classList.contains('xterm-helper-textarea')"))
         finally:
@@ -1495,10 +1507,10 @@ class WindowsTests(GuiTestCase):
                 while True:
                     app.processEvents()
                     bounds = json.loads(evaluate(geometry))
-                    if (abs(bounds["width"] - width) <= 1 and
-                            abs(bounds["height"] - height) <= 1 and bounds["fitted"]):
+                    if (abs(bounds["width"] - terminal.width()) <= 1 and
+                            abs(bounds["height"] - terminal.height()) <= 1 and bounds["fitted"]):
                         break
-                    self.assertLess(time.monotonic(), deadline, "Terminal did not finish resizing")
+                    self.assertLess(time.monotonic(), deadline, f"Terminal did not finish resizing: requested={(width, height)!r}, actual={terminal.size()!r}, bounds={bounds!r}")
                     time.sleep(0.01)
                 self.assertLessEqual(bounds["bottom"], bounds["height"] - 12 + 1, bounds)
                 self.assertLessEqual(bounds["right"], bounds["width"] - 12 + 1, bounds)

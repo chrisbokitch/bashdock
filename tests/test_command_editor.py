@@ -21,8 +21,25 @@ class CommandEditorTests(GuiTestCase):
         self.assertEqual(body, editor.command.toPlainText())
         editor.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
         self.assertEqual(QDialog.DialogCode.Accepted, editor.result())
-        self.assertEqual({'label': ' Build ', 'command': body, 'confirm': False,
+        self.assertEqual({'label': ' Build ', 'command': body, 'confirm': False, 'timing': False,
                           'confirmation_message': 'Are you sure?'}, editor.result_data)
+
+    def test_timing_is_opt_in_and_round_trips_without_affecting_confirmation(self):
+        from bashdock.config import validate_buttons
+        editor = CommandEditor('Test', 'npm test')
+        self.assertFalse(editor.timing.isChecked())
+        editor.timing.setChecked(True)
+        editor.commit()
+        self.assertTrue(editor.result_data['timing'])
+        self.assertFalse(editor.result_data['confirm'])
+        restored = CommandEditor('Test', 'npm test', timing=True)
+        self.assertTrue(restored.timing.isChecked())
+        restored.timing.setChecked(False)
+        restored.commit()
+        self.assertFalse(restored.result_data['timing'])
+        for value in (0, 1, 'true', None):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'execution time'):
+                validate_buttons([dict(label='Test', command='npm test', timing=value)])
 
     def test_confirmation_toggle_disables_message_and_retains_custom_text(self):
         editor = CommandEditor('Build', 'pwd')

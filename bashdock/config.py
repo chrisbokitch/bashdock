@@ -47,6 +47,8 @@ def validate_buttons(buttons):
             raise ValueError("Each button needs a nonempty label and command.")
         if any(ord(ch) < 32 and ch not in "\n\t" for ch in button["command"]):
             raise ValueError("Commands cannot contain terminal control characters.")
+        if 'timing' in button and type(button['timing']) is not bool:
+            raise ValueError("Show execution time must be true or false.")
         if 'confirm' in button and type(button['confirm']) is not bool:
             raise ValueError("Confirm before using must be true or false.")
         if 'confirmation_message' in button:

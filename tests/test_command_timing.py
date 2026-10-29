@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bashdock.command_timing import CommandTiming
+from bashdock.command_timing import CommandTiming, TRIGGER, stage_command
 from bashdock.config import find_bash
 from bashdock.shell_integration import INIT_SCRIPT
 
@@ -52,57 +52,74 @@ class CommandTimingTests(unittest.TestCase):
         from unittest.mock import Mock
         from bashdock.terminal import Terminal
         from bashdock.command_startup import CommandStartup
-        startup = CommandStartup()
-        startup.begin()
-        state = SimpleNamespace(process=object(), at_prompt=False, command_startup=startup,
-                                command_timing=CommandTiming(), trace=Mock(),
-                                focus_terminal=Mock(), dispatch_command=Mock())
-        Terminal.run_command(state, 'sleep 1', label='Test')
-        self.assertIsNone(state.command_timing.started)
-        self.assertEqual(1, len(startup.pending))
-        self.assertIn("eval -- 'sleep 1'", startup.pending[0][1])
-        state.dispatch_command.assert_not_called()
-        Terminal.shell_ready(state, startup.session_id)
-        state.dispatch_command.assert_called_once()
-        state.command_timing.reset()
-        state.dispatch_command.reset_mock()
-        Terminal.run_command(state, 'echo remote', label='Remote')
-        self.assertIsNone(state.command_timing.token)
-        self.assertEqual('echo remote', state.dispatch_command.call_args.args[1])
+        from bashdock.shell_integration import command_file_for
+        with tempfile.TemporaryDirectory() as temp:
+            startup = CommandStartup()
+            startup.begin()
+            state = SimpleNamespace(process=object(), init_file=Path(temp) / 'init.bash',
+                                    at_prompt=False, command_startup=startup,
+                                    command_timing=CommandTiming(), trace=Mock(),
+                                    focus_terminal=Mock(), dispatch_command=Mock())
+            Terminal.run_command(state, 'sleep 1', label='Test')
+            self.assertIsNone(state.command_timing.started)
+            self.assertEqual(1, len(startup.pending))
+            self.assertEqual(TRIGGER, startup.pending[0][1])
+            self.assertEqual(state.command_timing.token + '\nsleep 1',
+                             command_file_for(state.init_file).read_text(encoding='utf-8'))
+            state.dispatch_command.assert_not_called()
+            Terminal.shell_ready(state, startup.session_id)
+            state.dispatch_command.assert_called_once()
+            state.command_timing.reset()
+            state.dispatch_command.reset_mock()
+            Terminal.run_command(state, 'echo remote', label='Remote')
+            self.assertIsNone(state.command_timing.token)
+            self.assertEqual('echo remote', state.dispatch_command.call_args.args[1])
+
+    def test_staging_preserves_literal_script_and_uses_owner_only_permissions(self):
+        import stat
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'script.command'
+            body = "\n# comment\nprintf '%s' 'café\tλ'\n\n"
+            stage_command(path, 'a' * 32, body)
+            self.assertEqual('a' * 32 + '\n' + body, path.read_text(encoding='utf-8'))
+            if os.name != 'nt':
+                self.assertEqual(0o600, stat.S_IMODE(path.stat().st_mode))
+            self.assertEqual([path], list(Path(temp).iterdir()))
 
     @unittest.skipUnless(BASH, 'Requires Bash')
-    def test_real_multiline_script_keeps_state_quotes_heredoc_aliases_and_captures_status_before_user_hooks(self):
+    def test_real_quiet_binding_preserves_multiline_state_history_and_exit_status(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / 'child').mkdir()
             (root / '.bash_profile').write_text("PROMPT_COMMAND=('printf USER_HOOK; false')\n")
             rc = root / 'init.bash'
             rc.write_text(INIT_SCRIPT.replace('source /etc/profile', ':'), encoding='utf-8')
-            timing = CommandTiming()
+            mailbox = root / 'button.command'
             body = ("cd -- \"$HOME/child\"\nexport BASHDOCK_TIMING_TEST=kept\n"
                     "alias timing_alias='printf alias-ok'\ntiming_alias\n"
                     "cat <<'DATA'\nquotes ' and \" and $(printf SHOULD_NOT_RUN)\nDATA\n"
                     "printf '%s' 'café\tλ' > unicode.txt\nsleep 0.12\nprintf success > receipt.txt\ntrue")
-            wrapped = timing.prepare(body, 'Multiline', 'test-session')
-            token = timing.token
-            # Run a second script with status 7 after the first prompt. Both
-            # marker pairs must occur exactly once, despite many script lines.
-            second = CommandTiming()
-            failure = second.prepare('(exit 7)', 'Failure', 'test-session')
-            result = subprocess.run([BASH, '--noprofile', '--rcfile', rc.as_posix(), '-i'],
-                input=wrapped.replace('\t', '\x16\t') + '\nprintf "STATE:%s\\n" "$BASHDOCK_TIMING_TEST"\n' + failure + '\nexit\n',
-                env=dict(os.environ, HOME=root.as_posix(), BASHDOCK_SESSION='test-session'),
-                text=True, encoding='utf-8', capture_output=True, timeout=10)
-            self.assertEqual('success', (root / 'child' / 'receipt.txt').read_text())
-            self.assertEqual('café\tλ', (root / 'child' / 'unicode.txt').read_text(encoding='utf-8'))
-            self.assertIn('STATE:kept', result.stdout)
-            self.assertIn('alias-ok', result.stdout)
-            self.assertIn('$(printf SHOULD_NOT_RUN)', result.stdout)
-            events = re.findall(r'\x1b\]777;bashdock-command;([^\x07]+)\x07', result.stdout)
-            self.assertEqual(4, len(events), result.stdout)
-            messages = [timing.event(event) for event in events[:2]]
-            self.assertEqual('Multiline running…', messages[0])
-            self.assertRegex(messages[1], r'Multiline completed in [0-9]+\.[0-9]{3}s')
-            self.assertGreaterEqual(float(messages[1].split()[-1][:-1]), 0.12)
-            self.assertTrue(events[1].startswith(f'test-session;{token};done;0;'), result.stdout)
-            self.assertTrue(events[3].startswith(f'test-session;{second.token};done;7;'), result.stdout)
+            for command, status in ((body, 0), ('(exit 7)', 7)):
+                timing = CommandTiming()
+                token = timing.prepare(command, 'Multiline', 'test-session')
+                stage_command(mailbox, token, command)
+                result = subprocess.run([BASH, '--noprofile', '--rcfile', rc.as_posix(), '-i'],
+                    input=TRIGGER + 'printf "STATE:%s\\n" "$BASHDOCK_TIMING_TEST"\nhistory\nexit\n',
+                    env=dict(os.environ, HOME=root.as_posix(), BASHDOCK_SESSION='test-session',
+                             BASHDOCK_COMMAND_FILE=mailbox.as_posix()),
+                    text=True, encoding='utf-8', capture_output=True, timeout=10)
+                events = re.findall(r'\x1b\]777;bashdock-command;([^\x07]+)\x07', result.stdout)
+                self.assertEqual(2, len(events), result.stdout + result.stderr)
+                self.assertEqual('Multiline running…', timing.event(events[0]))
+                message = timing.event(events[1])
+                self.assertTrue(events[1].startswith(f'test-session;{token};done;{status};'), result.stdout)
+                printable = re.sub(r'\x1b\]777;[^\x07]+\x07', '', result.stdout)
+                self.assertNotIn('__bashdock_', printable)
+                self.assertNotIn('eval --', printable)
+                if status == 0:
+                    self.assertEqual('success', (root / 'child' / 'receipt.txt').read_text())
+                    self.assertEqual('café\tλ', (root / 'child' / 'unicode.txt').read_text(encoding='utf-8'))
+                    self.assertIn('STATE:kept', result.stdout)
+                    self.assertIn('alias-ok', result.stdout)
+                    self.assertIn('$(printf SHOULD_NOT_RUN)', result.stdout)
+                    self.assertGreaterEqual(float(message.split()[-1][:-1]), 0.12)
