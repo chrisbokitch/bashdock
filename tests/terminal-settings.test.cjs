@@ -15,6 +15,7 @@ function setup(TerminalClass) {
     readySessions: [], shellReady(token) {this.readySessions.push(token);},
     commands: [], commandInput(id, text) {this.commands.push({id, text}); this.inputs.push(text);},
     focusEvents: [], viewFocus(focused) {this.focusEvents.push(focused);},
+    zooms: [], zoomFont(delta) {this.zooms.push(delta);},
     copies: [], copy(text) {this.copies.push(text);}, pastes: 0, requestPaste() {this.pastes++;},
     requestSettings() {this.settingsChanged.emit(JSON.stringify(initial));}};
   const host = {clientWidth: 800, clientHeight: 600, events: {}, addEventListener(name, fn) {this.events[name] = fn;}};
@@ -308,4 +309,25 @@ test('timed buttons send only the private key binding, without a wrapper or Ente
   assert.equal(s.bridge.commands[0].id, 17);
   assert.equal(s.bridge.commands[0].text, '\x18\x02');
   assert.equal(s.terminal.pasteCalls.length, 0);
+});
+
+
+test('font zoom shortcuts suppress shell input and browser zoom exactly once per keydown', () => {
+  const s = setup();
+  const codes = ['Equal', 'Equal', 'Minus', 'Digit0', 'NumpadAdd', 'NumpadSubtract', 'Numpad0'];
+  codes.forEach((code, i) => {
+    for (const type of ['keydown', 'keypress', 'keyup']) {
+      let prevented = false;
+      assert.equal(s.terminal.key({ctrlKey: true, shiftKey: i === 1, code, type,
+        preventDefault() {prevented = true;}}), false);
+      assert.equal(prevented, true);
+    }
+  });
+  assert.deepEqual(s.bridge.zooms, [1, 1, -1, 0, 1, -1, 0]);
+  for (const event of [
+    {code: 'Equal'}, {code: 'Digit0'}, {ctrlKey: true, altKey: true, code: 'Equal'},
+    {ctrlKey: true, metaKey: true, code: 'Minus'},
+    {ctrlKey: true, shiftKey: true, code: 'Minus'}, {ctrlKey: true, code: 'KeyA'}
+  ]) assert.equal(s.terminal.key({...event, type: 'keydown'}), true);
+  assert.deepEqual(s.bridge.inputs, []);
 });

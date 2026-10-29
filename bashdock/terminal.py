@@ -38,7 +38,11 @@ class Bridge(QObject):
 
     @Slot()
     def requestSettings(self):
-        self.settingsChanged.emit(json.dumps(self.terminal.preferences))
+        self.settingsChanged.emit(json.dumps(self.terminal.display_preferences()))
+
+    @Slot(int)
+    def zoomFont(self, delta):
+        self.terminal.zoom_font(delta)
 
     @Slot(int, int)
     def ready(self, cols, rows):
@@ -136,6 +140,7 @@ class Terminal(QWebEngineView):
         self.at_prompt = False
         self.trace = CommandTrace()
         self.preferences = terminal_preferences.defaults()
+        self.zoom_offset = 0
         self.setPage(LocalPage(self))
         # Cover Chromium's empty page before the terminal HTML is painted.
         self.page().setBackgroundColor(QColor(self.preferences['background']))
@@ -152,8 +157,21 @@ class Terminal(QWebEngineView):
 
     def apply_settings(self, settings):
         self.preferences = terminal_preferences.validated(settings)
+        self.zoom_offset = 0
         self.page().setBackgroundColor(QColor(self.preferences['background']))
         self.bridge.settingsChanged.emit(json.dumps(self.preferences))
+
+    def display_preferences(self):
+        return dict(self.preferences, font_size=self.preferences['font_size'] + self.zoom_offset)
+
+    def zoom_font(self, delta):
+        """Temporary, per-terminal zoom; never change the saved tab/default preset."""
+        if delta not in (-1, 0, 1):
+            return
+        base = self.preferences['font_size']
+        size = base if delta == 0 else max(8, min(48, base + self.zoom_offset + delta))
+        self.zoom_offset = size - base
+        self.bridge.settingsChanged.emit(json.dumps(self.display_preferences()))
 
     def start(self, bash_path, folder):
         if self.process:

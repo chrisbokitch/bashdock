@@ -83,6 +83,19 @@ new QWebChannel(qt.webChannelTransport, channel => {
   bridge.clipboardPaste.connect(text => terminal.paste(text));
   bridge.focus.connect(() => terminal.focus());
   terminal.attachCustomKeyEventHandler(event => {
+    // Handle these in the renderer too: WebEngine may consume Qt shortcuts.
+    // Suppress Chromium page zoom and never send the chord to the shell.
+    if (event.ctrlKey && !event.altKey && !event.metaKey) {
+      let zoom;
+      if (['Equal', 'NumpadAdd'].includes(event.code) || event.key === '+') zoom = 1;
+      else if (!event.shiftKey && ['Minus', 'NumpadSubtract'].includes(event.code)) zoom = -1;
+      else if (!event.shiftKey && ['Digit0', 'Numpad0'].includes(event.code)) zoom = 0;
+      if (zoom !== undefined) {
+        event.preventDefault();
+        if (event.type === 'keydown') bridge.zoomFont(zoom);
+        return false;
+      }
+    }
     if (event.ctrlKey && event.shiftKey && event.code === 'KeyC') {
       event.preventDefault();
       if (event.type === 'keydown') bridgeCopy();

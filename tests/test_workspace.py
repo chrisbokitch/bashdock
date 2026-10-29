@@ -50,6 +50,9 @@ class FakeTerminal(QWidget):
     def apply_settings(self, settings):
         self.preferences = copy.deepcopy(settings)
 
+    def zoom_font(self, delta):
+        self.zoom_requests = getattr(self, 'zoom_requests', []) + [delta]
+
     def run_command(self, command, *, label=None):
         self.commands.append(command)
 
@@ -91,6 +94,22 @@ class WorkspaceTests(unittest.TestCase):
         self.answers.stop()
         self.paths.stop()
         self.temp.cleanup()
+
+    def test_font_zoom_menu_targets_current_tab_without_saving_or_starting_shell(self):
+        first = self.window.current_tab()
+        self.window.new_tab()
+        second = self.window.current_tab()
+        before = copy.deepcopy(self.window.snapshot())
+        for action in self.window.font_zoom_actions:
+            action.trigger()
+        self.assertEqual([1, -1, 0], second.terminal.zoom_requests)
+        self.assertFalse(hasattr(first.terminal, 'zoom_requests'))
+        self.window.tabs.setCurrentWidget(first)
+        self.window.font_zoom_actions[0].trigger()
+        self.assertEqual([1], first.terminal.zoom_requests)
+        self.window.tabs.setCurrentWidget(second)
+        self.assertEqual(before, self.window.snapshot())
+        self.assertEqual([], second.terminal.commands)
 
     def ready(self, tab):
         tab.terminal.ready = True

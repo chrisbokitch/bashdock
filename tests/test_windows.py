@@ -367,6 +367,94 @@ class WindowsTests(GuiTestCase):
                       "[[ $PWD == */child ]] && printf cwd >> ../after-pager.txt")
             s.receipt('after-pager.txt', 'keptcwd')
 
+    def test_font_zoom_window_shortcuts_and_menu_apply_once_to_the_active_tab(self):
+        from unittest.mock import patch
+        from PySide6.QtCore import Qt
+        from PySide6.QtTest import QTest
+        from bashdock import config
+        from bashdock.app import MainWindow
+        with tempfile.TemporaryDirectory() as temp:
+            settings = Path(temp) / 'settings.json'
+            data = config.defaults()
+            data['bash_path'] = find_bash()
+            data['confirm_on_exit'] = False
+            config.save(data, settings)
+            with patch('bashdock.config.config_path', return_value=settings), \
+                 patch('bashdock.terminal.Terminal.start'):
+                window = MainWindow()
+                def wait(predicate):
+                    deadline = time.monotonic() + 20
+                    while time.monotonic() < deadline:
+                        self.app.processEvents()
+                        if predicate():
+                            return
+                        time.sleep(0.01)
+                    self.fail('Font zoom did not reach the expected state')
+                def size(terminal):
+                    result = []
+                    terminal.page().runJavaScript('terminal.options.fontSize', result.append)
+                    wait(lambda: bool(result))
+                    return result[0]
+                try:
+                    window.show()
+                    window.activateWindow()
+                    first = window.current_tab().terminal
+                    wait(lambda: first.ready)
+                    window.new_tab()
+                    second = window.current_tab().terminal
+                    wait(lambda: second.ready)
+                    second.focus_terminal()
+                    wait(lambda: window.isActiveWindow() and
+                         (self.app.focusWidget() is second or second.isAncestorOf(self.app.focusWidget())))
+                    original = window.snapshot()
+                    control = Qt.KeyboardModifier.ControlModifier
+                    for key, modifiers, expected in (
+                        (Qt.Key.Key_Equal, control, 16),
+                        (Qt.Key.Key_Plus, control | Qt.KeyboardModifier.ShiftModifier, 17),
+                        (Qt.Key.Key_Minus, control, 16),
+                        (Qt.Key.Key_0, control, 15),
+                    ):
+                        QTest.keyClick(self.app.focusWidget(), key, modifiers)
+                        wait(lambda: size(second) == expected)
+                        QTest.qWait(50)
+                        self.assertEqual(expected, size(second), 'Shortcut must run only once')
+                    window.font_zoom_actions[0].trigger()
+                    wait(lambda: size(second) == 16)
+                    self.assertEqual(15, size(first))
+                    self.assertEqual(original, window.snapshot())
+                finally:
+                    window.allow_save = False
+                    window.close()
+                    window.deleteLater()
+                    self.app.processEvents()
+
+    def test_font_zoom_shortcuts_resize_terminal_and_preserve_shell_state(self):
+        with self.interactive_session() as s:
+            t = s.terminal
+            original = dict(t.preferences)
+            process, reader, init_file = t.process, t.reader, t.init_file
+            s.command('export BASHDOCK_ZOOM=kept; mkdir child; cd child; printf ready > ../zoom-ready.txt')
+            s.receipt('zoom-ready.txt', 'ready')
+            control = s.qt.KeyboardModifier.ControlModifier
+            for key, modifiers, size in (
+                (s.qt.Key.Key_Equal, control, 16),
+                (s.qt.Key.Key_Plus, control | s.qt.KeyboardModifier.ShiftModifier, 17),
+                (s.qt.Key.Key_Minus, control, 16),
+                (s.qt.Key.Key_0, control, 15),
+            ):
+                s.key(key, modifiers)
+                s.wait(lambda: s.evaluate(f"terminal.options.fontSize === {size} && "
+                    "terminal.cols === fit.proposeDimensions().cols && "
+                    "terminal.rows === fit.proposeDimensions().rows"))
+                self.assertEqual(1.0, t.zoomFactor(), 'Chromium page zoom must not change')
+                self.assertEqual(original, t.preferences)
+                self.assertIs(process, t.process)
+                self.assertIs(reader, t.reader)
+                self.assertEqual(init_file, t.init_file)
+            s.command('printf "%s" "$BASHDOCK_ZOOM" > ../zoom-after.txt; '
+                      '[[ $PWD == */child ]] && printf cwd >> ../zoom-after.txt')
+            s.receipt('zoom-after.txt', 'keptcwd')
+
     def test_m6_live_terminal_preferences_preserve_process_directory_and_environment(self):
         with self.interactive_session() as s:
             t = s.terminal

@@ -842,6 +842,18 @@ class MainWindow(QMainWindow):
         terminal_action.triggered.connect(self.configure_terminal)
         settings.addAction(terminal_action)
         settings.addSeparator()
+        self.font_zoom_actions = []
+        for label, delta, keys in (
+            ("Increase terminal font", 1, ("Ctrl++", "Ctrl+=")),
+            ("Decrease terminal font", -1, ("Ctrl+-",)),
+            ("Reset terminal font", 0, ("Ctrl+0",)),
+        ):
+            action = QAction(label, self)
+            action.setShortcuts([QKeySequence(key) for key in keys])
+            action.triggered.connect(lambda checked=False, delta=delta: self.zoom_terminal(delta))
+            settings.addAction(action)
+            self.font_zoom_actions.append(action)
+        settings.addSeparator()
         for label, callback in (
             ("Export settings…", self.export_settings),
             ("Import settings…", self.import_settings),
@@ -1151,6 +1163,12 @@ class MainWindow(QMainWindow):
         self.tab_changed()
         self.statusBar().showMessage("Settings restored. Your previous settings were backed up.")
         return True
+
+    def zoom_terminal(self, delta):
+        tab = self.current_tab()
+        if tab is not None and QApplication.activeModalWidget() is None:
+            tab.terminal.zoom_font(delta)
+            tab.terminal.focus_terminal()
 
     def current_tab(self):
         return self.tabs.currentWidget()

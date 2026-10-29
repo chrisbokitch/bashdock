@@ -109,6 +109,12 @@ The **Manage** menu groups tab management and shell actions. **Settings → Conf
 
 **Settings → Terminal Defaults…** controls the default font family and size (8–48 pixels), text/background/cursor/selection colours, cursor shape and blinking, scrollback (0–100,000 lines), automatic copying of selected text, and right-click paste. Save applies to tabs using the defaults without restarting shells, and persists for future tabs and launches. Tabs with custom settings remain unchanged. Cancel leaves settings unchanged; Restore Defaults resets the dialog controls until you save. Reducing scrollback discards older lines. Copy-on-selection and right-click paste start disabled; Ctrl+Shift+C/V remain available, and multiline paste still requires confirmation. Mouse-aware terminal programs retain their right-click behaviour unless you hold Shift to paste. These settings affect BashDock's embedded terminals, not external Git Bash windows.
 
+Use **Ctrl++** (or **Ctrl+=**), **Ctrl+-**, and **Ctrl+0** to increase, decrease,
+or reset the active tab's terminal font size. These are also available under
+**Settings**. Zoom is temporary and independent for each tab, stays within 8–48 pixels,
+and leaves saved terminal preferences unchanged. Reset returns to the tab's configured
+size. Saving terminal settings or reopening the app also clears temporary zoom.
+
 For a project or server-specific appearance, open **Configure tab → Terminal settings…**. **Use terminal defaults** starts checked for new and existing tabs. Uncheck it to customize that tab, save the terminal editor, then save Configure tab. The running terminal updates immediately after the tab is saved, without restarting its shell. Cancelling either editor discards the changes at that level. Recheck **Use terminal defaults** (or click **Use defaults**) to follow the current app defaults again. Each custom preset contains all terminal settings, so later default changes do not alter its font, colors, or interaction preferences. Custom presets stay with the tab through app restarts, saved workspaces, settings exports, imports, and recovery.
 
 ## Saved workspaces
