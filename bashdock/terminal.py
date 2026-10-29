@@ -269,6 +269,7 @@ class Terminal(QWebEngineView):
             self.dispatch_command(command_id, data)
 
     def dispatch_command(self, command_id, command):
+        self.at_prompt = False
         self.trace.record('command_dispatched', command=command_id)
         self.focus_terminal()
         if command == TRIGGER:

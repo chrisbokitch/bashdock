@@ -162,13 +162,18 @@ class WindowsTests(GuiTestCase):
             s.wait(lambda: (s.folder / 'preserved.txt').is_file())
             self.assertEqual('kept', (s.folder / 'preserved.txt').read_text())
             s.prompt()
-            terminal.run_command('set -o vi')
-            s.prompt()
+            terminal.run_command('set -o vi; printf ready > timed-vi-ready.txt')
+            s.receipt('timed-vi-ready.txt', 'ready')
+            s.wait(lambda: terminal.at_prompt)
             terminal.run_command('printf vi > timed-vi.txt', label='Vi mode')
-            s.wait(lambda: any('Vi mode completed in' in message for message in messages))
+            try:
+                s.wait(lambda: any('Vi mode completed in' in message for message in messages))
+            except AssertionError:
+                self.fail(f'Vi completion missing: messages={messages!r}, at_prompt={terminal.at_prompt!r}; screen={s.screen()!r}')
             self.assertEqual('vi', (s.folder / 'timed-vi.txt').read_text())
-            terminal.run_command('set -o emacs')
-            s.prompt()
+            terminal.run_command('set -o emacs; printf ready > timed-emacs-ready.txt')
+            s.receipt('timed-emacs-ready.txt', 'ready')
+            s.wait(lambda: terminal.at_prompt)
             # A typed interactive program has no host prompt. A labelled
             # button must stay plain input rather than invoke host-only helpers.
             s.command("printf ready > answer-ready.txt; IFS= read -er answer; printf '%s' \"$answer\" > answer.txt")
