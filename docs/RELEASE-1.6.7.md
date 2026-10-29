@@ -1,7 +1,7 @@
 # BashDock 1.6.7 release record
 
 Release preparation started on 2026-10-28 (America/Vancouver).
-Publication and exact draft-ZIP acceptance are pending.
+Withdrawn candidate: no draft or public release was created. Superseded by the 1.6.8 cleanup fix.
 
 ## Candidate and automated evidence
 
@@ -18,6 +18,25 @@ Publication and exact draft-ZIP acceptance are pending.
   This covers the updater/resource optimizations, not the exact 1.6.7 draft ZIP.
 - This preparation changes release notes and records only; the tagged build
   must record its own final source commit, ZIP identity, and workflow results.
+
+## Tagged build
+
+- Tag: `v1.6.7`, annotated tag object
+  `6e6e5bf9cbdb7082c71867bce8c46ff20f5159a0`.
+- Tagged source: `18172b681b7c1ec69359270bf393ade4e410da94`.
+- Tagged workflow:
+  <https://github.com/chrisbokitch/bashdock/actions/runs/40791764267>.
+- All four compatibility jobs passed for the final source:
+  <https://github.com/chrisbokitch/bashdock/actions/runs/40791636088>.
+- Attempt 1 (job `123178447254`) passed the full suite, additional native
+  Windows checks, compilation, independent updater self-test with zero Qt
+  entries, and all four built-folder WebEngine rendering checks. It then failed
+  deleting the temporary WebEngine working directory after the existing 20-second
+  cleanup retry: Windows reported a sharing violation on the root directory.
+  Runner shutdown also reported orphan Bash and OpenConsole processes; the exact
+  lock owner was not established. ZIP verification/signing/upload were skipped.
+- The one controlled retry (job `123180840848`) failed at the same temporary-directory cleanup after all four rendering checks passed. No further retries were started. Signing/upload were skipped on both attempts.
+- Leave this failed tag unchanged. Candidate 1.6.8 adds owned process jobs and a startup gate to the rendering harness, with native Windows orphan-child coverage. The lock owner on these failed runners was not independently identified.
 
 ## Selected scope
 

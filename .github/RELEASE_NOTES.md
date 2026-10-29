@@ -1,10 +1,10 @@
-BashDock 1.6.7 makes the download smaller, cleans up old update backups, and polishes tab controls and keyboard focus.
+BashDock 1.6.8 makes the download smaller, cleans up old update backups, and polishes tab controls and keyboard focus.
 
 ## Smaller downloads
 
 - Keep the independent updater free of unnecessary Qt rendering dependencies.
 - Omit five WebEngine debug resources from release builds, while retaining the release resources, translations, QML, and developer tools.
-- Together these changes reduced the measured 1.6.5 candidate ZIP by 19.3% compared with 1.6.0 (about 268 MiB to 216 MiB). The attached 1.6.7 ZIP has its own exact size and checksum.
+- Together these changes reduced the measured 1.6.5 candidate ZIP by 19.3% compared with 1.6.0 (about 268 MiB to 216 MiB). The attached 1.6.8 ZIP has its own exact size and checksum.
 - Add checks for the updater's frozen dependencies and real packaged terminal rendering at 100%, 125%, and 150% scaling, repeated after ZIP extraction.
 
 ## Update backup cleanup
@@ -18,6 +18,8 @@ After a successful update, BashDock cleans up older backups that its update jour
 - Restore terminal typing focus when opening a new tab and when closing a tab.
 
 ## Test reliability
+
+Contain packaged Windows rendering probes in isolated process jobs so console and shell descendants cannot retain temporary folders after a probe exits.
 
 Synchronize the interactive Ctrl+C test with foreground-job startup, removing a timing gap in the test. Repeat its interruption and recovery checks across the Windows Git/Python compatibility matrix, and include terminal state in prompt timeout failures.
 

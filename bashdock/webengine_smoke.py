@@ -1,5 +1,6 @@
 """Exercise the frozen WebEngine renderer, WebChannel and real shell together."""
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -7,6 +8,17 @@ import traceback
 
 
 def run(report_path, timeout=45):
+    # The Windows wrapper assigns this process to a kill-on-close job before
+    # releasing the gate. Do not create Qt, console or shell children earlier.
+    gate = os.environ.get('BASHDOCK_WEBENGINE_JOB_GATE')
+    if gate:
+        deadline = time.monotonic() + 20
+        while not Path(gate).is_file():
+            if time.monotonic() >= deadline:
+                Path(report_path).write_text(json.dumps(dict(
+                    ok=False, error='Probe parent did not establish process containment.')))
+                return 1
+            time.sleep(0.01)
     from PySide6.QtCore import QEvent, QLibraryInfo, QTimer
     from PySide6.QtGui import QImage
     from PySide6.QtWebEngineCore import qWebEngineVersion
