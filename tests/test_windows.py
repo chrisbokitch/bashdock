@@ -452,8 +452,10 @@ class WindowsTests(GuiTestCase):
                 self.assertIs(process, t.process)
                 self.assertIs(reader, t.reader)
                 self.assertEqual(init_file, t.init_file)
-            s.command('printf "%s" "$BASHDOCK_ZOOM" > ../zoom-after.txt; '
-                      '[[ $PWD == */child ]] && printf cwd >> ../zoom-after.txt')
+            # Use the guarded command path, as in the live-preferences check:
+            # Git Bash can discard the first immediately typed byte after resize.
+            t.run_command('printf "%s" "$BASHDOCK_ZOOM" > ../zoom-after.txt; '
+                          '[[ $PWD == */child ]] && printf cwd >> ../zoom-after.txt')
             s.receipt('zoom-after.txt', 'keptcwd')
 
     def test_m6_live_terminal_preferences_preserve_process_directory_and_environment(self):
