@@ -164,7 +164,8 @@ class WindowsTests(GuiTestCase):
             s.prompt()
             terminal.run_command('set -o vi; printf ready > timed-vi-ready.txt')
             s.receipt('timed-vi-ready.txt', 'ready')
-            s.wait(lambda: terminal.at_prompt)
+            s.wait(lambda: terminal.at_prompt and 'timed-vi-ready.txt' in s.screen() and
+                   s.screen().rstrip().endswith('M4>'))
             terminal.run_command('printf vi > timed-vi.txt', label='Vi mode')
             try:
                 s.wait(lambda: any('Vi mode completed in' in message for message in messages))
@@ -173,11 +174,19 @@ class WindowsTests(GuiTestCase):
             self.assertEqual('vi', (s.folder / 'timed-vi.txt').read_text())
             terminal.run_command('set -o emacs; printf ready > timed-emacs-ready.txt')
             s.receipt('timed-emacs-ready.txt', 'ready')
-            s.wait(lambda: terminal.at_prompt)
+            # The file can precede WebEngine receiving the new command echo.
+            # Do not mistake an old M4 prompt/directory marker for this prompt.
+            s.wait(lambda: terminal.at_prompt and 'timed-emacs-ready.txt' in s.screen() and
+                   s.screen().rstrip().endswith('M4>'))
             # A typed interactive program has no host prompt. A labelled
             # button must stay plain input rather than invoke host-only helpers.
             terminal.run_command("printf ready > answer-ready.txt; IFS= read -er answer; printf '%s' \"$answer\" > answer.txt")
-            s.wait(lambda: (s.folder / 'answer-ready.txt').is_file() and not terminal.at_prompt)
+            try:
+                s.wait(lambda: (s.folder / 'answer-ready.txt').is_file() and not terminal.at_prompt)
+            except AssertionError:
+                self.fail(f'Interactive read did not become ready: '
+                          f'file={(s.folder / "answer-ready.txt").is_file()!r}; '
+                          f'at_prompt={terminal.at_prompt!r}; screen={s.screen()!r}')
             terminal.run_command('literal answer', label='Answer')
             s.wait(lambda: (s.folder / 'answer.txt').is_file())
             self.assertEqual('literal answer', (s.folder / 'answer.txt').read_text())
