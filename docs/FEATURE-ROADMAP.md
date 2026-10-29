@@ -85,8 +85,11 @@ owner's request. Owner visual check passed.
 - New and legacy tabs receive generic shapes automatically: use each of the 12
   shapes before repeating the least-used shape. Assignments persist; shared legacy
   saved/open tab identities receive the same initial icon.
-- **Configure tab → Tab icon → Choose icon…** offers 36 original bundled line
-  icons, including folders, servers, branches, tools and geometric shapes.
+- **Configure tab → Tab icon → Choose icon…** offers 96 original bundled line
+  icons (expanded from 36 in development 1.7.0), including development,
+  infrastructure, files, people, hobbies and geometric shapes. Live search
+  matches names and keywords without Enter; Down moves into the filtered grid.
+  No-match feedback and disabled confirmation prevent accepting hidden choices.
   Selection is staged until Configure tab is saved. Icons follow tab theme colors.
 - When full labels exceed the space beside the New tab control, tabs show icons
   and close controls. Widening restores labels. Names remain available through

@@ -62,12 +62,14 @@ jobs:
           if ('${{ matrix.git }}' -eq '2.55.0.windows.4' -and (git --version) -ne 'git version 2.55.0.windows.4') {
             throw 'The compatibility test selected the wrong Git installation'
           }
-      - name: Check command editing and per-button confirmation
+      - name: Check command editing, icon search and per-button confirmation
         shell: pwsh
         run: |
           .venv/Scripts/python.exe -m unittest discover -s tests -p test_command_editor.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe -m unittest discover -s tests -p test_command_presets.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe -m unittest discover -s tests -p test_tab_icon_picker.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe -m unittest discover -s tests -p test_workspace.py -k command_confirmation -k confirmation_acceptance -k confirmation_edits -k multiline -k command_presets -k tab_rename_dialog -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

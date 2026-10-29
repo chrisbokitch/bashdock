@@ -125,7 +125,11 @@ Each tab has a persistent random UUID, preserved across renaming, configuration 
 
 Tabs receive distinct generic shape icons automatically, using all 12 shapes before
 repeating the least-used shape. **Configure tab → Tab icon → Choose icon…** offers
-36 bundled shapes and symbols. Save applies your choice; Cancel keeps the original.
+96 original bundled shapes and symbols. **Search icons…** filters immediately by
+name or keyword (for example, SSH, Python, testing or gaming), without Enter.
+Press Down from search to select a visible result with the keyboard. Clearing the
+search restores the remembered selection; a filtered-out selection cannot be
+confirmed accidentally. Save applies your choice; Cancel keeps the original.
 Icons are remembered with tabs and saved workspaces, including exports and backups.
 When full tab labels no longer fit beside the New tab button, the bar switches to
 icons with close controls. Hover for a tab's full name; widening the window restores
