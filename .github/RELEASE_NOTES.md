@@ -1,27 +1,40 @@
-BashDock 1.6.8 makes the download smaller, cleans up old update backups, and polishes tab controls and keyboard focus.
+BashDock 1.12.1 adds terminal search, quick font zoom, optional command timing, and more tab and command-button controls. These notes cover the changes since public release 1.6.8.
 
-## Smaller downloads
+## Find text in terminal output
 
-- Keep the independent updater free of unnecessary Qt rendering dependencies.
-- Omit five WebEngine debug resources from release builds, while retaining the release resources, translations, QML, and developer tools.
-- Together these changes reduce the 1.6.8 ZIP by 19.3% compared with 1.6.0: from 267.61 MiB to 215.94 MiB. The attached ZIP is 226,427,474 bytes; use its matching checksum file to verify your download.
-- Add checks for the updater's frozen dependencies and real packaged terminal rendering at 100%, 125%, and 150% scaling, repeated after ZIP extraction.
+- Press **Ctrl+F** or choose **Manage → Find in terminal…** to open search in the active tab.
+- Matches update as you type. Search ignores case, treats the query as literal text, and handles wrapped lines and Unicode.
+- Use **Enter / Shift+Enter** or the arrow buttons for next / previous match. Navigation wraps at the end.
+- **Escape** closes search and restores terminal focus without jumping to the bottom.
+- Each tab keeps its own query for the session. Normal scrollback shows match counts and highlights up to 1,000 matches; alternate-screen programs can search their current screen.
+- Search stays inside the terminal page. Queries are not sent to Bash, saved in settings, or included in diagnostic reports. Search highlights do not trigger automatic clipboard copying.
 
-## Update backup cleanup
+## Quick font zoom and shortcut reference
 
-After a successful update, BashDock cleans up older backups that its update journals identify as safe to remove, retaining the latest healthy rollback copy for that installation. In-use files are retried later. Unrecognized folders and unfinished or failed update transactions are left for recovery or review.
+- **Ctrl++** (also **Ctrl+=**), **Ctrl+-**, and **Ctrl+0** increase, decrease, and reset the current tab’s font size. Matching actions are available under Settings.
+- Zoom is temporary and independent for each tab, stays within 8–48 pixels, and resets to the tab’s configured size. It leaves saved preferences unchanged.
+- **Help → Keyboard shortcuts…** lists the existing app, search, and command-editor keys in a read-only reference.
+- **Check for updates…** now sits directly above **About BashDock…** in the bottom Help menu group.
 
-## Tab controls and focus
+## More tab icons and useful context menus
 
-- Move New tab directly after the tabs, with a small borderless circular + that brightens on hover or keyboard focus. It stays accessible when tabs overflow.
-- Center the + precisely and leave a small gap above the terminal border.
-- Restore terminal typing focus when opening a new tab and when closing a tab.
+- Choose from 96 original generic tab icons, with live filtering by name and keywords.
+- Right-click a tab to configure, rename, duplicate, open its folder in Explorer, copy its folder path, or close it.
+- Middle-click a tab to close it using the existing shell-session confirmation behavior.
+- Right-click a command button to edit, duplicate, move left/right, or delete it.
+- Duplicating a tab preserves its configuration and opens a fresh shell. It does not copy running commands or connections.
+- Explorer folder shortcuts correctly distinguish similarly named folders such as `bashdock` and `bashdock.com`.
 
-## Test reliability
+## Optional command-button timing
 
-Contain packaged Windows rendering probes in isolated process jobs so console and shell descendants cannot retain temporary folders after a probe exits.
+- Enable **Show execution time** in an individual command button’s editor to show its elapsed time and exit status in that tab’s footer.
+- Timing starts disabled for existing and new buttons. It applies to button scripts started at the local Bash prompt; additional input to a foreground program or remote session remains untimed.
+- Timed scripts run in the existing shell, preserving directory and environment changes. Their implementation wrapper is kept out of the terminal and shell history, and the normal multiline prompt is restored afterward.
+- Diagnostics continue to exclude command text, terminal output, clipboard contents, and search queries.
 
-Synchronize the interactive Ctrl+C test with foreground-job startup, removing a timing gap in the test. Repeat its interruption and recovery checks across the Windows Git/Python compatibility matrix, and include terminal state in prompt timeout failures.
+## Windows validation
+
+The test runner isolates native terminal tests from the general Qt suite, reports WebEngine startup evidence on failures, and repeats command execution, timing, scrolling, zoom and search checks across the Git/Python compatibility matrix.
 
 Download the Windows x64 ZIP, extract the complete `bashdock` folder, and run `bashdock.exe`. Git for Windows must be installed; Python and Node are not required.
 

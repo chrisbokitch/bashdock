@@ -1,12 +1,29 @@
 # BashDock feature roadmap
 
-BashDock 1.6.0 is released; the 1.0 acceptance checks remain complete. The owner
-prioritized the smaller UI quality-of-life improvements first on 2026-10-27.
-The three command-button additions shipped together in public release 1.6.0
-after owner checks, exact draft-ZIP acceptance and signed metadata verification.
-Broader candidates have no committed dates or release numbers.
+The latest public release is **1.6.8**. Development candidate **1.12.1** completes
+our current small quality-of-life sequence; release preparation is in progress.
+The owner plans to use BashDock for development of other projects and let that
+experience guide further work. The 1.0 acceptance checks remain complete.
 
-## Agreed next sequence
+## Current quality-of-life sequence
+
+| Status | Feature | Evidence / scope |
+| --- | --- | --- |
+| Complete | Larger tab icon set and live icon filtering | 96 original generic icons; owner checks passed. |
+| Complete | Tab and command-button context menus | Includes tab duplication and Explorer/copy-folder shortcuts; owner checks passed. |
+| Complete | Middle-click tab closing | Uses the existing close confirmation; owner checks passed. |
+| Complete | Optional per-button execution timing | Disabled by default; quiet execution and normal multiline prompt restoration; owner checks passed. |
+| Complete | Quick terminal font zoom | Temporary, independent per tab; owner checks passed. |
+| Complete | Terminal scrollback search | Live matching, next/previous navigation, Escape to return focus; owner checks passed. |
+| Complete | Read-only keyboard shortcut reference | Help menu reference; automated menu/binding checks and local visual check passed. |
+| In progress | Public 1.12.1 release | Owner confirmed latest local tests pass. Exact tagged ZIP, signing and publication checks remain. |
+
+Shortcut remapping and reopening closed tabs are optional future candidates,
+with no committed date. Remapping would cover BashDock actions, detect conflicts,
+and offer Restore defaults; shell/program key bindings need separate treatment.
+A reopened tab would start a fresh shell rather than restore a running process.
+
+## Earlier agreed sequence
 
 On 2026-10-28, the owner prioritized three focused additions to BashDock's existing
 command-button workflow, then a reassessment before taking on broader features.
