@@ -87,6 +87,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           foreach ($attempt in 1..3) {
             Write-Host "Input compatibility round $attempt of 3"
-            .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k command_button_ -k button_timing -k first_button_in_hidden_tab -k m4_history_editing_completion_interrupt_and_unicode -v
+            .venv/Scripts/python.exe -m unittest discover -s tests -p test_windows.py -k command_button_ -k button_timing -k scroll_to_bottom_button -k first_button_in_hidden_tab -k m4_history_editing_completion_interrupt_and_unicode -v
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }

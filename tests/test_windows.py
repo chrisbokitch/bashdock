@@ -1187,6 +1187,7 @@ class WindowsTests(GuiTestCase):
                 right:rect.right, bottom:rect.bottom, width:rect.width,
                 frameRight:frame.right, frameBottom:frame.bottom,
                 color:getComputedStyle(button).color,
+                painted:window.__bashdock_scroll_painted === true,
                 viewportTop:viewport.scrollTop,
                 viewportBottom:viewport.scrollHeight - viewport.clientHeight};
         })())"""
@@ -1202,6 +1203,24 @@ class WindowsTests(GuiTestCase):
                         return state
                 time.sleep(0.01)
             self.fail(f"Unexpected scroll button state: {state}")
+
+        def wait_for_painted_viewport():
+            # Buffer activation/scrolling is synchronous, but xterm synchronizes
+            # the native viewport on animation frames. A real mouse click
+            # arrives after painting; do not click against a pending old
+            # scroll event left by the alternate-screen transition.
+            evaluate("""window.__bashdock_scroll_painted = false;
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    window.__bashdock_scroll_painted = true;
+                }));""")
+            return wait_for(lambda s: s['painted'] and (
+                s['base'] == 0 or
+                abs(s['viewportTop'] - s['viewport'] * s['viewportBottom'] / s['base'])
+                <= s['viewportBottom'] / s['base'] + 1))
+
+        def at_bottom(s):
+            return (s['hidden'] and s['viewport'] == s['base'] and s['focused']
+                    and abs(s['viewportTop'] - s['viewportBottom']) <= 1)
 
         try:
             wait_for(lambda s: s['hidden'])
@@ -1219,12 +1238,18 @@ class WindowsTests(GuiTestCase):
             self.assertFalse(state['hidden'])
             terminal.apply_settings(dict(terminal.preferences, background='#341527', foreground='#f0ddee'))
             wait_for(lambda s: s['color'] == 'rgb(240, 221, 238)')
-            terminal.bridge.output.emit('\x1b[?1049h')
-            wait_for(lambda s: s['type'] == 'alternate' and s['hidden'])
-            terminal.bridge.output.emit('\x1b[?1049l')
-            wait_for(lambda s: s['type'] == 'normal' and not s['hidden'])
-            evaluate("document.getElementById('scroll-to-bottom').click()")
-            wait_for(lambda s: s['hidden'] and s['viewport'] == s['base'] and s['focused'])
+            for restored in range(3):
+                if restored:
+                    evaluate('terminal.scrollLines(-10)')
+                    wait_for(lambda s: not s['hidden'])
+                wait_for_painted_viewport()
+                terminal.bridge.output.emit('\x1b[?1049h')
+                wait_for(lambda s: s['type'] == 'alternate' and s['hidden'])
+                terminal.bridge.output.emit('\x1b[?1049l')
+                wait_for(lambda s: s['type'] == 'normal' and not s['hidden'])
+                wait_for_painted_viewport()
+                evaluate("document.getElementById('scroll-to-bottom').click()")
+                wait_for(at_bottom)
             # No new output: native viewport scrolling suppresses xterm's
             # public onScroll notification, including after a button click.
             for attempt in range(3):
@@ -1234,8 +1259,9 @@ class WindowsTests(GuiTestCase):
                 wait_for(lambda s: abs(s['viewportTop'] - s['viewportBottom']) <= 1)
                 evaluate("document.querySelector('.xterm-viewport').scrollTop -= 120")
                 wait_for(lambda s: not s['hidden'] and s['viewport'] < s['base'])
+                wait_for_painted_viewport()
                 evaluate("document.getElementById('scroll-to-bottom').click()")
-                wait_for(lambda s: s['hidden'] and s['viewport'] == s['base'] and s['focused'])
+                wait_for(at_bottom)
         finally:
             terminal.stop()
             terminal.close()
