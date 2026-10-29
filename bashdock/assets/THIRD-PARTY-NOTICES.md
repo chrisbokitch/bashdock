@@ -13,7 +13,7 @@ The archive can also be opened through Help → About BashDock → License and n
 
 | Component | Release baseline | License / notice location |
 | --- | --- | --- |
-| xterm.js and addon-fit | 5.5.0 and 0.10.0 | MIT; `bashdock/assets/LICENSE` in source, `licenses/xterm/LICENSE` in release |
+| xterm.js, addon-fit and addon-search | 5.5.0, 0.10.0 and 0.15.0 | MIT; `bashdock/assets/LICENSE` in source, `licenses/xterm/LICENSE` in release; search add-on: `bashdock/assets/addon-search-LICENSE` |
 | PySide6 and shiboken6 | 6.10.3 | LGPLv3 / GPL alternatives; open-source terms and third-party notices collected from matching PySide source |
 | Qt libraries and plugins | 6.10.3 | LGPLv3 / GPL alternatives and component-specific terms; matching Qt source license and attribution files |
 | Qt WebEngine / Chromium | Qt 6.10.3 | Qt open-source terms plus Chromium's many component licenses, including BSD, MIT, Apache, and LGPL; matching Qt source notices, README.chromium files, and attribution metadata |

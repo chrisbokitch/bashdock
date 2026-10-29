@@ -50,6 +50,9 @@ class FakeTerminal(QWidget):
     def apply_settings(self, settings):
         self.preferences = copy.deepcopy(settings)
 
+    def open_search(self):
+        self.search_requests = getattr(self, "search_requests", 0) + 1
+
     def zoom_font(self, delta):
         self.zoom_requests = getattr(self, 'zoom_requests', []) + [delta]
 
@@ -94,6 +97,17 @@ class WorkspaceTests(unittest.TestCase):
         self.answers.stop()
         self.paths.stop()
         self.temp.cleanup()
+
+    def test_find_menu_targets_only_current_terminal_without_executing_input(self):
+        first = self.window.current_tab()
+        self.window.new_tab()
+        second = self.window.current_tab()
+        action = next(a for a in self.window.manage_menu.actions() if a.text() == 'Find in terminal…')
+        self.assertEqual('Ctrl+F', action.shortcut().toString())
+        action.trigger()
+        self.assertEqual(1, second.terminal.search_requests)
+        self.assertFalse(hasattr(first.terminal, 'search_requests'))
+        self.assertEqual([], second.terminal.commands)
 
     def test_font_zoom_menu_targets_current_tab_without_saving_or_starting_shell(self):
         first = self.window.current_tab()
@@ -2563,7 +2577,7 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(["Manage", "Settings", "Help"], list(menus))
         manage = menus["Manage"].actions()
         self.assertEqual(["New tab", "Rename tab…", "Close tab", "Workspaces", "", "Open external shell",
-                          "Restart shell…", "Interrupt (Ctrl+C)"], [a.text() for a in manage])
+                          "Restart shell…", "Interrupt (Ctrl+C)", "", "Find in terminal…"], [a.text() for a in manage])
         self.assertTrue(manage[4].isSeparator())
         self.assertEqual("Ctrl+Shift+T", manage[0].shortcut().toString())
         self.assertEqual("Ctrl+Shift+W", manage[2].shortcut().toString())

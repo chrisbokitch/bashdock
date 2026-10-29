@@ -9,7 +9,7 @@ function setup(TerminalClass) {
   const initial = {font_family: 'Cascadia Mono', font_size: 15, scrollback: 10000,
     cursor_style: 'block', cursor_blink: true, foreground: '#dde4ef', background: '#10141c',
     cursor_color: '#70dcc2', selection_color: '#365e66', copy_on_select: false, right_click_paste: false};
-  const bridge = {output: signal(), paste: signal(), timedButton: signal(), clipboardPaste: signal(), focus: signal(),
+  const bridge = {output: signal(), paste: signal(), timedButton: signal(), clipboardPaste: signal(), focus: signal(), findRequested: signal(),
     settingsChanged: signal(), inputs: [], input(text) {this.inputs.push(text);}, resize() {}, directory() {}, ready() {},
     timingEvents: [], commandEvent(payload) {this.timingEvents.push(payload);},
     readySessions: [], shellReady(token) {this.readySessions.push(token);},
@@ -22,6 +22,7 @@ function setup(TerminalClass) {
   const scrollButton = {hidden: true, events: {}, addEventListener(name, fn) {this.events[name] = fn;}};
   let terminal, fits = 0;
   const context = vm.createContext({
+    createTerminalSearch() {return {open() {}, isOpen() {return false;}};},
     Terminal: TerminalClass ? class extends TerminalClass {
       constructor(options) {super(options); terminal = this;}
       open() {} loadAddon() {} focus() {}

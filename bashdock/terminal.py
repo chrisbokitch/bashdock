@@ -30,6 +30,7 @@ class Bridge(QObject):
     timedButton = Signal(int)
     clipboardPaste = Signal(str)
     focus = Signal()
+    findRequested = Signal()
     settingsChanged = Signal(str)
 
     def __init__(self, terminal):
@@ -50,6 +51,9 @@ class Bridge(QObject):
             self.terminal.ready = True
             self.terminal.dimensions = (rows, cols)
             self.terminal.loaded.emit()
+            if self.terminal.search_requested:
+                self.terminal.search_requested = False
+                self.findRequested.emit()
 
     @Slot(str)
     def input(self, data):
@@ -141,6 +145,7 @@ class Terminal(QWebEngineView):
         self.trace = CommandTrace()
         self.preferences = terminal_preferences.defaults()
         self.zoom_offset = 0
+        self.search_requested = False
         self.setPage(LocalPage(self))
         # Cover Chromium's empty page before the terminal HTML is painted.
         self.page().setBackgroundColor(QColor(self.preferences['background']))
@@ -160,6 +165,13 @@ class Terminal(QWebEngineView):
         self.zoom_offset = 0
         self.page().setBackgroundColor(QColor(self.preferences['background']))
         self.bridge.settingsChanged.emit(json.dumps(self.preferences))
+
+    def open_search(self):
+        self.setFocus(Qt.FocusReason.ShortcutFocusReason)
+        if self.ready:
+            self.bridge.findRequested.emit()
+        else:
+            self.search_requested = True
 
     def display_preferences(self):
         return dict(self.preferences, font_size=self.preferences['font_size'] + self.zoom_offset)

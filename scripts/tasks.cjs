@@ -63,7 +63,7 @@ if (task === 'stage-update') {
   run(python, ['scripts/update_keys.py']);
 } else if (task === 'test') {
   run(python, ['scripts/run_tests.py']);
-  run(process.execPath, ['--test', 'tests/terminal-settings.test.cjs', 'tests/stage-update.test.cjs']);
+  run(process.execPath, ['--test', 'tests/terminal-settings.test.cjs', 'tests/terminal-search.test.cjs', 'tests/stage-update.test.cjs']);
 } else if (task === 'preview') {
   run(python, ['-m', 'bashdock']);
 } else if (task === 'compile') {

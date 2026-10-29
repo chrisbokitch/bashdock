@@ -115,6 +115,16 @@ or reset the active tab's terminal font size. These are also available under
 and leaves saved terminal preferences unchanged. Reset returns to the tab's configured
 size. Saving terminal settings or reopening the app also clears temporary zoom.
 
+Press **Ctrl+F** (or **Manage → Find in terminal…**) to search the active tab's retained
+terminal output. Matches update as you type, ignoring case and treating the query as
+literal text. Use **Enter / Shift+Enter** or the arrow buttons for next / previous
+match; navigation wraps at the end. **Escape** or × closes search and restores terminal
+focus without jumping back to the bottom. Each tab keeps its own query during the
+session. Normal scrollback shows match counts and highlights up to 1,000 results;
+alternate-screen programs can search their current screen. Search highlights do not
+trigger automatic clipboard copying, and search terms are never sent to Bash, saved,
+or included in diagnostic reports. Only output still retained in scrollback is searchable.
+
 For a project or server-specific appearance, open **Configure tab → Terminal settings…**. **Use terminal defaults** starts checked for new and existing tabs. Uncheck it to customize that tab, save the terminal editor, then save Configure tab. The running terminal updates immediately after the tab is saved, without restarting its shell. Cancelling either editor discards the changes at that level. Recheck **Use terminal defaults** (or click **Use defaults**) to follow the current app defaults again. Each custom preset contains all terminal settings, so later default changes do not alter its font, colors, or interaction preferences. Custom presets stay with the tab through app restarts, saved workspaces, settings exports, imports, and recovery.
 
 ## Saved workspaces

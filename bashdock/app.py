@@ -819,6 +819,8 @@ class MainWindow(QMainWindow):
             ("Open external shell", self.open_external, ""),
             ("Restart shell…", self.restart, ""),
             ("Interrupt (Ctrl+C)", self.interrupt, ""),
+            ("", None, ""),
+            ("Find in terminal…", self.find_in_terminal, "Ctrl+F"),
         ):
             if label == "Workspaces":
                 self.workspaces_menu = add_popup(menu, label)
@@ -1163,6 +1165,11 @@ class MainWindow(QMainWindow):
         self.tab_changed()
         self.statusBar().showMessage("Settings restored. Your previous settings were backed up.")
         return True
+
+    def find_in_terminal(self):
+        tab = self.current_tab()
+        if tab is not None and QApplication.activeModalWidget() is None:
+            tab.terminal.open_search()
 
     def zoom_terminal(self, delta):
         tab = self.current_tab()

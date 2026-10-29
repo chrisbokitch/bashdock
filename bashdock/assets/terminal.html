@@ -32,11 +32,34 @@ html,body{height:100%;margin:0;background:#10141c;overflow:hidden}
 #scroll-to-bottom:hover,#scroll-to-bottom:focus-visible{opacity:1}
 #scroll-to-bottom:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 #scroll-to-bottom svg{width:20px;height:20px;pointer-events:none}
+#terminal-search[hidden]{display:none}
+#terminal-search{position:absolute;top:4px;right:16px;z-index:6;display:flex;align-items:center;gap:4px;
+    max-width:calc(100% - 24px);box-sizing:border-box;padding:6px;border:1px solid var(--scrollbar-hover);
+    border-radius:7px;background:var(--scrollbar-track);color:var(--terminal-foreground,#dde4ef);
+    box-shadow:0 3px 12px #0005;font:13px system-ui,sans-serif}
+#terminal-search input{width:190px;min-width:40px;flex:1;padding:5px;border:1px solid var(--scrollbar-hover);
+    border-radius:3px;background:transparent;color:inherit;font:inherit;outline:none}
+#terminal-search input:focus{border-color:currentColor}
+#terminal-search input[aria-invalid=true]{border-color:#de7777}
+#search-status{font-size:11px;min-width:48px;text-align:center}
+#terminal-search button{flex:none;display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;
+    border-radius:4px;background:transparent;color:inherit;cursor:pointer;font:20px system-ui,sans-serif}
+#terminal-search button:hover,#terminal-search button:focus-visible{background:var(--scrollbar-thumb)}
+#terminal-search button:disabled{opacity:.35;cursor:default}
 </style>
 </head><body><div id="terminal-frame"><div id="terminal"></div>
+<div id="terminal-search" role="search" aria-label="Search terminal scrollback" hidden>
+<input id="search-input" type="text" placeholder="Find in terminal…" aria-label="Find in terminal" maxlength="1024" spellcheck="false" autocomplete="off">
+<span id="search-status" role="status" aria-live="polite"></span>
+<button id="search-previous" type="button" title="Previous match (Shift+Enter)" aria-label="Previous match">↑</button>
+<button id="search-next" type="button" title="Next match (Enter)" aria-label="Next match">↓</button>
+<button id="search-close" type="button" title="Close search (Escape)" aria-label="Close search">×</button>
+</div>
 <button id="scroll-to-bottom" type="button" hidden title="Scroll to bottom" aria-label="Scroll to bottom">
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14m-6-6 6 6 6-6"/></svg>
 </button></div>
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script src="xterm.js"></script><script src="addon-fit.js"></script>
+<script src="addon-search.js"></script>
+<script src="terminal-search.js"></script>
 <script src="terminal.js"></script></body></html>

@@ -11,12 +11,13 @@ function scrollbarColors(background) {
 
 const terminal = new Terminal({
   cursorBlink: true, fontFamily: 'Cascadia Mono, Consolas, monospace',
-  fontSize: 15, scrollback: 10000, allowProposedApi: false,
+  fontSize: 15, scrollback: 10000, allowProposedApi: true,
   theme: {background: '#10141c', foreground: '#dde4ef', cursor: '#70dcc2'}
 });
 const fit = new FitAddon.FitAddon();
 terminal.loadAddon(fit);
 terminal.open(document.getElementById('terminal'));
+const terminalSearch = createTerminalSearch(terminal);
 const scrollToBottom = document.getElementById('scroll-to-bottom');
 const updateScrollButton = () => {
   const buffer = terminal.buffer.active;
@@ -82,6 +83,7 @@ new QWebChannel(qt.webChannelTransport, channel => {
   });
   bridge.clipboardPaste.connect(text => terminal.paste(text));
   bridge.focus.connect(() => terminal.focus());
+  bridge.findRequested.connect(() => terminalSearch.open());
   terminal.attachCustomKeyEventHandler(event => {
     // Handle these in the renderer too: WebEngine may consume Qt shortcuts.
     // Suppress Chromium page zoom and never send the chord to the shell.
@@ -113,7 +115,7 @@ new QWebChannel(qt.webChannelTransport, channel => {
   });
   function bridgeCopy() { bridge.copy(terminal.getSelection()); }
   terminal.onSelectionChange(() => {
-    if (preferences.copy_on_select && terminal.hasSelection()) bridgeCopy();
+    if (preferences.copy_on_select && !terminalSearch.isOpen() && terminal.hasSelection()) bridgeCopy();
   });
   const rightPaste = event => preferences.right_click_paste &&
     (event.shiftKey || terminal.modes.mouseTrackingMode === 'none');

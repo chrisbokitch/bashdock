@@ -399,6 +399,77 @@ class WindowsTests(GuiTestCase):
                       "[[ $PWD == */child ]] && printf cwd >> ../after-pager.txt")
             s.receipt('after-pager.txt', 'keptcwd')
 
+    def test_scrollback_search_live_wrapped_unicode_navigation_and_focus_without_shell_input(self):
+        with self.saved_clipboard() as clipboard, self.interactive_session() as s:
+            t = s.terminal
+            clipboard.setText('clipboard unchanged')
+            t.apply_settings(dict(t.preferences, copy_on_select=True))
+            t.run_command('export BASHDOCK_SEARCH=kept; printf ready > search-ready.txt')
+            s.receipt('search-ready.txt', 'ready')
+            process, dimensions = t.process, t.dimensions
+            columns = int(s.evaluate('terminal.cols'))
+            lines = [f'line {i}: ' + ('BD-NEEDLE' if i in (5, 90, 160) else 'ordinary output')
+                     for i in range(180)]
+            lines += ['café λ 界', 'w' * (columns - 4) + 'WRAP-NEEDLE', 'SEARCH END']
+            t.bridge.output.emit('\r\n' + '\r\n'.join(lines) + '\r\n')
+            s.wait(lambda: 'SEARCH END' in s.screen())
+            s.key(s.qt.Key.Key_F, s.qt.KeyboardModifier.ControlModifier)
+            s.wait(lambda: s.evaluate("document.activeElement.id === 'search-input'"))
+            def query(value):
+                s.evaluate("(() => {const q = document.getElementById('search-input'); "
+                           f"q.value = {json.dumps(value)}; q.dispatchEvent(new Event('input'));}})()")
+            def status():
+                return s.evaluate("document.getElementById('search-status').textContent")
+            def position():
+                return s.evaluate('terminal.getSelectionPosition().start.y')
+            query('bd-needle')
+            s.wait(lambda: status() in ('1 of 3', '2 of 3', '3 of 3'))
+            first = position()
+            s.key(s.qt.Key.Key_Return)
+            s.wait(lambda: position() != first)
+            second = position()
+            s.key(s.qt.Key.Key_Return, s.qt.KeyboardModifier.ShiftModifier)
+            s.wait(lambda: position() == first)
+            # Navigation wraps after visiting all three matches.
+            positions = []
+            previous = first
+            for _ in range(3):
+                s.key(s.qt.Key.Key_Return)
+                s.wait(lambda: position() != previous)
+                previous = position()
+                positions.append(previous)
+            self.assertEqual(first, positions[-1])
+            self.assertEqual(3, len(set(positions)))
+            t.bridge.output.emit('BD-NEEDLE new output\r\n')
+            s.wait(lambda: status() in ('1 of 4', '2 of 4', '3 of 4', '4 of 4'))
+            query('café λ 界')
+            s.wait(lambda: status() == '1 of 1' and s.evaluate('terminal.getSelection()') == 'café λ 界')
+            query('WRAP-NEEDLE')
+            s.wait(lambda: status() == '1 of 1' and s.evaluate('terminal.getSelection()') == 'WRAP-NEEDLE')
+            query('no-such-search-match')
+            s.wait(lambda: status() == 'No matches')
+            self.assertTrue(s.evaluate("document.getElementById('search-next').disabled"))
+            t.bridge.output.emit('\x1b[?1049hALT-NEEDLE\r\n')
+            s.wait(lambda: s.evaluate("terminal.buffer.active.type === 'alternate'"))
+            query('ALT-NEEDLE')
+            s.wait(lambda: status() == 'Match found' and s.evaluate('terminal.getSelection()') == 'ALT-NEEDLE')
+            t.bridge.output.emit('\x1b[?1049l')
+            s.wait(lambda: s.evaluate("terminal.buffer.active.type === 'normal'"))
+            query('')
+            s.wait(lambda: status() == '' and not s.evaluate('terminal.hasSelection()'))
+            query('WRAP-NEEDLE')
+            s.wait(lambda: status() == '1 of 1')
+            viewport = s.evaluate('terminal.buffer.active.viewportY')
+            s.key(s.qt.Key.Key_Escape)
+            s.wait(lambda: s.evaluate("document.getElementById('terminal-search').hidden && "
+                                     "document.activeElement.classList.contains('xterm-helper-textarea')"))
+            self.assertEqual(viewport, s.evaluate('terminal.buffer.active.viewportY'))
+            self.assertEqual('clipboard unchanged', clipboard.text())
+            self.assertEqual(dimensions, t.dimensions, 'Overlay must not resize the PTY')
+            self.assertIs(process, t.process)
+            t.run_command('printf "%s" "$BASHDOCK_SEARCH" > search-after.txt')
+            s.receipt('search-after.txt', 'kept')
+
     def test_font_zoom_window_shortcuts_and_menu_apply_once_to_the_active_tab(self):
         from unittest.mock import patch
         from PySide6.QtCore import Qt
