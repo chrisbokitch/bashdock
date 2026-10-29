@@ -29,6 +29,7 @@ from .external_shell import open_external
 from .folder_browser import open_folder
 from .terminal_settings import TerminalSettingsDialog
 from .workspaces import WorkspacesDialog
+from .keyboard_shortcuts import KeyboardShortcutsDialog
 
 APP_ICON = Path(__file__).parent / "assets" / "bashdock.ico"
 
@@ -880,6 +881,9 @@ class MainWindow(QMainWindow):
             self.updates_menu.addAction(action)
         self.help_menu = add_popup(self.menuBar(), "Help")
         help_menu = self.help_menu
+        shortcuts_action = QAction("Keyboard shortcuts…", self)
+        shortcuts_action.triggered.connect(self.show_keyboard_shortcuts)
+        help_menu.addAction(shortcuts_action)
         about_action = QAction("About BashDock…", self)
         about_action.triggered.connect(self.show_about)
         self.check_updates_action = QAction("Check for updates…", self)
@@ -1634,6 +1638,12 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Cannot save diagnostic report", str(error))
             return
         self.statusBar().showMessage("Diagnostic report saved. Commands and terminal output are excluded.", 8000)
+
+    def show_keyboard_shortcuts(self):
+        dialog = KeyboardShortcutsDialog(self)
+        dialog.setWindowIcon(self.windowIcon())
+        dialog.exec()
+        dialog.deleteLater()
 
     def show_about(self):
         dialog = QDialog(self)

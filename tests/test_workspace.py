@@ -2570,6 +2570,21 @@ class WorkspaceTests(unittest.TestCase):
             self.window.save_diagnostic_report()
             save.assert_not_called()
 
+    def test_keyboard_shortcut_reference_opens_from_help_and_matches_registered_actions(self):
+        from bashdock.keyboard_shortcuts import KeyboardShortcutsDialog
+        before = copy.deepcopy(self.window.snapshot())
+        with patch.object(KeyboardShortcutsDialog, 'exec', new=lambda dialog: 0):
+            action = next(a for a in self.window.help_menu.actions() if a.text() == 'Keyboard shortcuts…')
+            action.trigger()
+        dialog = self.window.findChild(KeyboardShortcutsDialog)
+        self.assertIsNotNone(dialog)
+        reference = dialog.reference.toPlainText()
+        for action in [*self.window.manage_menu.actions(), *self.window.font_zoom_actions]:
+            for shortcut in action.shortcuts():
+                self.assertIn(shortcut.toString(), reference)
+        self.assertEqual(before, self.window.snapshot())
+        self.assertEqual([], self.window.current_tab().terminal.commands)
+
     def test_menus_group_actions_and_about_shows_current_version_and_repository(self):
         from PySide6.QtWidgets import QDialog, QLabel
         from bashdock import __version__
@@ -2588,10 +2603,10 @@ class WorkspaceTests(unittest.TestCase):
         manage[0].trigger()
         self.assertEqual(2, self.window.tabs.count())
         with patch("bashdock.app.QDialog.exec", return_value=0) as show:
-            self.assertEqual(['Check for updates…', 'Save diagnostic report…', '', 'About BashDock…'],
+            self.assertEqual(['Keyboard shortcuts…', 'Check for updates…', 'Save diagnostic report…', '', 'About BashDock…'],
                              [a.text() for a in menus['Help'].actions()])
-            self.assertTrue(menus['Help'].actions()[2].isSeparator())
-            menus["Help"].actions()[3].trigger()
+            self.assertTrue(menus['Help'].actions()[3].isSeparator())
+            menus["Help"].actions()[4].trigger()
             show.assert_called_once()
             dialog = next(d for d in self.window.findChildren(QDialog) if d.windowTitle() == "About BashDock")
             labels = dialog.findChildren(QLabel)

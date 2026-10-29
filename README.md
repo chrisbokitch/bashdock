@@ -109,6 +109,9 @@ The **Manage** menu groups tab management and shell actions. **Settings → Conf
 
 **Settings → Terminal Defaults…** controls the default font family and size (8–48 pixels), text/background/cursor/selection colours, cursor shape and blinking, scrollback (0–100,000 lines), automatic copying of selected text, and right-click paste. Save applies to tabs using the defaults without restarting shells, and persists for future tabs and launches. Tabs with custom settings remain unchanged. Cancel leaves settings unchanged; Restore Defaults resets the dialog controls until you save. Reducing scrollback discards older lines. Copy-on-selection and right-click paste start disabled; Ctrl+Shift+C/V remain available, and multiline paste still requires confirmation. Mouse-aware terminal programs retain their right-click behaviour unless you hold Shift to paste. These settings affect BashDock's embedded terminals, not external Git Bash windows.
 
+**Help → Keyboard shortcuts…** provides a read-only reference for BashDock, terminal search,
+and command editing. It lists the existing bindings; shortcut remapping is not available.
+
 Use **Ctrl++** (or **Ctrl+=**), **Ctrl+-**, and **Ctrl+0** to increase, decrease,
 or reset the active tab's terminal font size. These are also available under
 **Settings**. Zoom is temporary and independent for each tab, stays within 8–48 pixels,
