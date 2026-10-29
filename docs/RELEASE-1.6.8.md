@@ -23,9 +23,25 @@ and optimization scope remains the same, with one added rendering-harness fix.
   unrelated process remains alive. Portable fixtures verify startup gating,
   job cleanup after success, and fail-closed assignment errors.
 - Local suite passed: 281 Python tests with 27 Windows-only skips, and 17
-  JavaScript tests. Native job regression, full Windows build,
-  compatibility, frozen rendering, extraction, and signed draft checks remain
-  pending; do not infer Windows success from Linux skips.
+  JavaScript tests.
+
+## Completed Windows candidate checks
+
+- Tested runtime/source commit: `2a11b3ebc5239178cb3ce3b89b0a3a78a756cd50`.
+- Full Windows build/package workflow passed on its first attempt:
+  <https://github.com/chrisbokitch/bashdock/actions/runs/40793573888>,
+  build job `123184445822`.
+- The native orphan-child job regression passed. The full 281-test suite,
+  additional native/scaling checks, compilation, and independent updater
+  verification with zero Qt entries passed.
+- All eight actual frozen rendering checks passed: default rendering at 100%
+  and software rendering at 100%, 125%, and 150%, in both the compiled folder
+  and extracted ZIP. Their temporary directories were successfully cleaned up.
+- Final ZIP integrity, source/license checks, and extracted startup passed.
+- All four Git/Python compatibility jobs passed:
+  <https://github.com/chrisbokitch/bashdock/actions/runs/40793573895>.
+- Signed tagged build, exact draft-ZIP identity and owner smoke remain pending.
+  This successful main build is not acceptance of a future downloaded draft.
 
 ## Focused release scope
 
