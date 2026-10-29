@@ -1,7 +1,8 @@
 # BashDock 1.6.8 release record
 
 Prepared on 2026-10-28 (America/Vancouver). The signed draft is ready;
-publication and owner acceptance of the exact downloaded draft ZIP are pending.
+owner smoke acceptance is recorded below. Independent downloaded metadata
+verification and publication remain pending.
 
 This replaces the [failed 1.6.7 candidate](RELEASE-1.6.7.md); no public 1.6.7
 release or draft assets were created. Its immutable tag is retained. The UI
@@ -75,8 +76,12 @@ and optimization scope remains the same, with one added rendering-harness fix.
   verification of the downloaded manifest/signature bytes is pending owner
   provision of those two draft files. Do not confuse asset digests or successful
   signing with independent verification of their downloaded bytes.
-- Owner checksum and exact downloaded-ZIP smoke remain pending. The draft
-  must not be treated as published or accepted from automated evidence alone.
+- The owner responded “looks good” to the requested draft checksum/smoke checklist
+  on 2026-10-28. Record this as owner acceptance of the requested quick checks;
+  no checksum command output or separate environment/scaling details were supplied.
+- The draft ZIP, manifest and signature asset sizes/digests were rechecked and
+  remain unchanged. Independent downloaded metadata verification and publication
+  are still pending; no public release is claimed.
 
 ## Focused release scope
 
