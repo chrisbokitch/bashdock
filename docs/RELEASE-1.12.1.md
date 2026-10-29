@@ -1,8 +1,11 @@
 # BashDock 1.12.1 release record
 
-Status: signed draft accepted and ready to publish. Owner ZIP checksum,
-exact-draft runtime/UI smoke and independent metadata signature verification
-passed. Public publication is still pending.
+Published as the latest stable release on **2026-10-29 at 13:23 PDT**
+(2026-10-29 20:23:04 UTC):
+<https://github.com/chrisbokitch/bashdock/releases/tag/v1.12.1>.
+
+Owner exact-ZIP acceptance, independent signature verification, public checks,
+website deployment and a successful owner automatic update are complete.
 
 ## Scope since public 1.6.8
 
@@ -79,10 +82,34 @@ Before publication, draft release 428346016 was fetched again: it is still a
 draft for v1.12.1 with all 12 expected assets. ZIP, manifest and signature sizes
 and SHA-256 digests are unchanged from those accepted and independently verified.
 
-## Remaining publication work
+## Publication, public verification and website
 
-Publish the accepted draft. The connected GitHub tools do not provide a release
-publication operation, so the owner must use GitHub's Publish release button.
-After publication, recheck public asset access and immutable identity, updater
-discovery, and website download links; record the final evidence here. The
-website remains on public 1.6.8 until publication is confirmed.
+- Release 428346016 is public, stable and non-draft for v1.12.1, with all 12
+  expected binary, source, checksum, provenance and signed-metadata assets.
+  ZIP, manifest and signature identity did not change through publication.
+- A fresh anonymous HTTP client fetched the public latest-release API and
+  fully downloaded the five small metadata assets. Each byte count and SHA-256
+  matches the GitHub asset metadata; all-assets checksum entries agree with
+  asset digests and build provenance identifies the exact tagged source.
+- Fresh public manifest/signature bytes independently verify with the production
+  public key. The signed ZIP version, URL, size and SHA-256 match the accepted ZIP.
+- Anonymous bounded reads succeeded for the application ZIP and all six source
+  archives. These establish access, not an independent full binary/source hash
+  download. Full-package integrity evidence remains the owner checksum check,
+  successful tagged package verification and unchanged signed/GitHub digests.
+- Discovery with freshly fetched public data offers 1.12.1 from 1.6.8 and offers
+  no same-version update from 1.12.1.
+- After publication, the owner reported that their automatic update completed
+  successfully. This is an actual installed update success, separate from the
+  downloaded-ZIP smoke and metadata/discovery checks.
+- Website commit `fff171423573ecf49d14b63351a9f0aee00dda86` in
+  chrisbokitch/bashdock.com updates the versioned ZIP/checksum/source/release
+  links, visible version labels, metadata, illustrative widget version, release
+  badge, README and checksum command together. Styles, JavaScript and historical
+  UI captures are unchanged. All versioned links identify published assets.
+- Local embedded-browser previews passed at 1280×900 and 390×844: no horizontal
+  overflow, demo tab/button interactions, help disclosures and SmartScreen
+  anchor behavior. Desktop/mobile screenshots were visually inspected.
+- After automatic deployment, a fresh anonymous request to
+  <https://www.bashdock.com/> returned HTTP 200 with 1.12.1 references and no
+  remaining 1.6.8 references.
