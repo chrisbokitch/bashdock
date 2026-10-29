@@ -2603,9 +2603,9 @@ class WorkspaceTests(unittest.TestCase):
         manage[0].trigger()
         self.assertEqual(2, self.window.tabs.count())
         with patch("bashdock.app.QDialog.exec", return_value=0) as show:
-            self.assertEqual(['Keyboard shortcuts…', 'Check for updates…', 'Save diagnostic report…', '', 'About BashDock…'],
+            self.assertEqual(['Keyboard shortcuts…', 'Save diagnostic report…', '', 'Check for updates…', 'About BashDock…'],
                              [a.text() for a in menus['Help'].actions()])
-            self.assertTrue(menus['Help'].actions()[3].isSeparator())
+            self.assertTrue(menus['Help'].actions()[2].isSeparator())
             menus["Help"].actions()[4].trigger()
             show.assert_called_once()
             dialog = next(d for d in self.window.findChildren(QDialog) if d.windowTitle() == "About BashDock")

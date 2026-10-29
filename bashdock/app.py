@@ -888,11 +888,11 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self.show_about)
         self.check_updates_action = QAction("Check for updates…", self)
         self.check_updates_action.triggered.connect(self.check_for_updates)
-        help_menu.addAction(self.check_updates_action)
         diagnostic_action = QAction("Save diagnostic report…", self)
         diagnostic_action.triggered.connect(self.save_diagnostic_report)
         help_menu.addAction(diagnostic_action)
         help_menu.addSeparator()
+        help_menu.addAction(self.check_updates_action)
         help_menu.addAction(about_action)
         # Older PySide bindings can delete a submenu when a temporary action
         # wrapper expires after QAction.menu() is called.
