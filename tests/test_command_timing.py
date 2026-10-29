@@ -102,7 +102,7 @@ class CommandTimingTests(unittest.TestCase):
                     "alias timing_alias='printf alias-ok'\ntiming_alias\n"
                     "cat <<'DATA'\nquotes ' and \" and $(printf SHOULD_NOT_RUN)\nDATA\n"
                     "printf '%s' 'café\tλ' > unicode.txt\nsleep 0.12\nprintf success > receipt.txt\ntrue")
-            for command, status in ((body, 0), ('(exit 7)', 7)):
+            for command, status in ((body, 0), ('cd -- "$HOME"; (exit 7)', 7)):
                 timing = CommandTiming()
                 token = timing.prepare(command, 'Multiline', 'test-session')
                 stage_command(mailbox, token, command)
