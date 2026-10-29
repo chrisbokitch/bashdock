@@ -1,57 +1,25 @@
-BashDock 1.6 improves command buttons with multiline editing, optional confirmation prompts, and curated presets.
+BashDock 1.6.7 makes the download smaller, cleans up old update backups, and polishes tab controls and keyboard focus.
 
-## Multiline command editor
+## Smaller downloads
 
-Configure tab now opens a dedicated editor for a button's label and command body.
-Write multiple lines with indentation, blank lines, quotes and Unicode, including
-Bash loops, functions, continuation lines and heredocs. Commands run in the tab's
-existing shell and retain its directory and environment. Bash syntax controls
-whether later commands run after a failure; there is no automatic stop-on-error.
+- Keep the independent updater free of unnecessary Qt rendering dependencies.
+- Omit five WebEngine debug resources from release builds, while retaining the release resources, translations, QML, and developer tools.
+- Together these changes reduced the measured 1.6.5 candidate ZIP by 19.3% compared with 1.6.0 (about 268 MiB to 216 MiB). The attached 1.6.7 ZIP has its own exact size and checksum.
+- Add checks for the updater's frozen dependencies and real packaged terminal rendering at 100%, 125%, and 150% scaling, repeated after ZIP extraction.
 
-Use Add / Edit…, double-click a row, or press F2/Enter. Enter adds a line, Tab
-inserts indentation, and Ctrl+Tab moves focus out of the command body. Save in the
-editor stages changes until Configure tab is saved; Cancel discards staged edits.
+## Update backup cleanup
 
-## Confirm before using
+After a successful update, BashDock cleans up older backups that its update journals identify as safe to remove, retaining the latest healthy rollback copy for that installation. In-use files are retried later. Unrecognized folders and unfinished or failed update transactions are left for recovery or review.
 
-Each command button can request confirmation with a custom message, defaulting
-to “Are you sure?”. The message field is disabled until confirmation is enabled.
-The execution prompt shows the message, button label, target tab and exact
-command. Cancel is the default; Run command submits the reviewed command once
-to the reviewed shell. Existing buttons keep confirmation off unless enabled.
+## Tab controls and focus
 
-Confirmation settings stay with buttons in saved workspaces, settings exports,
-imports and backups. Editing, applying or restoring definitions never runs them.
+- Move New tab directly after the tabs, with a small borderless circular + that brightens on hover or keyboard focus. It stays accessible when tabs overflow.
+- Center the + precisely and leave a small gap above the terminal border.
+- Restore terminal typing focus when opening a new tab and when closing a tab.
 
-## Command presets
+## Test reliability
 
-Configure tab → Presets… offers 18 editable starter buttons in five groups:
-
-- Git essentials
-- Git recovery / AI Rescue
-- Python / Backend
-- Web / Node
-- Docker Compose
-
-Choose individual buttons or all new buttons in a group. Review exact commands,
-required tools and confirmation messages before applying. Presets append by
-default; replacement previews the removed buttons and requires confirmation.
-Exact label-and-command duplicates are marked Already added and skipped by
-Select all new buttons, with explicit duplicate selection still available.
-
-Applying only stages ordinary editable buttons in Configure tab. Save keeps them;
-Cancel preserves the existing buttons. Presets do not install tools. Commands
-that discard, overwrite or stop work have confirmation enabled by default, with
-specific messages that remain editable.
-
-## Fixes and validation
-
-- Preserve literal tabs in button commands with standard Bash Readline bindings.
-- Fix Ctrl+Tab navigation from the command editor on Windows.
-- Close the HTTPS response when rejecting an insecure update redirect, avoiding
-  an unclosed response without weakening certificate or redirect verification.
-- Improve Windows test cleanup and cover confirmation, preset persistence,
-  cancellation, keyboard access and short-window layout across Python versions.
+Synchronize the interactive Ctrl+C test with foreground-job startup, removing a timing gap in the test. Repeat its interruption and recovery checks across the Windows Git/Python compatibility matrix, and include terminal state in prompt timeout failures.
 
 Download the Windows x64 ZIP, extract the complete `bashdock` folder, and run `bashdock.exe`. Git for Windows must be installed; Python and Node are not required.
 
