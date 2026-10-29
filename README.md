@@ -91,7 +91,8 @@ Git Bash is detected in common installation locations. If detection fails, open 
 - Use **+ New tab** or **Ctrl+Shift+T** for an independent Git Bash shell.
 - Use **Manage → Open external shell** to open a separate Git Bash window from the active tab's Git installation in its last reported current directory. This starts a fresh shell; it does not transfer running programs, unsaved environment changes, or scrollback. The external window stays open when BashDock closes. For deployment, open it first, close BashDock, then run `./copy.sh` there. If `git-bash.exe` is unavailable beside that installation, the configured Bash opens in a new Windows console instead.
 - Double-click a tab to rename it, or use **Manage → Rename tab**.
-- Drag tabs to reorder them. Use the tab's close button or **Ctrl+Shift+W** to close it.
+- Drag tabs to reorder them. Use the tab's close button, **middle-click**, or **Ctrl+Shift+W** to close it. Middle-click uses the same shell-session confirmation as the close button.
+- Right-click a tab to configure, rename, duplicate, close, open its last reported folder in Explorer, or copy that folder path. These actions apply to the clicked tab, even when another tab is selected. **Duplicate tab** copies its buttons, icon, settings, and remembered folder into a fresh shell; it does not copy running jobs, environment changes, or scrollback.
 - Each tab has its own configurable command bar at the **bottom**, immediately below its terminal.
 - Names, tab order, selected tab, current folders, startup folders, and command buttons are saved automatically and restored at the next launch.
 - A new tab starts in the selected tab's last reported folder with its own default buttons.
@@ -138,6 +139,8 @@ labels. If even the compact tabs do not fit, use the tab bar's scroll arrows.
 Workspaces start fresh shell sessions. They preserve command buttons such as an SSH **Connect** button, but do not run those commands or reconnect SSH automatically. They are included in settings exports, imports, and automatic backups. Existing settings files start with an empty workspace library.
 
 ## Command buttons
+
+Right-click a command button to **Edit…**, **Duplicate**, **Move left**, **Move right**, or **Delete** it. Changes save immediately; editing or organizing buttons never executes their commands. Duplicates keep the command and its confirmation settings. Move actions follow the button order across wrapped rows.
 
 Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command preview. Select a row and click **Edit…**, double-click it, or press **F2/Enter** to open the command editor. **Add** opens the same editor for a new button. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
 

@@ -95,6 +95,165 @@ class WorkspaceTests(unittest.TestCase):
         tab.terminal.ready = True
         tab.terminal.loaded.emit()
 
+    def choose_context_action(self, label):
+        def choose(menu, *args):
+            matches = [a for a in menu.actions() if a.text() == label]
+            self.assertEqual(len(matches), 1)
+            self.assertTrue(matches[0].isEnabled())
+            return matches[0]
+        return patch('bashdock.app.PopupMenu.exec', choose)
+
+    def test_context_events_reach_clicked_tab_and_button_without_running_commands(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtGui import QContextMenuEvent
+        from PySide6.QtTest import QTest
+        self.window.show()
+        tab = self.window.current_tab()
+        self.ready(tab)
+        self.window.new_tab()
+        self.app.processEvents()
+        current = self.window.current_tab()
+        bar = self.window.tabs.tabBar()
+        point = bar.tabRect(0).center()
+        QTest.mouseClick(bar, Qt.MouseButton.RightButton, pos=point)
+        self.assertIs(self.window.current_tab(), current)
+        with self.choose_context_action('Copy folder path'):
+            self.app.sendEvent(bar, QContextMenuEvent(QContextMenuEvent.Reason.Mouse, point, bar.mapToGlobal(point)))
+        self.assertIs(self.window.current_tab(), current)
+        self.window.tabs.setCurrentWidget(tab)
+        button = tab.command_buttons[0]
+        point = button.rect().center()
+        with self.choose_context_action('Duplicate'):
+            self.app.sendEvent(button, QContextMenuEvent(QContextMenuEvent.Reason.Mouse, point, button.mapToGlobal(point)))
+        self.assertEqual(tab.data['buttons'][0], tab.data['buttons'][1])
+        self.assertEqual(tab.terminal.commands, [])
+
+    def test_tab_context_duplicate_copies_profile_with_new_identity_and_fresh_shell(self):
+        from PySide6.QtCore import QPoint
+        tab = self.window.current_tab()
+        self.ready(tab)
+        tab.data['buttons'][0].update(confirm=True, confirmation_message='Proceed?')
+        original = copy.deepcopy(tab.data)
+        with self.choose_context_action('Duplicate tab'):
+            self.window.show_tab_menu(self.window.tabs.tabBar().tabRect(0).center())
+        duplicate = self.window.current_tab()
+        self.assertIsNot(duplicate, tab)
+        self.assertNotEqual(duplicate.data['id'], original['id'])
+        self.assertEqual(duplicate.data['buttons'], original['buttons'])
+        self.assertEqual(duplicate.data['current_folder'], original['current_folder'])
+        self.assertEqual(duplicate.data['icon'], original['icon'])
+        self.assertIsNone(duplicate.terminal.process)
+        self.assertEqual(tab.terminal.commands, [])
+        self.ready(duplicate)
+        self.assertIsNot(duplicate.terminal.process, tab.terminal.process)
+        self.assertEqual(duplicate.terminal.starts[0][1], original['current_folder'])
+        self.assertGreater(duplicate.terminal.focus_requests, 0)
+        self.window.show_tab_menu(QPoint(-10, -10))
+        self.assertEqual(self.window.tabs.count(), 2)
+
+    def test_tab_context_targets_clicked_background_tab_for_folder_rename_configure_and_close(self):
+        from PySide6.QtCore import QDir, QUrl
+        tab = self.window.current_tab()
+        self.ready(tab)
+        self.window.new_tab()
+        current = self.window.current_tab()
+        point = self.window.tabs.tabBar().tabRect(0).center()
+        with self.choose_context_action('Copy folder path'):
+            self.window.show_tab_menu(point)
+        self.assertEqual(self.app.clipboard().text(), QDir.toNativeSeparators(tab.data['current_folder']))
+        with self.choose_context_action('Open folder in Explorer'), patch('bashdock.app.QDesktopServices.openUrl', return_value=True) as opened:
+            self.window.show_tab_menu(point)
+        opened.assert_called_once_with(QUrl.fromLocalFile(tab.data['current_folder']))
+        with self.choose_context_action('Configure tab…'), patch.object(self.window, 'configure') as configure:
+            self.window.show_tab_menu(point)
+        configure.assert_called_once_with(tab)
+        with self.choose_context_action('Rename tab…'), patch('bashdock.app.QInputDialog.getText', return_value=('Renamed', True)):
+            self.window.show_tab_menu(point)
+        self.assertEqual(tab.data['name'], 'Renamed')
+        self.assertIs(self.window.current_tab(), current)
+        with self.choose_context_action('Close tab'):
+            self.window.show_tab_menu(point)
+        self.assertEqual(self.window.tabs.count(), 1)
+        self.assertEqual(tab.terminal.stops, 1)
+        self.assertIs(self.window.current_tab(), current)
+
+    def test_middle_click_closes_only_matching_tab_and_keeps_existing_confirmation(self):
+        from PySide6.QtCore import Qt, QPoint
+        from PySide6.QtTest import QTest
+        self.window.show()
+        self.window.new_tab()
+        bar = self.window.tabs.tabBar()
+        tab = self.window.tabs.widget(0)
+        self.ready(tab)
+        self.app.processEvents()
+        point = bar.tabRect(0).center()
+        with patch('bashdock.app.QMessageBox.question', return_value=QMessageBox.StandardButton.No):
+            QTest.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=point)
+        self.assertEqual(self.window.tabs.count(), 2)
+        self.assertEqual(tab.terminal.stops, 0)
+        QTest.mousePress(bar, Qt.MouseButton.MiddleButton, pos=point)
+        QTest.mouseRelease(bar, Qt.MouseButton.MiddleButton, pos=bar.tabRect(1).center())
+        self.assertEqual(self.window.tabs.count(), 2)
+        QTest.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=QPoint(-5, -5))
+        self.assertEqual(self.window.tabs.count(), 2)
+        QTest.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=point)
+        self.assertEqual(self.window.tabs.count(), 1)
+        self.assertEqual(tab.terminal.stops, 1)
+        with patch.object(self.window, 'close') as close:
+            QTest.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=bar.tabRect(0).center())
+        close.assert_called_once_with()
+
+    def test_button_context_actions_save_without_input_and_rollback_failed_save(self):
+        from PySide6.QtCore import QPoint
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_editor import CommandEditor
+        tab = self.window.current_tab()
+        self.ready(tab)
+        original = copy.deepcopy(tab.data['buttons'])
+        tab.data['buttons'][0].update(confirm=True, confirmation_message='Careful')
+        with self.choose_context_action('Duplicate'):
+            self.window.show_button_menu(tab, 0, QPoint())
+        self.assertEqual(tab.data['buttons'][0], tab.data['buttons'][1])
+        self.assertIsNot(tab.data['buttons'][0], tab.data['buttons'][1])
+        def edit(dialog):
+            self.assertTrue(dialog.confirm.isChecked())
+            self.assertEqual(dialog.confirmation_message.text(), 'Careful')
+            dialog.result_data = dict(label='Edited', command='echo changed', confirm=True, confirmation_message='Sure?')
+            return QDialog.DialogCode.Accepted
+        with self.choose_context_action('Edit…'), patch.object(CommandEditor, 'exec', edit):
+            self.window.show_button_menu(tab, 1, QPoint())
+        with self.choose_context_action('Move right'):
+            self.window.show_button_menu(tab, 1, QPoint())
+        self.assertEqual(tab.data['buttons'][2]['label'], 'Edited')
+        with self.choose_context_action('Move left'):
+            self.window.show_button_menu(tab, 2, QPoint())
+        self.assertEqual(tab.command_buttons[1].text(), 'Edited')
+        saved = copy.deepcopy(tab.data['buttons'])
+        with self.choose_context_action('Delete'), patch.object(self.window, 'persist', return_value=False), patch('bashdock.app.QMessageBox.warning'):
+            self.window.show_button_menu(tab, 1, QPoint())
+        self.assertEqual(tab.data['buttons'], saved)
+        self.assertEqual(tab.command_buttons[1].text(), 'Edited')
+        with self.choose_context_action('Delete'):
+            self.window.show_button_menu(tab, 1, QPoint())
+        self.assertEqual(len(tab.data['buttons']), len(original))
+        self.assertEqual(config.load(self.path)['tabs'][0]['buttons'], tab.data['buttons'])
+        self.assertEqual(tab.terminal.commands, [])
+        self.assertEqual(tab.terminal.stops, 0)
+
+    def test_button_menu_cancellation_and_stale_menu_do_not_change_buttons(self):
+        from PySide6.QtCore import QPoint
+        tab = self.window.current_tab()
+        original = copy.deepcopy(tab.data['buttons'])
+        with patch('bashdock.app.PopupMenu.exec', return_value=None):
+            self.window.show_button_menu(tab, 0, QPoint())
+        self.assertEqual(tab.data['buttons'], original)
+        def stale(menu, *args):
+            tab.data['buttons'].reverse()
+            return next(a for a in menu.actions() if a.text() == 'Delete')
+        with patch('bashdock.app.PopupMenu.exec', stale):
+            self.window.show_button_menu(tab, 0, QPoint())
+        self.assertEqual(tab.data['buttons'], list(reversed(original)))
+
     def test_command_presets_stage_append_replace_cancel_and_failed_save_without_shell_input(self):
         from PySide6.QtWidgets import QDialog
         from bashdock.preset_picker import PresetPicker

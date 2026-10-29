@@ -23,7 +23,7 @@ class CommandBody(QPlainTextEdit):
 
 class CommandEditor(QDialog):
     def __init__(self, label, command, parent=None, *, confirm=False,
-                 confirmation_message=DEFAULT_CONFIRMATION_MESSAGE):
+                 confirmation_message=DEFAULT_CONFIRMATION_MESSAGE, staged=True):
         super().__init__(parent)
         self.setWindowTitle("Edit command button")
         self.resize(680, 460)
@@ -62,7 +62,9 @@ class CommandEditor(QDialog):
         note = QLabel("Enter adds a line; Tab inserts indentation. Use Ctrl+Tab to leave the editor.\n"
                       "Runs in this tab's existing shell at an empty prompt. Bash syntax controls\n"
                       "whether later commands run after a failure. Saving here only stages edits;\n"
-                      "Save Configure tab to keep them. Nothing runs while editing.")
+                      "Save Configure tab to keep them. Nothing runs while editing." if staged else
+                      "Enter adds a line; Tab inserts indentation. Use Ctrl+Tab to leave the editor.\n"
+                      "Save keeps this button immediately. Nothing runs while editing.")
         note.setWordWrap(True)
         layout.addWidget(note)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save |

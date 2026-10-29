@@ -406,6 +406,7 @@ class ShellTopBorder(QWidget):
 class ShellTab(QWidget):
     """Each tab owns a shell, its button bar, and its saved profile."""
     configure_requested = Signal()
+    button_menu_requested = Signal(int, QPoint)
 
     def __init__(self, data, parent=None, terminal_factory=create_terminal):
         super().__init__(parent)
@@ -449,13 +450,16 @@ class ShellTab(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         self.command_buttons = []
-        for entry in self.data["buttons"]:
+        for index, entry in enumerate(self.data["buttons"]):
             button = CommandButton(entry["label"])
             button.setToolTip(f"{entry['label']}\n{entry['command']}")
             # A mouse click should return input to this tab's terminal.
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.clicked.connect(lambda checked=False, definition=copy.deepcopy(entry):
                                    self.run_button_command(definition))
+            button.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            button.customContextMenuRequested.connect(
+                lambda point, i=index, b=button: self.button_menu_requested.emit(i, b.mapToGlobal(point)))
             self.bar_layout.addWidget(button)
             self.command_buttons.append(button)
         self.set_running(bool(self.terminal.process))
@@ -532,6 +536,7 @@ class TabStrip(QTabBar):
         self.terminal_themes = []
         self.compact = False
         self.add_button = None
+        self.middle_pressed_tab = None
         self.compact_timer = QTimer(self)
         self.compact_timer.setSingleShot(True)
         self.compact_timer.timeout.connect(self.update_compact_mode)
@@ -676,6 +681,27 @@ class TabStrip(QTabBar):
         self.position_add_button()
         self.layout_changed.emit()
 
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.MiddleButton:
+            index = self.tabAt(event.position().toPoint())
+            self.middle_pressed_tab = self.parentWidget().widget(index) if index >= 0 else None
+            event.accept()
+            return
+        if event.button() == Qt.MouseButton.RightButton:
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.MiddleButton:
+            target, self.middle_pressed_tab = self.middle_pressed_tab, None
+            index = self.tabAt(event.position().toPoint())
+            if target is not None and index >= 0 and self.parentWidget().widget(index) is target:
+                self.tabCloseRequested.emit(index)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
     def mouseDoubleClickEvent(self, event):
         super().mouseDoubleClickEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
@@ -752,6 +778,8 @@ class MainWindow(QMainWindow):
         self.tabs.tabBar().setDrawBase(False)
         self.tabs.tabCloseRequested.connect(self.close_tab)
         self.tabs.tabBarDoubleClicked.connect(self.rename_tab)
+        self.tabs.tabBar().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tabs.tabBar().customContextMenuRequested.connect(self.show_tab_menu)
         self.tabs.currentChanged.connect(self.tab_changed)
         self.tabs.tabBar().tabMoved.connect(self.schedule_save)
         self.tabs.tabBar().tabMoved.connect(self.refresh_tab_colors)
@@ -1239,6 +1267,7 @@ class MainWindow(QMainWindow):
         tab = ShellTab(profile, self, self.terminal_factory)
         tab.terminal.apply_settings(terminal_preferences.effective(tab.data, self.data["terminal"]))
         tab.configure_requested.connect(lambda: self.configure(tab))
+        tab.button_menu_requested.connect(lambda index, point: self.show_button_menu(tab, index, point))
         tab.terminal.loaded.connect(lambda: self.start_shell(tab))
         tab.terminal.ended.connect(lambda text: self.on_ended(tab, text))
         tab.terminal.problem.connect(lambda text: self.show_status(tab, text))
@@ -1271,6 +1300,9 @@ class MainWindow(QMainWindow):
             profile["startup_folder"] = current.data["current_folder"]
             profile["current_folder"] = current.data["current_folder"]
         tab = self.add_tab(profile)
+        self.activate_new_tab(tab)
+
+    def activate_new_tab(self, tab):
         self.tabs.setCurrentWidget(tab)
         # Transfer native focus as well as xterm focus. Do this even while the
         # page loads; its startup callback focuses xterm once the bridge is ready.
@@ -1284,6 +1316,111 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, tab, finish_focus)
         tab.terminal.loaded.connect(finish_focus)
         self.schedule_save()
+
+    def duplicate_tab(self, tab):
+        if not isValid(tab) or self.tabs.indexOf(tab) < 0:
+            return
+        profile = copy.deepcopy(tab.data)
+        profile['id'] = str(uuid4())
+        profile['name'] += ' (copy)'
+        self.activate_new_tab(self.add_tab(profile))
+
+    def show_tab_menu(self, point):
+        bar = self.tabs.tabBar()
+        index = bar.tabAt(point)
+        if index < 0:
+            return
+        tab = self.tabs.widget(index)
+        menu = PopupMenu(self)
+        actions = {}
+        for label in ('Configure tab…', 'Rename tab…', 'Duplicate tab', '',
+                      'Open folder in Explorer', 'Copy folder path', '', 'Close tab'):
+            if label:
+                actions[menu.addAction(label)] = label
+            else:
+                menu.addSeparator()
+        chosen = menu.exec(bar.mapToGlobal(point))
+        label = actions.get(chosen)
+        menu.deleteLater()
+        if not isValid(tab) or self.tabs.indexOf(tab) < 0:
+            return
+        if label == 'Configure tab…':
+            self.configure(tab)
+        elif label == 'Rename tab…':
+            self.rename_tab(self.tabs.indexOf(tab))
+        elif label == 'Duplicate tab':
+            self.duplicate_tab(tab)
+        elif label == 'Close tab':
+            self.close_tab(self.tabs.indexOf(tab))
+        elif label == 'Copy folder path':
+            QApplication.clipboard().setText(QDir.toNativeSeparators(tab.data['current_folder']))
+        elif label == 'Open folder in Explorer':
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(tab.data['current_folder'])):
+                QMessageBox.warning(self, 'Cannot open folder', 'The folder could not be opened.')
+        self.restore_terminal_focus()
+
+    def restore_terminal_focus(self):
+        tab = self.current_tab()
+        if tab and not self.closing:
+            def focus():
+                if (self.current_tab() is tab and self.isActiveWindow() and
+                        QApplication.activeModalWidget() is None):
+                    tab.terminal.focus_terminal()
+            QTimer.singleShot(0, tab, focus)
+
+    def show_button_menu(self, tab, index, point):
+        if not isValid(tab) or self.tabs.indexOf(tab) < 0 or not 0 <= index < len(tab.data['buttons']):
+            return
+        original = copy.deepcopy(tab.data['buttons'])
+        menu = PopupMenu(self)
+        actions = {}
+        for label in ('Edit…', 'Duplicate', '', 'Move left', 'Move right', '', 'Delete'):
+            if label:
+                action = menu.addAction(label)
+                action.setEnabled(not (label == 'Move left' and index == 0) and
+                                  not (label == 'Move right' and index == len(original) - 1))
+                actions[action] = label
+            else:
+                menu.addSeparator()
+        label = actions.get(menu.exec(point))
+        menu.deleteLater()
+        # Menus/dialogs run a nested event loop. Never apply stale indices.
+        if not isValid(tab) or self.tabs.indexOf(tab) < 0 or tab.data['buttons'] != original:
+            return
+        buttons = copy.deepcopy(original)
+        if label == 'Edit…':
+            entry = buttons[index]
+            dialog = CommandEditor(entry['label'], entry['command'], self,
+                                   confirm=entry.get('confirm', False),
+                                   confirmation_message=entry.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
+                                   staged=False)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                dialog.deleteLater()
+                self.restore_terminal_focus()
+                return
+            buttons[index].update(dialog.result_data)
+            dialog.deleteLater()
+        elif label == 'Duplicate':
+            buttons.insert(index + 1, copy.deepcopy(buttons[index]))
+        elif label in ('Move left', 'Move right'):
+            target = index + (-1 if label == 'Move left' else 1)
+            if not 0 <= target < len(buttons):
+                return
+            buttons[index], buttons[target] = buttons[target], buttons[index]
+        elif label == 'Delete':
+            buttons.pop(index)
+        else:
+            self.restore_terminal_focus()
+            return
+        if not isValid(tab) or self.tabs.indexOf(tab) < 0 or tab.data['buttons'] != original:
+            return
+        tab.data['buttons'] = buttons
+        if self.persist():
+            tab.build_buttons()
+        else:
+            tab.data['buttons'] = original
+            QMessageBox.warning(self, 'Cannot save buttons', 'Changes were not saved. Check the status bar for details.')
+        self.restore_terminal_focus()
 
     def rename_tab(self, index):
         if index < 0:
