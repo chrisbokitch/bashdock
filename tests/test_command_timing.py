@@ -91,7 +91,10 @@ class CommandTimingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / 'child').mkdir()
-            (root / '.bash_profile').write_text("PROMPT_COMMAND=('printf USER_HOOK; false')\ntrap 'printf USER_INT' INT\n")
+            (root / '.bash_profile').write_text(
+                "PROMPT_COMMAND=('printf USER_HOOK; false')\ntrap 'printf USER_INT' INT\n" +
+                'HOME=$(cd -- "$HOME" && pwd -P)\n' +
+                r"PS1='\n\[\e[32m\]HEADER \w status=$?\[\e[0m\]\n$ '" + "\n")
             rc = root / 'init.bash'
             rc.write_text(INIT_SCRIPT.replace('source /etc/profile', ':'), encoding='utf-8')
             mailbox = root / 'button.command'
@@ -107,13 +110,19 @@ class CommandTimingTests(unittest.TestCase):
                     input=TRIGGER + 'printf "STATE:%s\\n" "$BASHDOCK_TIMING_TEST"\nhistory\ntrap -p INT\nexit\n',
                     env=dict(os.environ, HOME=root.as_posix(), BASHDOCK_SESSION='test-session',
                              BASHDOCK_COMMAND_FILE=mailbox.as_posix()),
-                    text=True, encoding='utf-8', capture_output=True, timeout=10)
+                    text=True, encoding='utf-8', capture_output=True, timeout=10, cwd=root)
                 events = re.findall(r'\x1b\]777;bashdock-command;([^\x07]+)\x07', result.stdout)
                 self.assertEqual(2, len(events), result.stdout + result.stderr)
                 self.assertEqual('Multiline running…', timing.event(events[0]))
                 message = timing.event(events[1])
                 self.assertTrue(events[1].startswith(f'test-session;{token};done;{status};'), result.stdout)
                 printable = re.sub(r'\x1b\]777;[^\x07]+\x07', '', result.stdout)
+                after_done = result.stdout.split('\x1b]777;bashdock-command;' + events[1] + '\x07', 1)[1]
+                header = re.sub(r'\x1b\[[0-9;]*m', '', after_done).split('\n')[1]
+                expected_directory = '~/child' if status == 0 else '~'
+                self.assertEqual(f'HEADER {expected_directory} status={status}', header)
+                self.assertNotIn('\x01', after_done)
+                self.assertNotIn('\x02', after_done)
                 self.assertNotIn('__bashdock_', printable)
                 self.assertNotIn('eval --', printable)
                 self.assertIn("trap -- 'printf USER_INT' SIGINT", printable)

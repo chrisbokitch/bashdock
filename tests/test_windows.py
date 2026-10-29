@@ -176,12 +176,35 @@ class WindowsTests(GuiTestCase):
             s.wait(lambda: terminal.at_prompt)
             # A typed interactive program has no host prompt. A labelled
             # button must stay plain input rather than invoke host-only helpers.
-            s.command("printf ready > answer-ready.txt; IFS= read -er answer; printf '%s' \"$answer\" > answer.txt")
+            terminal.run_command("printf ready > answer-ready.txt; IFS= read -er answer; printf '%s' \"$answer\" > answer.txt")
             s.wait(lambda: (s.folder / 'answer-ready.txt').is_file() and not terminal.at_prompt)
             terminal.run_command('literal answer', label='Answer')
             s.wait(lambda: (s.folder / 'answer.txt').is_file())
             self.assertEqual('literal answer', (s.folder / 'answer.txt').read_text())
             s.prompt()
+
+    def test_button_timing_restores_multiline_prompt_and_current_directory(self):
+        with self.interactive_session() as s:
+            t = s.terminal
+            messages = []
+            t.command_status.connect(messages.append)
+            # Match Git Bash's blank line, coloured directory header and final $.
+            t.run_command("PS1='\\n\\[\\e[32m\\]HEADER \\w\\[\\e[0m\\]\\n$ '; "
+                          "printf ready > multiline-prompt-ready.txt")
+            s.wait(lambda: (s.folder / 'multiline-prompt-ready.txt').is_file())
+            s.wait(lambda: s.screen().rstrip().endswith('$'))
+            t.run_command('mkdir child; cd child; printf "TIMED-OUTPUT\\n"', label='Prompt test')
+            s.wait(lambda: any('Prompt test completed in' in m for m in messages))
+            def restored():
+                lines = s.screen().rstrip().splitlines()
+                return (len(lines) >= 4 and lines[-1] == '$' and
+                        lines[-2].startswith('HEADER ') and lines[-2].endswith('/child') and
+                        lines[-3] == '' and lines[-4] == 'TIMED-OUTPUT')
+            s.wait(restored)
+            self.assertNotIn('__bashdock_command_', s.screen())
+            t.run_command('printf success > ../after-timed-prompt.txt')
+            s.wait(lambda: (s.folder / 'after-timed-prompt.txt').is_file())
+            self.assertEqual('success', (s.folder / 'after-timed-prompt.txt').read_text())
 
     def test_command_button_confirmation_sends_nothing_until_run_and_executes_once(self):
         from unittest.mock import patch

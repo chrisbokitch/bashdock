@@ -78,12 +78,27 @@ __bashdock_command_finish() {
     fi
     return "$__bashdock_exit"
 }
+__bashdock_command_status() { return "$1"; }
+__bashdock_command_prompt() {
+    local __bashdock_exit=$? __bashdock_prompt
+    # bind -x redraws only the final prompt line. Restore the leading lines
+    # ourselves, expanding PS1 for the new directory/branch and exit status.
+    __bashdock_command_status "$__bashdock_exit"
+    __bashdock_prompt=${PS1@P}
+    # Readline's non-printing delimiters are bookkeeping, not terminal bytes.
+    __bashdock_prompt=${__bashdock_prompt//$'\001'/}
+    __bashdock_prompt=${__bashdock_prompt//$'\002'/}
+    if [[ $__bashdock_prompt == *$'\n'* ]]; then
+        builtin printf '%s\n' "${__bashdock_prompt%$'\n'*}"
+    fi
+    return "$__bashdock_exit"
+}
 # Readline executes this binding's eval at shell scope, without putting its
 # implementation in the input line or history. Only the literal button script
 # is echoed and saved. Support both Emacs and vi keymaps.
 if [[ -n $__bashdock_command_file ]]; then
     for __bashdock_keymap in emacs-standard vi-insert vi-command; do
-        bind -m "$__bashdock_keymap" -x '"\C-x\C-b":if __bashdock_command_load; then __bashdock_command_begin "$__bashdock_command_id" "$__bashdock_command_previous"; builtin eval -- "$__bashdock_command_body"; __bashdock_command_finish; __bashdock_report_cwd; fi'
+        bind -m "$__bashdock_keymap" -x '"\C-x\C-b":if __bashdock_command_load; then __bashdock_command_begin "$__bashdock_command_id" "$__bashdock_command_previous"; builtin eval -- "$__bashdock_command_body"; __bashdock_command_finish; __bashdock_report_cwd; __bashdock_command_prompt; fi'
     done
     unset __bashdock_keymap
 fi
