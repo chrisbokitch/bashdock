@@ -33,19 +33,48 @@ __bashdock_command_load() {
     builtin printf '%s\n' "$__bashdock_command_body"
     builtin history -s -- "$__bashdock_command_body" 2>/dev/null || :
 }
+__bashdock_command_watch_interrupt() {
+    __bashdock_saved_int=$(builtin trap -p INT)
+    __bashdock_int_handler=
+    if [[ -n $__bashdock_saved_int ]]; then
+        # trap -p provides shell-quoted arguments; decode without running them.
+        builtin eval "set -- ${__bashdock_saved_int% SIGINT}"
+        __bashdock_int_handler=$3
+        # Respect an explicitly ignored SIGINT.
+        [[ -n $__bashdock_int_handler ]] || return 0
+    fi
+    builtin trap '__bashdock_command_interrupted' INT
+}
+__bashdock_command_interrupted() {
+    local __bashdock_user_handler=${__bashdock_int_handler-}
+    __bashdock_command_finish 130
+    if [[ -n $__bashdock_user_handler ]]; then
+        builtin eval -- "$__bashdock_user_handler"
+    fi
+    return 130
+}
 __bashdock_command_begin() {
     local __bashdock_previous=$2
     __bashdock_command_id=$1
+    __bashdock_command_watch_interrupt
     builtin printf '\033]777;bashdock-command;%s;%s;start;%s\007' \
         "$__bashdock_timing_session" "$__bashdock_command_id" "$EPOCHREALTIME"
     return "$__bashdock_previous"
 }
 __bashdock_command_finish() {
-    local __bashdock_exit=$?
+    local __bashdock_exit=${1:-$?}
     if [[ -n ${__bashdock_command_id-} ]]; then
         builtin printf '\033]777;bashdock-command;%s;%s;done;%s;%s\007' \
             "$__bashdock_timing_session" "$__bashdock_command_id" "$__bashdock_exit" "$EPOCHREALTIME"
-        unset __bashdock_command_id __bashdock_command_body __bashdock_command_previous
+        if [[ ${__bashdock_saved_int+x} ]]; then
+            if [[ -n $__bashdock_saved_int ]]; then
+                builtin eval -- "$__bashdock_saved_int"
+            else
+                builtin trap - INT
+            fi
+        fi
+        unset __bashdock_command_id __bashdock_command_body __bashdock_command_previous \
+            __bashdock_saved_int __bashdock_int_handler
     fi
     return "$__bashdock_exit"
 }

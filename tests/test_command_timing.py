@@ -91,7 +91,7 @@ class CommandTimingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / 'child').mkdir()
-            (root / '.bash_profile').write_text("PROMPT_COMMAND=('printf USER_HOOK; false')\n")
+            (root / '.bash_profile').write_text("PROMPT_COMMAND=('printf USER_HOOK; false')\ntrap 'printf USER_INT' INT\n")
             rc = root / 'init.bash'
             rc.write_text(INIT_SCRIPT.replace('source /etc/profile', ':'), encoding='utf-8')
             mailbox = root / 'button.command'
@@ -104,7 +104,7 @@ class CommandTimingTests(unittest.TestCase):
                 token = timing.prepare(command, 'Multiline', 'test-session')
                 stage_command(mailbox, token, command)
                 result = subprocess.run([BASH, '--noprofile', '--rcfile', rc.as_posix(), '-i'],
-                    input=TRIGGER + 'printf "STATE:%s\\n" "$BASHDOCK_TIMING_TEST"\nhistory\nexit\n',
+                    input=TRIGGER + 'printf "STATE:%s\\n" "$BASHDOCK_TIMING_TEST"\nhistory\ntrap -p INT\nexit\n',
                     env=dict(os.environ, HOME=root.as_posix(), BASHDOCK_SESSION='test-session',
                              BASHDOCK_COMMAND_FILE=mailbox.as_posix()),
                     text=True, encoding='utf-8', capture_output=True, timeout=10)
@@ -116,6 +116,7 @@ class CommandTimingTests(unittest.TestCase):
                 printable = re.sub(r'\x1b\]777;[^\x07]+\x07', '', result.stdout)
                 self.assertNotIn('__bashdock_', printable)
                 self.assertNotIn('eval --', printable)
+                self.assertIn("trap -- 'printf USER_INT' SIGINT", printable)
                 if status == 0:
                     self.assertEqual('success', (root / 'child' / 'receipt.txt').read_text())
                     self.assertEqual('café\tλ', (root / 'child' / 'unicode.txt').read_text(encoding='utf-8'))

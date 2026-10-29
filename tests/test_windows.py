@@ -153,7 +153,10 @@ class WindowsTests(GuiTestCase):
             s.wait(lambda: (s.folder / 'timing-started.txt').is_file() and
                    (s.folder / 'timing-started.txt').read_text() == 'started')
             s.key(s.qt.Key.Key_C, s.qt.KeyboardModifier.ControlModifier)
-            s.wait(lambda: any('exit code 130' in message for message in messages))
+            try:
+                s.wait(lambda: any('exit code 130' in message for message in messages))
+            except AssertionError:
+                self.fail(f'Interrupt completion missing: messages={messages!r}; screen={s.screen()!r}')
             s.prompt()
             terminal.run_command('printf "%s" "$BASHDOCK_TIMED" > preserved.txt')
             s.wait(lambda: (s.folder / 'preserved.txt').is_file())
