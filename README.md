@@ -23,6 +23,8 @@ Run these from the project folder in Git Bash or PowerShell:
 | `npm run stage-update -- "C:/Development/tools/bashdock"` | Build/package and offer a local update in that installed copy, without closing it first. Requires a one-time installation of 0.14.0 or newer; see [local development updates](docs/AUTO-UPDATES.md#local-development-updates). |
 | `npm run setup` | Create `.venv` if missing and install/update the Python project and dependencies. |
 
+On Windows, the test command runs the general suite and then the real terminal checks in separate Python processes. The terminal checks use the native Windows Qt backend and test-only `--disable-gpu`, matching the input compatibility jobs. App startup and the frozen default/software rendering smoke checks are unchanged. Terminal test failures include local-page loading/renderer state without capturing command text.
+
 Your existing `.venv` works with these commands. No activation or `npm install` is required: there are no JavaScript dependencies. For a fresh clone, run `npm run setup` once, then `npm run preview`.
 
 

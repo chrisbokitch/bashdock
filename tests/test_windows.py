@@ -19,6 +19,22 @@ from qt_lifecycle import GuiTestCase
 
 @unittest.skipUnless(sys.platform == "win32", "Requires Windows ConPTY")
 class WindowsTests(GuiTestCase):
+    def setUp(self):
+        super().setUp()
+        from unittest.mock import patch
+        from webengine_diagnostics import DiagnosticPage
+        self._pages = patch('bashdock.terminal.LocalPage', DiagnosticPage)
+        self._pages.start()
+        self.addCleanup(self._pages.stop)
+
+    def _formatMessage(self, message, standard):
+        from webengine_diagnostics import startup_snapshot
+        detail = super()._formatMessage(message, standard)
+        return f'{detail}; WebEngine startup: {startup_snapshot(self.app)!r}'
+
+    def fail(self, message=None):
+        raise self.failureException(self._formatMessage(None, message))
+
     @contextmanager
     def interactive_session(self):
         """Real xterm/ConPTY session with a predictable prompt and file receipts."""
