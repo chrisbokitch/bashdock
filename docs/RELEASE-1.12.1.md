@@ -1,8 +1,8 @@
 # BashDock 1.12.1 release record
 
-Status: signed draft ready. Owner ZIP checksum and independent metadata signature
-verification passed. Exact-draft runtime/UI smoke acceptance and public publication
-are still pending.
+Status: signed draft accepted and ready to publish. Owner ZIP checksum,
+exact-draft runtime/UI smoke and independent metadata signature verification
+passed. Public publication is still pending.
 
 ## Scope since public 1.6.8
 
@@ -67,17 +67,22 @@ its copyright/license is included and attribution is updated.
 - The large Actions delivery bundle was removed after draft attachment. Only
   the small windows-build-diagnostics artifact remains for this tagged run.
 
-## Remaining release checks
+## Owner acceptance
 
-Use the focused UI-release procedure in RELEASING.md. The previously completed
-1.0 acceptance matrix remains historical evidence; do not repeat that entire
-matrix for this candidate unless a new failure warrants broader testing.
+The owner supplied the exact ZIP checksum result and then explicitly confirmed
+that the requested extracted-ZIP launch/UI check passed on 2026-10-29. This
+accepts the focused smoke checklist: launch/version, typed/button commands,
+timing and normal prompt layout, zoom/search, Help reference, and close/reopen.
+No additional full 1.0 acceptance matrix is claimed.
 
-1. Owner confirms the extracted draft ZIP smoke: launch/version; typed/button
-   commands; timing footer and normal prompt; zoom; live search/navigation/Escape;
-   Help reference; close/reopen. The supplied checksum alone does not establish
-   that these runtime checks passed.
-2. Publish after exact-draft acceptance. Recheck immutable asset identity, public
-   access, updater discovery and website download links; record final evidence.
+Before publication, draft release 428346016 was fetched again: it is still a
+draft for v1.12.1 with all 12 expected assets. ZIP, manifest and signature sizes
+and SHA-256 digests are unchanged from those accepted and independently verified.
 
-Development preview/staged-install checks are not acceptance of the exact draft ZIP.
+## Remaining publication work
+
+Publish the accepted draft. The connected GitHub tools do not provide a release
+publication operation, so the owner must use GitHub's Publish release button.
+After publication, recheck public asset access and immutable identity, updater
+discovery, and website download links; record the final evidence here. The
+website remains on public 1.6.8 until publication is confirmed.
