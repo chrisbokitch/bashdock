@@ -1,8 +1,9 @@
 # BashDock 1.6.8 release record
 
-Prepared on 2026-10-28 (America/Vancouver). The signed draft is ready;
-owner smoke acceptance is recorded below. Independent downloaded metadata
-verification and publication remain pending.
+Published as the latest stable release on 2026-10-28 at 18:36 PDT
+(2026-10-29 01:36:20 UTC):
+<https://github.com/chrisbokitch/bashdock/releases/tag/v1.6.8>.
+Owner smoke acceptance and independent signature verification are recorded below.
 
 This replaces the [failed 1.6.7 candidate](RELEASE-1.6.7.md); no public 1.6.7
 release or draft assets were created. Its immutable tag is retained. The UI
@@ -59,9 +60,10 @@ and optimization scope remains the same, with one added rendering-harness fix.
   were inspected: all report success and the real-shell Unicode marker, at
   DPR 1 (default and software), 1.25 and 1.5, before and after ZIP extraction.
   Fixture-generated rendering log lines are not counted as frozen checks.
-- Draft release ID: `427355494`, stable/non-prerelease and still unpublished.
+- Release ID: `427355494`, stable/non-prerelease. Initially created as a draft,
+  then published after the owner smoke and independent metadata verification.
   All 12 expected application, source, checksum, provenance and signed metadata
-  assets are present. Public accessibility will be checked after publication.
+  assets are present. Post-publication verification is recorded below.
 - ZIP: `bashdock-1.6.8-windows-x64.zip`, 226,427,474 bytes (215.94 MiB).
   SHA-256: `bb9fee866df0948549c13b9d7799081814cabdd75d163b280d04a9a4299b9479`.
   Its GitHub asset size/digest match the tagged build's diagnostic size report.
@@ -72,30 +74,49 @@ and optimization scope remains the same, with one added rendering-harness fix.
   Signature asset SHA-256:
   `1225a5edc91ed573375e9efb8b4acb7f32a883707164cc2f8a0b99e90887fcd7`.
 - CI generated the metadata with the existing production signing key and
-  checked that key against the public key in the actual ZIP. Independent
-  verification of the downloaded manifest/signature bytes is pending owner
-  provision of those two draft files. Do not confuse asset digests or successful
-  signing with independent verification of their downloaded bytes.
+  checked that key against the public key in the actual ZIP. The owner supplied
+  the draft manifest and signature. Independently verified RSA PKCS#1 v1.5 /
+  SHA-256 using the embedded production public key; both supplied files match
+  GitHub asset digests. The manifest passes the app parser and identifies the
+  accepted ZIP version, filename, URL, exact size, and SHA-256.
 - The owner responded “looks good” to the requested draft checksum/smoke checklist
   on 2026-10-28. Record this as owner acceptance of the requested quick checks;
   no checksum command output or separate environment/scaling details were supplied.
 - The draft ZIP, manifest and signature asset sizes/digests were rechecked and
-  remain unchanged. Independent downloaded metadata verification and publication
-  are still pending; no public release is claimed.
+  remain unchanged through publication. No tag or uploaded asset was replaced.
+- Published notes use the actual 1.6.8 ZIP measurement and compare the full
+  changelog against the previous public 1.6.0 release, rather than failed 1.6.7.
 
 ## Focused release scope
 
-Keep the prior recorded licensing entitlement, dependency pins, production
-signing key and historical 1.0 acceptance evidence. The independent helper,
-real-shell rendering, startup health, extracted ZIP and source/license checks
-must pass for this candidate.
+Retained the recorded licensing entitlement, dependency pins, production signing
+key and historical 1.0 acceptance evidence. Used the focused draft smoke checklist
+for launch/version, typed/button commands, New tab appearance/focus, close-tab
+focus, resize/overflow and close/reopen. No new full 1.0 manual matrix or installed
+updater/rollback manual pass is claimed. The earlier owner acceptance of staged
+1.6.5 remains separate from acceptance of this downloaded 1.6.8 draft.
 
-The owner confirmed local tests and a successful staged installation of 1.6.5;
-this is optimization acceptance, not acceptance of the eventual 1.6.8 draft.
-Before publishing, request the exact draft ZIP checksum and a short smoke:
-launch/version, typed and button commands, New tab placement/hover/focus,
-close-tab typing focus, resize/overflow, close/reopen. Verify signed update
-metadata and all asset/source identities. Do not repeat the full 1.0 manual
-matrix. After publication, check anonymous access, signed discovery, and website
-download/version links. This candidate's own ZIP measurement is recorded above;
-the 1.6.5 report remains separate historical evidence.
+## Public verification and website
+
+- A fresh anonymous Python HTTP client fetched the public latest-release API:
+  release `427355494`, v1.6.8, stable and non-draft, with all 12 assets.
+- Fully downloaded all five metadata assets. Their byte counts and SHA-256
+  values match GitHub asset metadata. Public manifest/signature bytes verify
+  independently with the embedded production key. The all-assets checksum list
+  agrees with GitHub digests, and public build information identifies the exact
+  tagged source commit and version.
+- Bounded anonymous reads succeeded for the executable ZIP and all application
+  and dependency source archives. These establish access, not independent full
+  binary/source hash downloads. Full-package integrity evidence remains the
+  accepted owner draft check, validated CI package, signed manifest and recorded
+  GitHub asset digests.
+- Discovery using freshly fetched public responses offers 1.6.8 from 1.6.0
+  and no same-version offer from 1.6.8. This is discovery verification, not a
+  new installed update/rollback test.
+- Website commit: `ec44dd45b4ab8d992b11531fa5287059c6f1e763` in
+  `chrisbokitch/bashdock.com`. Updated versioned ZIP/checksum/source/release
+  links, visible version labels, metadata, illustrative widget version, and
+  checksum command together; checked all five versioned download links against
+  published assets. Styles, scripts and historical UI captures are unchanged.
+- After deployment, a fresh anonymous request to <https://www.bashdock.com/>
+  returned HTTP 200 with 1.6.8 references and no remaining 1.6.0 references.

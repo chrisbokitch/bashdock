@@ -4,7 +4,7 @@ BashDock 1.6.8 makes the download smaller, cleans up old update backups, and pol
 
 - Keep the independent updater free of unnecessary Qt rendering dependencies.
 - Omit five WebEngine debug resources from release builds, while retaining the release resources, translations, QML, and developer tools.
-- Together these changes reduced the measured 1.6.5 candidate ZIP by 19.3% compared with 1.6.0 (about 268 MiB to 216 MiB). The attached 1.6.8 ZIP has its own exact size and checksum.
+- Together these changes reduce the 1.6.8 ZIP by 19.3% compared with 1.6.0: from 267.61 MiB to 215.94 MiB. The attached ZIP is 226,427,474 bytes; use its matching checksum file to verify your download.
 - Add checks for the updater's frozen dependencies and real packaged terminal rendering at 100%, 125%, and 150% scaling, repeated after ZIP extraction.
 
 ## Update backup cleanup
