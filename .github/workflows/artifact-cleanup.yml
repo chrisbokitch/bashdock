@@ -1,0 +1,36 @@
+name: Clean up Actions build bundles
+
+on:
+  workflow_dispatch:
+    inputs:
+      delete_build_bundles:
+        description: Permanently delete completed-run build bundles (otherwise preview only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: actions-artifact-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Preview or remove obsolete build bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELETE_BUNDLES: ${{ inputs.delete_build_bundles }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=()
+          if [[ "$DELETE_BUNDLES" == true ]]; then args+=(--delete); fi
+          python3 scripts/cleanup_actions_artifacts.py "${args[@]}"

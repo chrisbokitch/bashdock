@@ -20,6 +20,8 @@ jobs:
     name: Test and package Windows x64
     runs-on: windows-2022
     timeout-minutes: 60
+    outputs:
+      portable_artifact_id: ${{ steps.portable.outputs.artifact-id }}
     env:
       PYTHONUNBUFFERED: '1'
       PYTHONHASHSEED: '0'
@@ -217,13 +219,15 @@ jobs:
       - name: Verify ZIP checksum and run extracted executable
         run: .venv/Scripts/python.exe scripts/verify_release.py
       - name: Upload portable build
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        id: portable
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: bashdock-windows-x64
           path: release/*
           if-no-files-found: error
           compression-level: 0
-          retention-days: 14
+          retention-days: 1
       - name: Upload build diagnostics
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -244,6 +248,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -275,3 +280,12 @@ jobs:
             gh release create "$TAG" release/* --verify-tag --draft --title "BashDock $TAG" \
               --notes-file .github/RELEASE_NOTES.md --generate-notes "${flags[@]}"
           fi
+      - name: Remove transferred Actions bundle after successful draft upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ needs.windows.outputs.portable_artifact_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[0-9]+$ ]]
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID"

@@ -11,7 +11,11 @@ Every push to `main`, pull request to `main`, and manual **Actions → Windows b
 5. Compile with PyInstaller and run the built executable's shell smoke test.
 6. Assemble project/dependency licenses and attribution files from the exact source releases and installed packages. Download and hash-check dependency sources, create a clean committed application source ZIP, and mirror dependency source archives as separate release assets. ZIP the application with `_internal`, license/source information, and frozen-file hashes; record build provenance.
 7. Verify the ZIP checksum, extract into a path containing spaces, and run the extracted executable with fresh app settings.
-8. Upload `bashdock-windows-x64` and build diagnostics to that workflow run. Artifacts are retained for 14 days.
+8. Retain small build diagnostics for 14 days. Upload the full
+   `bashdock-windows-x64` bundle only for pushed release tags; it has a one-day
+   expiry and is removed after successful attachment to the draft release.
+   Main/PR/manual builds still perform all package checks without storing the
+   large delivery bundle.
 
 Download the artifact from the completed run's **Artifacts** section. Extract the downloaded artifact wrapper to get the actual distributable ZIP, `.sha256`, and build-info JSON. Extract that ZIP to run the app.
 
@@ -40,6 +44,21 @@ git push origin v0.6.4
 The tag rebuilds and validates that exact revision, then creates a **draft GitHub Release** with the ZIP, checksum, build details, and generated change notes. No public release is created automatically. An existing draft can have its assets refreshed by rerunning the same tag workflow; an already published release is never overwritten. Do not move published tags or reuse a published version for different binaries.
 
 The workflow uses GitHub's built-in token; no personal access token is required. Actions must be enabled for the repository and allowed by any organization policy. The build job has read-only contents access; only the tag's draft-release job receives contents-write access.
+
+The draft job also has Actions-write permission solely to delete its own
+transferred bundle by the upload step's artifact ID after attachment succeeds.
+If signing or attachment fails, the bundle remains available for up to one day.
+After successful transfer/removal, rerun the build job to regenerate an Actions
+bundle if another draft upload is needed; published release assets are untouched.
+
+For older accumulated bundles, **Actions → Clean up Actions build bundles →
+Run workflow** previews eligible artifacts by default. Enabling its deletion
+input permanently removes only `bashdock-windows-x64` artifacts whose owning
+workflow runs are completed. It inventories all pages before deleting and
+rechecks run status for every artifact, preserving active/queued release inputs,
+diagnostics, audit results, logs and release assets. The workflow logs report
+individual artifact IDs and total reclaimed bytes. Changing retention alone
+does not retroactively remove older bundles.
 
 The independent updater must stay GUI-free. Settings validation imports the pure
 `tab_icon_catalog` module; Qt rendering belongs in `tab_icons`. PyInstaller also
