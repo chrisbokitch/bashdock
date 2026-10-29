@@ -1,7 +1,8 @@
 # BashDock 1.12.1 release record
 
-Status: release preparation. No tag, draft assets, checksum, signature verification
-or public publication is claimed by this record yet.
+Status: signed draft ready. Owner ZIP checksum and independent metadata signature
+verification passed. Exact-draft runtime/UI smoke acceptance and public publication
+are still pending.
 
 ## Scope since public 1.6.8
 
@@ -37,22 +38,46 @@ its copyright/license is included and attribution is updated.
   retry with a fresh package build, which must pass before tagging. Original run:
   <https://github.com/chrisbokitch/bashdock/actions/runs/40940815377>.
 
+## Tagged build and verified draft identity
+
+- Annotated tag v1.12.1: `46b67ab244f8ac093cf2a4bb60ca9683dd1f2b83`,
+  pointing to release source `f3630622b0df9194f1a5fa23d5df93edc468089a`.
+- Fresh main build/package run 40944842516 and all four compatibility jobs in
+  run 40944842592 passed. The earlier temporary-file lock did not recur.
+- Tagged run 40945319866 passed: build job 123699043449 and signing/draft job
+  123703971336. Tests, scaling checks, independent updater checks (zero Qt),
+  public/local startup-health checks, all eight compiled/extracted rendering
+  checks, ZIP/source/license verification and temporary cleanup passed.
+- Draft release ID: 428346016. All 12 expected assets are uploaded.
+- ZIP: `bashdock-1.12.1-windows-x64.zip`, 226,462,422 bytes.
+  SHA-256: `586d8fa1bf2f8e55b904d468f4a16afb749bc70e241da749e609b9a094237980`.
+- The owner supplied Git Bash checksum output: the matching ZIP checksum file
+  reports `bashdock-1.12.1-windows-x64.zip: OK`.
+- Uploaded manifest (302 bytes) SHA-256:
+  `7e99c4c505f9d29573507f0e3a5c6b5711f85bd9d606aed63e825bca225c99f4`.
+- Uploaded signature (384 bytes) SHA-256:
+  `11fcb23900c16f4427b88ee796a3c2674060dea4033aa84efe95d8aabfe0cb6a`.
+- Both uploaded files match the draft asset sizes and digests. Independently
+  verified RSA PKCS#1 v1.5 / SHA-256 using cryptography and the production public
+  key from the exact tagged source. The signing job also checks that key against
+  the public key embedded in the actual ZIP. No private key was accessed.
+- Manifest structure validation passed with the independent verifier (the native
+  Windows verifier is not runnable on this Linux host). Version, filename, HTTPS
+  URL, exact ZIP size and SHA-256 agree with the draft asset identity.
+- The large Actions delivery bundle was removed after draft attachment. Only
+  the small windows-build-diagnostics artifact remains for this tagged run.
+
 ## Remaining release checks
 
 Use the focused UI-release procedure in RELEASING.md. The previously completed
 1.0 acceptance matrix remains historical evidence; do not repeat that entire
 matrix for this candidate unless a new failure warrants broader testing.
 
-1. Obtain a successful Windows build/package check for the release source.
-2. Tag the prepared, tested source as v1.12.1. Let the tagged workflow build,
-   validate, sign update metadata and attach the complete asset set to a draft.
-3. Record the exact source/tag, tagged run, ZIP size and SHA-256.
-4. Owner checks the downloaded draft ZIP: checksum; launch/version; typed and
-   button commands; icon/context menus; timing footer and normal prompt; zoom;
-   live search/navigation/Escape; Help reference; close/reopen.
-5. Independently verify the draft manifest/signature with the embedded public
-   key, and check all required binary/source/checksum/provenance assets.
-6. Publish after exact-draft acceptance. Check public asset access, updater
-   discovery and website download links; record final evidence here.
+1. Owner confirms the extracted draft ZIP smoke: launch/version; typed/button
+   commands; timing footer and normal prompt; zoom; live search/navigation/Escape;
+   Help reference; close/reopen. The supplied checksum alone does not establish
+   that these runtime checks passed.
+2. Publish after exact-draft acceptance. Recheck immutable asset identity, public
+   access, updater discovery and website download links; record final evidence.
 
 Development preview/staged-install checks are not acceptance of the exact draft ZIP.
