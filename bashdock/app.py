@@ -761,6 +761,7 @@ class MainWindow(QMainWindow):
         self.config_error = ""
         self.restoring = True
         self.closing = False
+        self.tab_exit_confirmed = False
         self.update_restart = False
         self.updater = None
         try:
@@ -1777,12 +1778,22 @@ class MainWindow(QMainWindow):
         self.start_shell(tab)
 
     def close_tab(self, index):
-        if index < 0:
-            return
-        if self.tabs.count() == 1:
-            self.close()
+        if self.closing or index < 0 or index >= self.tabs.count():
             return
         tab = self.tabs.widget(index)
+        if self.tabs.count() == 1:
+            if not self.confirm_last_tab(tab):
+                return
+            # A modal dialog runs an event loop; only exit for the tab confirmed.
+            if self.tabs.count() != 1 or self.tabs.widget(0) is not tab:
+                return
+            self.tab_exit_confirmed = True
+            try:
+                self.close()
+            finally:
+                # Saving may fail and keep the window open. Never bypass a later quit.
+                self.tab_exit_confirmed = False
+            return
         if tab.terminal.process and QMessageBox.question(self, "Close tab?",
                 f"Close {tab.data['name']} and its shell session?") != QMessageBox.StandardButton.Yes:
             return
@@ -1800,6 +1811,22 @@ class MainWindow(QMainWindow):
                 current.terminal.focus_terminal()
         QTimer.singleShot(0, current, finish_focus)
         self.schedule_save()
+
+    def confirm_last_tab(self, tab):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle("Close last tab?")
+        dialog.setTextFormat(Qt.TextFormat.PlainText)
+        dialog.setText(f"Close “{tab.data['name']}” and its shell session?")
+        dialog.setInformativeText("This will also exit BashDock. Your tab and folder will be remembered.")
+        dialog.setIcon(QMessageBox.Icon.Question)
+        cancel = dialog.addButton(QMessageBox.StandardButton.Cancel)
+        close = dialog.addButton("Close tab and exit", QMessageBox.ButtonRole.AcceptRole)
+        dialog.setDefaultButton(cancel)
+        dialog.setEscapeButton(cancel)
+        dialog.exec()
+        accepted = dialog.clickedButton() is close
+        dialog.deleteLater()
+        return accepted
 
     def set_confirm_on_exit(self, enabled):
         previous = self.data["confirm_on_exit"]
@@ -1833,7 +1860,7 @@ class MainWindow(QMainWindow):
             return
         running = sum(bool(self.tabs.widget(i).terminal.process) for i in range(self.tabs.count()))
         previous_confirm = self.data["confirm_on_exit"]
-        if running and previous_confirm and not self.update_restart:
+        if running and previous_confirm and not self.update_restart and not self.tab_exit_confirmed:
             accepted, skip = self.confirm_quit(running)
             if not accepted:
                 event.ignore()

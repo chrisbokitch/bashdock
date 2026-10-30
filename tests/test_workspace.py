@@ -294,9 +294,11 @@ class WorkspaceTests(unittest.TestCase):
         QTest.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=point)
         self.assertEqual(self.window.tabs.count(), 1)
         self.assertEqual(tab.terminal.stops, 1)
-        with patch.object(self.window, 'close') as close:
+        with patch.object(self.window, 'close') as close, \
+                patch.object(self.window, 'confirm_last_tab', return_value=True) as confirm:
             QTest.mouseClick(bar, Qt.MouseButton.MiddleButton, pos=bar.tabRect(0).center())
         close.assert_called_once_with()
+        confirm.assert_called_once_with(self.window.current_tab())
 
     def test_button_context_actions_save_without_input_and_rollback_failed_save(self):
         from PySide6.QtCore import QPoint
@@ -2030,6 +2032,97 @@ class WorkspaceTests(unittest.TestCase):
             self.assertTrue(self.window.close())
             confirm.assert_not_called()
         self.assertTrue(config.read(self.path)['confirm_on_exit'])
+
+    def test_last_tab_real_dialog_cancel_and_escape_preserve_shell_and_workspace(self):
+        from PySide6.QtCore import QTimer, Qt
+        from PySide6.QtTest import QTest
+        tab = self.window.current_tab()
+        self.ready(tab)
+        tab.data['name'] = '<Server & tests>'
+        self.window.set_confirm_on_exit(False)
+        self.window.persist()
+        saved = self.path.read_bytes()
+        observed = []
+        for escape in (False, True):
+            def respond():
+                dialog = QApplication.activeModalWidget()
+                observed.append((dialog.windowTitle(), dialog.text(), dialog.informativeText(),
+                                 dialog.standardButton(dialog.defaultButton()), dialog.textFormat(),
+                                 [b.text() for b in dialog.buttons()]))
+                if escape:
+                    QTest.keyClick(dialog, Qt.Key.Key_Escape)
+                else:
+                    dialog.button(QMessageBox.StandardButton.Cancel).click()
+            QTimer.singleShot(0, respond)
+            with patch.object(self.window, 'confirm_quit') as quit_prompt:
+                self.window.close_tab(0)
+                quit_prompt.assert_not_called()
+            self.assertFalse(self.window.closing)
+            self.assertFalse(self.window.tab_exit_confirmed)
+            self.assertIs(self.window.current_tab(), tab)
+            self.assertEqual(0, tab.terminal.stops)
+            self.assertEqual(saved, self.path.read_bytes())
+        self.assertEqual(2, len(observed))
+        for title, text, info, default, text_format, buttons in observed:
+            self.assertEqual('Close last tab?', title)
+            self.assertIn('<Server & tests>', text)
+            self.assertIn('also exit BashDock', info)
+            self.assertEqual(QMessageBox.StandardButton.Cancel, default)
+            self.assertEqual(Qt.TextFormat.PlainText, text_format)
+            self.assertIn('Close tab and exit', buttons)
+
+    def test_last_tab_accepts_once_regardless_of_quit_preference_or_running_shell(self):
+        from PySide6.QtCore import QTimer
+        for preference, running in ((True, True), (False, True), (True, False), (False, False)):
+            with self.subTest(preference=preference, running=running):
+                window = MainWindow(terminal_factory=FakeTerminal)
+                try:
+                    tab = window.current_tab()
+                    if running:
+                        self.ready(tab)
+                    window.data['confirm_on_exit'] = preference
+                    prompts = []
+                    def respond():
+                        dialog = QApplication.activeModalWidget()
+                        prompts.append(dialog.windowTitle())
+                        next(b for b in dialog.buttons() if b.text() == 'Close tab and exit').click()
+                    QTimer.singleShot(0, respond)
+                    with patch.object(window, 'confirm_quit') as quit_prompt:
+                        window.close_tab(0)
+                        quit_prompt.assert_not_called()
+                    self.assertEqual(['Close last tab?'], prompts)
+                    self.assertTrue(window.closing)
+                    self.assertFalse(window.tab_exit_confirmed)
+                    self.assertEqual(1, tab.terminal.stops)
+                    saved = config.read(self.path)
+                    self.assertEqual(preference, saved['confirm_on_exit'])
+                    self.assertEqual(tab.data, saved['tabs'][0])
+                    self.assertEqual(1, window.tabs.count())
+                finally:
+                    window.allow_save = False
+                    window.data['confirm_on_exit'] = False
+                    window.close()
+                    window.deleteLater()
+                    self.app.processEvents()
+
+    def test_last_tab_failed_save_keeps_shell_and_does_not_bypass_later_quit(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        saved = self.path.read_bytes()
+        with patch.object(self.window, 'confirm_last_tab', return_value=True), \
+                patch.object(self.window, 'persist', return_value=False), \
+                patch.object(self.window, 'confirm_quit') as quit_prompt, \
+                patch('bashdock.app.QMessageBox.warning') as warning:
+            self.window.close_tab(0)
+            quit_prompt.assert_not_called()
+            warning.assert_called_once()
+        self.assertFalse(self.window.closing)
+        self.assertFalse(self.window.tab_exit_confirmed)
+        self.assertEqual(0, tab.terminal.stops)
+        self.assertEqual(saved, self.path.read_bytes())
+        with patch.object(self.window, 'confirm_quit', return_value=(False, False)) as quit_prompt:
+            self.assertFalse(self.window.close())
+            quit_prompt.assert_called_once_with(1)
 
     def test_terminal_preferences_save_apply_to_all_tabs_and_new_tabs_without_restart(self):
         self.window.new_tab()
