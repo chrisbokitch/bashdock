@@ -22,6 +22,10 @@ class CommandConfirmation(QDialog):
         self.details.setCheckable(True)
         self.details.setArrowType(Qt.ArrowType.RightArrow)
         self.details.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.details.setStyleSheet("""
+            QToolButton { border: 0; background: transparent; padding: 2px; }
+            QToolButton:hover, QToolButton:focus { color: #70dcc2; }
+        """)
         self.details.toggled.connect(self.toggle_command)
         layout.addWidget(self.details, 0, Qt.AlignmentFlag.AlignLeft)
         self.command = QPlainTextEdit()
@@ -53,7 +57,7 @@ class CommandConfirmation(QDialog):
         self.resize(self.width(), self.sizeHint().height())
 
     def update_command_height(self, *args):
-        height = (3 * self.command.fontMetrics().lineSpacing()
+        height = (14 * self.command.fontMetrics().lineSpacing()
                   + ceil(2 * self.command.document().documentMargin())
                   + 2 * self.command.frameWidth() + 1)
         horizontal = self.command.horizontalScrollBar()

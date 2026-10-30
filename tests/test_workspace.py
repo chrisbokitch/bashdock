@@ -568,10 +568,11 @@ class WorkspaceTests(unittest.TestCase):
         repeated.deleteLater()
         picker.deleteLater()
 
-    def test_confirmation_preview_fits_three_lines_and_scrolls_longer_commands(self):
+    def test_confirmation_preview_fits_fourteen_lines_and_scrolls_longer_commands(self):
         from bashdock.command_confirmation import CommandConfirmation
         heights = []
         for body in ('pwd', 'echo one\necho two\necho three',
+                     '\n'.join(f'echo {i}' for i in range(14)),
                      '\n'.join(f'echo {i}' for i in range(20)),
                      'echo ' + 'long ' * 200 + '\necho two\necho three'):
             with self.subTest(body=body[:30]):
@@ -589,9 +590,9 @@ class WorkspaceTests(unittest.TestCase):
                     self.assertTrue(command.isReadOnly())
                     self.assertEqual(command.minimumHeight(), command.maximumHeight())
                     self.assertTrue(dialog.cancel_button.isDefault())
-                    self.assertLess(dialog.height(), 250)
+                    self.assertLess(dialog.height(), 400)
                     vertical = command.verticalScrollBar()
-                    if body.count('\n') > 2:
+                    if body.count('\n') >= 14:
                         self.assertGreater(vertical.maximum(), 0)
                         vertical.setValue(vertical.maximum())
                         self.app.processEvents()
@@ -605,7 +606,7 @@ class WorkspaceTests(unittest.TestCase):
                     dialog.reject()
                     dialog.deleteLater()
         # Horizontal scrolling reserves its own space rather than hiding a text line.
-        self.assertEqual([heights[0]] * 4, heights)
+        self.assertEqual([heights[0]] * 5, heights)
 
     def test_command_confirmation_cancel_default_and_accept_bind_to_reviewed_tab_once(self):
         from PySide6.QtCore import QTimer

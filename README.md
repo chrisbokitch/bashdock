@@ -233,7 +233,7 @@ consequences. Existing buttons keep confirmation off unless you enable it.
 
 Clicking a button with confirmation enabled uses the button name as the dialog title
 and shows your confirmation message. **Show command** optionally reveals the exact
-script in a read-only, three-line preview; longer commands scroll. **Hide command**
+script in a read-only preview of about fourteen lines; longer commands scroll. **Hide command**
 collapses the preview and shrinks the dialog again. Details start collapsed each time;
 no redundant button or tab labels are shown. The command editor retains its larger
 editing area. **Cancel** is the default;
