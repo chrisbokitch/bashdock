@@ -154,6 +154,58 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue(tab.data['buttons'][1]['timing'])
         self.assertTrue(config.load(self.path)['tabs'][0]['buttons'][1]['timing'])
 
+    def test_configure_command_clock_follows_timing_edits_and_row_moves_without_changing_script(self):
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_editor import CommandEditor
+        tab = self.window.current_tab()
+        original = copy.deepcopy(tab.data)
+        body = 'printf "one"\n\tprintf "two"'
+        definitions = [{'label': 'Timed', 'command': body, 'timing': True},
+                       {'label': 'Plain', 'command': 'pwd', 'timing': False},
+                       {'label': 'Legacy', 'command': 'ls'}]
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash), buttons=definitions), self.window)
+        try:
+            timed = editor.table.item(0, 1)
+            self.assertFalse(timed.icon().isNull())
+            self.assertFalse(timed.icon().pixmap(16, 16).isNull())
+            self.assertEqual(body, timed.text())
+            self.assertIn('Show execution time enabled', timed.toolTip())
+            self.assertIn(body, timed.toolTip())
+            self.assertIn('execution time', timed.data(Qt.ItemDataRole.AccessibleDescriptionRole))
+            self.assertTrue(editor.table.item(1, 1).icon().isNull())
+            self.assertTrue(editor.table.item(2, 1).icon().isNull())
+            editor.table.selectRow(0)
+            editor.move_row(1)
+            self.assertIs(timed, editor.table.item(1, 1))
+            self.assertTrue(editor.row_data(1)['timing'])
+            def disable(inner):
+                self.assertTrue(inner.timing.isChecked())
+                inner.timing.setChecked(False)
+                inner.commit()
+                return inner.result()
+            with patch.object(CommandEditor, 'exec', disable):
+                editor.edit_button()
+            self.assertTrue(timed.icon().isNull())
+            self.assertEqual(body, timed.toolTip())
+            self.assertEqual('', timed.data(Qt.ItemDataRole.AccessibleDescriptionRole))
+            def enable(inner):
+                inner.timing.setChecked(True)
+                inner.commit()
+                return inner.result()
+            with patch.object(CommandEditor, 'exec', enable):
+                editor.edit_button()
+                editor.add_button()
+            self.assertFalse(timed.icon().isNull())
+            self.assertFalse(editor.table.item(3, 1).icon().isNull())
+            editor.commit()
+            self.assertEqual(body, editor.result_data['buttons'][1]['command'])
+            self.assertTrue(editor.result_data['buttons'][1]['timing'])
+            self.assertEqual(original, tab.data)
+            self.assertEqual([], tab.terminal.commands)
+        finally:
+            editor.deleteLater()
+
     def test_button_completion_footer_is_per_tab_and_survives_selection_changes(self):
         first = self.window.current_tab()
         self.window.new_tab()

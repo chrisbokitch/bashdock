@@ -230,6 +230,8 @@ class SettingsDialog(QDialog):
         note.setWordWrap(True)
         layout.addWidget(note)
         self.table = QTableWidget(0, 2)
+        self.timing_icon = tab_icons.icon('clock', '#73c991')
+        self.table.setIconSize(QSize(16, 16))
         self.table.setHorizontalHeaderLabels(["Button label", "Bash command"])
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -300,8 +302,16 @@ class SettingsDialog(QDialog):
         self.table.setItem(row, 0, QTableWidgetItem(label))
         self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, copy.deepcopy(metadata or {}))
         self.table.setItem(row, 1, QTableWidgetItem(command))
-        self.table.item(row, 1).setToolTip(command)
+        self.set_command_preview(row, command, (metadata or {}).get('timing', False))
         self.table.selectRow(row)
+
+    def set_command_preview(self, row, command, timing):
+        item = self.table.item(row, 1)
+        item.setText(command)
+        item.setIcon(self.timing_icon if timing else QIcon())
+        item.setToolTip(f"Show execution time enabled\n\n{command}" if timing else command)
+        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole,
+                     "Show execution time enabled" if timing else "")
 
     def add_button(self):
         self.edit_button(new=True)
@@ -336,8 +346,7 @@ class SettingsDialog(QDialog):
             else:
                 self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, values)
                 self.table.item(row, 0).setText(values['label'])
-                self.table.item(row, 1).setText(values['command'])
-                self.table.item(row, 1).setToolTip(values['command'])
+                self.set_command_preview(row, values['command'], values.get('timing', False))
         dialog.deleteLater()
 
     def delete_row(self):
