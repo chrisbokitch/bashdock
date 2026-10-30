@@ -206,7 +206,7 @@ class WorkspaceTests(unittest.TestCase):
         finally:
             editor.deleteLater()
 
-    def test_confirmation_bell_renders_after_command_with_clock_first_and_updates_after_edit(self):
+    def test_confirmation_bell_renders_before_command_with_clock_first_and_updates_after_edit(self):
         from PySide6.QtWidgets import QDialog
         from bashdock.command_editor import CommandEditor
         definitions = [dict(label='Plain', command='pwd'),
@@ -241,10 +241,10 @@ class WorkspaceTests(unittest.TestCase):
                         groups[-1].append(x)
                 positions.append(groups)
             self.assertEqual([0, 1, 1, 2, 2], [len(p) for p in positions])
-            # The bell follows the short command, while the clock occupies the leading slot.
-            self.assertGreater(positions[2][0][0], positions[1][0][-1])
+            # Both icons precede the text; command length cannot move the bell.
+            self.assertLess(positions[2][0][-1], positions[3][1][0])
             self.assertLess(positions[3][0][-1], positions[3][1][0])
-            self.assertGreater(positions[4][1][0], positions[3][1][0])
+            self.assertEqual(positions[4][1][0], positions[3][1][0])
             editor.table.selectRow(3)
             def disable(inner):
                 inner.confirm.setChecked(False)

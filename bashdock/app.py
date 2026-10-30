@@ -204,17 +204,15 @@ class CommandPreviewDelegate(QStyledItemDelegate):
         background.text = ''
         style.drawControl(QStyle.ControlElement.CE_ItemViewItem, background, painter, preview.widget)
         available = QRect(text_rect)
-        available.setWidth(max(0, available.width() - 22))
+        available.setLeft(min(available.right() + 1, available.left() + 22))
         text = preview.fontMetrics.elidedText(preview.text, preview.textElideMode, available.width())
         painter.setFont(preview.font)
         selected = bool(preview.state & QStyle.StateFlag.State_Selected)
         role = QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text
         style.drawItemText(painter, available, preview.displayAlignment, preview.palette,
                            bool(preview.state & QStyle.StateFlag.State_Enabled), text, role)
-        # Reserve space before eliding so the bell stays visible for long scripts.
-        x = min(available.left() + preview.fontMetrics.horizontalAdvance(text) + 6,
-                text_rect.right() - 15)
-        bell = QRect(x, preview.rect.center().y() - 7, 16, 16)
+        # The bell follows the leading clock, before the command text.
+        bell = QRect(text_rect.left(), preview.rect.center().y() - 7, 16, 16)
         self.bell_icon.paint(painter, bell, Qt.AlignmentFlag.AlignCenter, QIcon.Mode.Normal)
         painter.restore()
 
