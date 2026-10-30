@@ -231,7 +231,9 @@ keeps your custom message for later. Clearing the message and saving restores th
 default. Existing buttons keep confirmation off unless you enable it.
 
 Clicking a button with confirmation enabled shows your message, the button label,
-target tab and exact command, including all lines. **Cancel** is the default;
+target tab and exact command, including all lines. The read-only preview shows three
+lines at a time; longer commands scroll without enlarging the prompt. The command
+editor retains its larger editing area. **Cancel** is the default;
 **Run command** submits it once to that tab's existing shell. Cancel or closing the
 prompt sends nothing. If that shell closes or restarts while the prompt is open,
 the reviewed command is not sent to a replacement shell. Save Configure tab to
