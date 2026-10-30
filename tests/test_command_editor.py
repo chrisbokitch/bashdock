@@ -45,9 +45,11 @@ class CommandEditorTests(GuiTestCase):
         editor = CommandEditor('Build', 'pwd')
         self.assertFalse(editor.confirm.isChecked())
         self.assertFalse(editor.confirmation_message.isEnabled())
+        self.assertFalse(editor.confirmation_hint.isEnabled())
         self.assertEqual('Are you sure?', editor.confirmation_message.text())
         editor.confirm.setChecked(True)
         self.assertTrue(editor.confirmation_message.isEnabled())
+        self.assertTrue(editor.confirmation_hint.isEnabled())
         editor.confirmation_message.setText('Deploy this version?')
         editor.confirm.setChecked(False)
         self.assertFalse(editor.confirmation_message.isEnabled())
@@ -67,17 +69,19 @@ class CommandEditorTests(GuiTestCase):
                  'confirmation_message': '<b>Are you sure?</b>'}
         for action in ('enter', 'escape', 'close', 'run'):
             with self.subTest(action=action):
-                dialog = CommandConfirmation(entry, '<tab>')
+                dialog = CommandConfirmation(entry)
+                self.assertEqual(entry['label'], dialog.windowTitle())
                 self.assertTrue(dialog.command.isReadOnly())
                 self.assertEqual(entry['command'], dialog.command.toPlainText())
                 labels = dialog.findChildren(QLabel)
                 self.assertEqual(entry['confirmation_message'], labels[0].text())
-                self.assertIn('<tab>', labels[1].text())
+                self.assertEqual(1, len(labels))
                 self.assertTrue(all(label.textFormat() == Qt.TextFormat.PlainText for label in labels))
                 self.assertTrue(dialog.cancel_button.isDefault())
                 self.assertFalse(dialog.run_button.isDefault())
                 dialog.show()
                 self.app.processEvents()
+                self.assertTrue(dialog.command.isHidden())
                 if action == 'enter':
                     QTest.keyClick(dialog, Qt.Key.Key_Return)
                 elif action == 'escape':
@@ -89,6 +93,38 @@ class CommandEditorTests(GuiTestCase):
                 expected = QDialog.DialogCode.Accepted if action == 'run' else QDialog.DialogCode.Rejected
                 self.assertEqual(expected, dialog.result())
                 self.assertFalse(dialog.isVisible())
+
+    def test_command_disclosure_expands_and_collapses_without_accepting_or_changing_body(self):
+        body = '\n'.join(f'printf "café {i}"' for i in range(20))
+        dialog = CommandConfirmation(dict(label='Clean up', command=body,
+                                          confirmation_message='Delete untracked files and folders?'))
+        dialog.show()
+        self.app.processEvents()
+        collapsed = dialog.height()
+        self.assertFalse(dialog.details.isChecked())
+        self.assertEqual('Show command', dialog.details.text())
+        for _ in range(2):
+            dialog.details.setFocus()
+            QTest.keyClick(dialog.details, Qt.Key.Key_Space)
+            self.app.processEvents()
+            self.assertTrue(dialog.command.isVisible())
+            self.assertTrue(dialog.details.isChecked())
+            self.assertEqual('Hide command', dialog.details.text())
+            self.assertGreater(dialog.height(), collapsed)
+            self.assertEqual(Qt.ArrowType.DownArrow, dialog.details.arrowType())
+            self.assertGreater(dialog.command.verticalScrollBar().maximum(), 0)
+            dialog.command.verticalScrollBar().setValue(dialog.command.verticalScrollBar().maximum())
+            dialog.details.click()
+            self.app.processEvents()
+            self.assertTrue(dialog.command.isHidden())
+            self.assertEqual(collapsed, dialog.height())
+            self.assertEqual(Qt.ArrowType.RightArrow, dialog.details.arrowType())
+            self.assertTrue(dialog.isVisible())
+            self.assertNotEqual(QDialog.DialogCode.Accepted, dialog.result())
+            self.assertTrue(dialog.cancel_button.isDefault())
+            self.assertEqual(body, dialog.command.toPlainText())
+        dialog.cancel_button.click()
+        self.assertEqual(QDialog.DialogCode.Rejected, dialog.result())
 
     def test_enter_and_tab_edit_body_and_escape_cancels(self):
         editor = CommandEditor('Build', 'first')

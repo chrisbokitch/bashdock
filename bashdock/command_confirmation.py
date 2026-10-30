@@ -1,24 +1,29 @@
-"""Review the exact command and destination before any shell input is sent."""
+"""Confirm the button's message, with optional inspection of its literal command."""
 from math import ceil
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFontDatabase
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QVBoxLayout
+from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QToolButton, QVBoxLayout
 
 
 class CommandConfirmation(QDialog):
-    def __init__(self, entry, tab_name, parent=None):
+    def __init__(self, entry, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Run command?")
+        self.setWindowTitle(entry['label'])
         self.resize(620, 1)
         layout = QVBoxLayout(self)
-        for text in (entry['confirmation_message'],
-                     f"Button: {entry['label']}\nTab: {tab_name}"):
-            label = QLabel()
-            label.setTextFormat(Qt.TextFormat.PlainText)
-            label.setText(text)
-            label.setWordWrap(True)
-            layout.addWidget(label)
+        self.message = QLabel()
+        self.message.setTextFormat(Qt.TextFormat.PlainText)
+        self.message.setText(entry['confirmation_message'])
+        self.message.setWordWrap(True)
+        layout.addWidget(self.message)
+        self.details = QToolButton()
+        self.details.setText("Show command")
+        self.details.setCheckable(True)
+        self.details.setArrowType(Qt.ArrowType.RightArrow)
+        self.details.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.details.toggled.connect(self.toggle_command)
+        layout.addWidget(self.details, 0, Qt.AlignmentFlag.AlignLeft)
         self.command = QPlainTextEdit()
         self.command.setAccessibleName("Command to run")
         self.command.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
@@ -27,6 +32,7 @@ class CommandConfirmation(QDialog):
         self.command.setPlainText(entry['command'])
         self.command.horizontalScrollBar().rangeChanged.connect(self.update_command_height)
         self.update_command_height()
+        self.command.hide()
         layout.addWidget(self.command)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
         self.run_button = self.buttons.addButton("Run command", QDialogButtonBox.ButtonRole.AcceptRole)
@@ -38,6 +44,13 @@ class CommandConfirmation(QDialog):
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
         self.resize(620, self.sizeHint().height())
+
+    def toggle_command(self, expanded):
+        self.details.setText("Hide command" if expanded else "Show command")
+        self.details.setArrowType(Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow)
+        self.command.setVisible(expanded)
+        self.layout().activate()
+        self.resize(self.width(), self.sizeHint().height())
 
     def update_command_height(self, *args):
         height = (3 * self.command.fontMetrics().lineSpacing()

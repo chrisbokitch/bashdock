@@ -525,7 +525,7 @@ class ShellTab(QWidget):
         owner = self.window()
         if entry.get('confirm', False):
             entry.setdefault('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE)
-            dialog = CommandConfirmation(entry, self.data['name'], owner)
+            dialog = CommandConfirmation(entry, owner)
             self.command_confirmation_open = True
             try:
                 accepted = dialog.exec() == QDialog.DialogCode.Accepted

@@ -576,9 +576,12 @@ class WorkspaceTests(unittest.TestCase):
                      'echo ' + 'long ' * 200 + '\necho two\necho three'):
             with self.subTest(body=body[:30]):
                 dialog = CommandConfirmation(dict(label='Test', command=body,
-                                                  confirmation_message='Are you sure?'), 'Tab', self.window)
+                                                  confirmation_message='Are you sure?'), self.window)
                 try:
                     dialog.show()
+                    self.app.processEvents()
+                    self.assertTrue(dialog.command.isHidden())
+                    dialog.details.click()
                     self.app.processEvents()
                     command = dialog.command
                     heights.append(command.viewport().height())

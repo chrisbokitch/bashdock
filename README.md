@@ -228,12 +228,15 @@ it, while Cancel discards its staged changes. Editing and saving never run comma
 Below the command body, **Confirm before using** enables a message field whose
 default is **Are you sure?**. Unchecked, the field is greyed out; toggling it off
 keeps your custom message for later. Clearing the message and saving restores the
-default. Existing buttons keep confirmation off unless you enable it.
+default. A hint below the message field encourages describing the action and its
+consequences. Existing buttons keep confirmation off unless you enable it.
 
-Clicking a button with confirmation enabled shows your message, the button label,
-target tab and exact command, including all lines. The read-only preview shows three
-lines at a time; longer commands scroll without enlarging the prompt. The command
-editor retains its larger editing area. **Cancel** is the default;
+Clicking a button with confirmation enabled uses the button name as the dialog title
+and shows your confirmation message. **Show command** optionally reveals the exact
+script in a read-only, three-line preview; longer commands scroll. **Hide command**
+collapses the preview and shrinks the dialog again. Details start collapsed each time;
+no redundant button or tab labels are shown. The command editor retains its larger
+editing area. **Cancel** is the default;
 **Run command** submits it once to that tab's existing shell. Cancel or closing the
 prompt sends nothing. If that shell closes or restarts while the prompt is open,
 the reviewed command is not sent to a replacement shell. Save Configure tab to

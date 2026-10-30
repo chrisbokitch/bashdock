@@ -245,11 +245,16 @@ class WindowsTests(GuiTestCase):
                             dialog = QApplication.activeModalWidget()
                             try:
                                 self.assertIsInstance(dialog, CommandConfirmation)
+                                self.assertEqual('Reviewed script', dialog.windowTitle())
+                                self.assertTrue(dialog.command.isHidden())
                                 self.assertEqual(body, dialog.command.toPlainText())
                                 run.assert_not_called()
                                 self.assertFalse((s.folder / 'confirmation.txt').exists())
                                 self.assertEqual([], s.terminal.command_startup.pending)
                                 if action == 'run':
+                                    dialog.details.click()
+                                    self.assertTrue(dialog.command.isVisible())
+                                    run.assert_not_called()
                                     dialog.run_button.click()
                                 elif action == 'close':
                                     dialog.close()
