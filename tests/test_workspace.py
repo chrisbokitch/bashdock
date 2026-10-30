@@ -206,6 +206,65 @@ class WorkspaceTests(unittest.TestCase):
         finally:
             editor.deleteLater()
 
+    def test_confirmation_bell_renders_after_command_with_clock_first_and_updates_after_edit(self):
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_editor import CommandEditor
+        definitions = [dict(label='Plain', command='pwd'),
+                       dict(label='Clock', command='pwd', timing=True),
+                       dict(label='Bell', command='pwd', confirm=True),
+                       dict(label='Both', command='pwd', timing=True, confirm=True),
+                       dict(label='Long', command='echo ' + 'long ' * 150, timing=True, confirm=True)]
+        editor = SettingsDialog(dict(self.window.current_tab().data, bash_path=str(self.bash),
+                                     buttons=definitions), self.window)
+        try:
+            editor.show()
+            editor.table.selectRow(3)
+            self.app.processEvents()
+            image = editor.table.viewport().grab().toImage()
+            ratio = image.devicePixelRatio()
+            positions = []
+            for row in range(5):
+                rect = editor.table.visualItemRect(editor.table.item(row, 1))
+                columns = []
+                for x in range(int(rect.left() * ratio), int((rect.right() + 1) * ratio)):
+                    for y in range(int(rect.top() * ratio), int((rect.bottom() + 1) * ratio)):
+                        c = image.pixelColor(x, y)
+                        if (abs(c.red() - 115) < 15 and abs(c.green() - 201) < 15 and
+                                abs(c.blue() - 145) < 15):
+                            columns.append(x)
+                            break
+                groups = []
+                for x in columns:
+                    if not groups or x - groups[-1][-1] > 3 * ratio:
+                        groups.append([x])
+                    else:
+                        groups[-1].append(x)
+                positions.append(groups)
+            self.assertEqual([0, 1, 1, 2, 2], [len(p) for p in positions])
+            # The bell follows the short command, while the clock occupies the leading slot.
+            self.assertGreater(positions[2][0][0], positions[1][0][-1])
+            self.assertLess(positions[3][0][-1], positions[3][1][0])
+            self.assertGreater(positions[4][1][0], positions[3][1][0])
+            editor.table.selectRow(3)
+            def disable(inner):
+                inner.confirm.setChecked(False)
+                inner.commit()
+                return inner.result()
+            with patch.object(CommandEditor, 'exec', disable):
+                editor.edit_button()
+            item = editor.table.item(3, 1)
+            self.assertFalse(item.icon().isNull())
+            self.assertNotIn('Confirm before using', item.toolTip())
+            self.assertEqual('pwd', item.text())
+            editor.move_row(-1)
+            self.assertFalse(editor.row_data(2)['confirm'])
+            self.assertTrue(editor.row_data(2)['timing'])
+            editor.commit()
+            self.assertTrue(editor.result_data['buttons'][3]['confirm'])
+        finally:
+            editor.reject()
+            editor.deleteLater()
+
     def test_button_completion_footer_is_per_tab_and_survives_selection_changes(self):
         first = self.window.current_tab()
         self.window.new_tab()

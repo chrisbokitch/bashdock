@@ -165,7 +165,9 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 
 **Edit command button → Show execution time** enables timing for that button. It is off
 by default for existing buttons, new buttons, and presets. In **Configure tab**, a small green
-clock beside the Bash command marks buttons with timing enabled. Opted-in runs started at the local
+clock before the Bash command marks buttons with timing enabled. A matching green bell after
+the command marks buttons with **Confirm before using** enabled; when both are enabled,
+the order is clock, command, bell. Opted-in runs started at the local
 Bash prompt show progress and a result in the footer,
 for example **Update and Test completed in 50.691s** or **Test failed after 12.304s · exit code 1**.
 Ctrl+C reports an interrupted run. Each tab remembers its latest result for the current session;

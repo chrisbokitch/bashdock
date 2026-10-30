@@ -6,13 +6,13 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRectF, QPoint, QPointF, QDir
-from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor, QPen, QShortcut, QKeySequence
+from PySide6.QtCore import QTimer, Qt, Signal, QSize, QEvent, QUrl, QObject, QRect, QRectF, QPoint, QPointF, QDir
+from PySide6.QtGui import QAction, QIcon, QMouseEvent, QDesktopServices, QPainterPath, QRegion, QPainter, QColor, QPen, QShortcut, QKeySequence, QPalette
 from PySide6.QtWidgets import (
     QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QPlainTextEdit, QStyle,
-    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu, QStyleOptionTab, QStyledItemDelegate,
+    QHeaderView, QAbstractItemView, QTabWidget, QInputDialog, QCheckBox, QToolButton, QTabBar, QStatusBar, QMenu, QStyleOptionTab, QStyleOptionViewItem, QStyledItemDelegate,
 )
 
 from . import config, terminal_preferences, tab_icons
@@ -181,9 +181,42 @@ class FooterBar(QStatusBar):
 
 
 class CommandPreviewDelegate(QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.bell_icon = tab_icons.icon('bell', '#73c991')
+
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
         option.text = option.text.replace('\n', ' ↵ ').replace('\t', '    ')
+
+    def paint(self, painter, option, index):
+        if not index.data(Qt.ItemDataRole.UserRole):
+            super().paint(painter, option, index)
+            return
+        preview = QStyleOptionViewItem(option)
+        self.initStyleOption(preview, index)
+        style = preview.widget.style() if preview.widget else QApplication.style()
+        text_rect = style.subElementRect(QStyle.SubElement.SE_ItemViewItemText, preview, preview.widget)
+        painter.save()
+        painter.setClipRect(preview.rect)
+        # Let Qt draw the normal selection, focus border, and leading clock.
+        background = QStyleOptionViewItem(preview)
+        background.text = ''
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, background, painter, preview.widget)
+        available = QRect(text_rect)
+        available.setWidth(max(0, available.width() - 22))
+        text = preview.fontMetrics.elidedText(preview.text, preview.textElideMode, available.width())
+        painter.setFont(preview.font)
+        selected = bool(preview.state & QStyle.StateFlag.State_Selected)
+        role = QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text
+        style.drawItemText(painter, available, preview.displayAlignment, preview.palette,
+                           bool(preview.state & QStyle.StateFlag.State_Enabled), text, role)
+        # Reserve space before eliding so the bell stays visible for long scripts.
+        x = min(available.left() + preview.fontMetrics.horizontalAdvance(text) + 6,
+                text_rect.right() - 15)
+        bell = QRect(x, preview.rect.center().y() - 7, 16, 16)
+        self.bell_icon.paint(painter, bell, Qt.AlignmentFlag.AlignCenter, QIcon.Mode.Normal)
+        painter.restore()
 
 
 class SettingsDialog(QDialog):
@@ -230,7 +263,9 @@ class SettingsDialog(QDialog):
         note.setWordWrap(True)
         layout.addWidget(note)
         self.table = QTableWidget(0, 2)
-        self.timing_icon = tab_icons.icon('clock', '#73c991')
+        self.timing_icon = QIcon(tab_icons.icon('clock', '#73c991'))
+        for size in self.timing_icon.availableSizes():
+            self.timing_icon.addPixmap(self.timing_icon.pixmap(size), QIcon.Mode.Selected)
         self.table.setIconSize(QSize(16, 16))
         self.table.setHorizontalHeaderLabels(["Button label", "Bash command"])
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -302,16 +337,23 @@ class SettingsDialog(QDialog):
         self.table.setItem(row, 0, QTableWidgetItem(label))
         self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, copy.deepcopy(metadata or {}))
         self.table.setItem(row, 1, QTableWidgetItem(command))
-        self.set_command_preview(row, command, (metadata or {}).get('timing', False))
+        self.set_command_preview(row, command, (metadata or {}).get('timing', False),
+                                 (metadata or {}).get('confirm', False))
         self.table.selectRow(row)
 
-    def set_command_preview(self, row, command, timing):
+    def set_command_preview(self, row, command, timing, confirm=False):
         item = self.table.item(row, 1)
         item.setText(command)
         item.setIcon(self.timing_icon if timing else QIcon())
-        item.setToolTip(f"Show execution time enabled\n\n{command}" if timing else command)
-        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole,
-                     "Show execution time enabled" if timing else "")
+        item.setData(Qt.ItemDataRole.UserRole, confirm)
+        indicators = []
+        if timing:
+            indicators.append("Show execution time enabled")
+        if confirm:
+            indicators.append("Confirm before using enabled")
+        description = " · ".join(indicators)
+        item.setToolTip(f"{description}\n\n{command}" if description else command)
+        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, description)
 
     def add_button(self):
         self.edit_button(new=True)
@@ -346,7 +388,8 @@ class SettingsDialog(QDialog):
             else:
                 self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, values)
                 self.table.item(row, 0).setText(values['label'])
-                self.set_command_preview(row, values['command'], values.get('timing', False))
+                self.set_command_preview(row, values['command'], values.get('timing', False),
+                                         values.get('confirm', False))
         dialog.deleteLater()
 
     def delete_row(self):
