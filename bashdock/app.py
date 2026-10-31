@@ -357,7 +357,10 @@ class SettingsDialog(QDialog):
         self.edit_button(new=True)
 
     def choose_presets(self):
-        dialog = PresetPicker([self.row_data(row) for row in range(self.table.rowCount())], self)
+        owner = self.parent()
+        dialog = PresetPicker([self.row_data(row) for row in range(self.table.rowCount())], self,
+                              personal_groups=owner.data.get('preset_groups', []) if isinstance(owner, MainWindow) else [],
+                              save_groups=owner.store_preset_groups if isinstance(owner, MainWindow) else None)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             if dialog.result_data['replace']:
                 self.table.setRowCount(0)
@@ -1283,6 +1286,20 @@ class MainWindow(QMainWindow):
             return False
         return True
 
+    def store_preset_groups(self, groups):
+        try:
+            config.validate_preset_groups(groups)
+        except ValueError as error:
+            QMessageBox.warning(self, 'Cannot save preset groups', str(error))
+            return False
+        previous = self.data.get('preset_groups', [])
+        self.data['preset_groups'] = copy.deepcopy(groups)
+        if not self.persist():
+            self.data['preset_groups'] = previous
+            QMessageBox.warning(self, 'Cannot save preset groups', 'Changes were not saved. Check the status bar for details.')
+            return False
+        return True
+
     def save_workspace(self, name, selected, replace=None):
         snapshot = self.snapshot()
         # Selected indexes always follow the visible tab order.
@@ -1563,6 +1580,7 @@ class MainWindow(QMainWindow):
                 "updates": copy.deepcopy(self.data.get("updates", {"automatic": True, "download": True})),
                 "terminal": copy.deepcopy(self.data["terminal"]),
                 "workspaces": copy.deepcopy(self.data.get("workspaces", [])),
+                "preset_groups": copy.deepcopy(self.data.get("preset_groups", [])),
                 "workspace_replace_current": self.data.get("workspace_replace_current", False),
                 "active_tab": self.tabs.currentIndex(),
                 "tabs": [copy.deepcopy(self.tabs.widget(i).data) for i in range(self.tabs.count())]}

@@ -29,6 +29,7 @@ def default_tab(name="Git Bash"):
 def defaults():
     return {"version": 2, "bash_path": "", "tabs": [default_tab()], "active_tab": 0,
             "confirm_on_exit": True, "terminal": terminal_preferences.defaults(), "workspaces": [],
+            "preset_groups": [],
             "workspace_replace_current": False,
             "updates": {"automatic": True, "download": True}}
 
@@ -141,6 +142,35 @@ def validate_workspaces(workspaces):
             raise ValueError("The workspace's active tab must be one of its saved tabs.")
 
 
+def validate_preset_groups(groups):
+    """Personal groups are app-wide templates, separate from applied tab buttons."""
+    from .command_presets import GROUPS
+    if not isinstance(groups, list) or len(groups) > 100:
+        raise ValueError("Personal preset groups must be a list of at most 100 groups.")
+    names = {group.name.casefold() for group in GROUPS}
+    for group in groups:
+        if not isinstance(group, dict):
+            raise ValueError("Each personal preset group must be an object.")
+        name = group.get('name')
+        if not isinstance(name, str) or not name.strip() or len(name) > 100:
+            raise ValueError("Each personal preset group needs a name of at most 100 characters.")
+        if name.strip().casefold() in names:
+            raise ValueError("Personal preset group names must be unique and differ from built-in groups.")
+        names.add(name.strip().casefold())
+        for key in ('description', 'requirements'):
+            value = group.get(key)
+            if not isinstance(value, str) or len(value) > 500:
+                raise ValueError(f"Preset group {key} must be text of at most 500 characters.")
+        buttons = group.get('buttons')
+        if not isinstance(buttons, list) or not buttons or len(buttons) > 100:
+            raise ValueError("Each personal preset group needs 1 to 100 buttons.")
+        validate_buttons(buttons)
+        for button in buttons:
+            description = button.get('description', '')
+            if not isinstance(description, str) or len(description) > 500:
+                raise ValueError("Preset button description must be text of at most 500 characters.")
+
+
 def validate(data):
     if not isinstance(data, dict):
         raise ValueError("Settings must be a JSON object.")
@@ -157,6 +187,7 @@ def validate(data):
     if not isinstance(updates, dict) or any(type(updates.get(k, True)) is not bool for k in ("automatic", "download")):
         raise ValueError("Update preferences must be booleans.")
     validate_workspaces(data.get("workspaces", []))
+    validate_preset_groups(data.get("preset_groups", []))
     if not isinstance(data.get("tabs"), list) or not data["tabs"]:
         raise ValueError("At least one tab is required.")
     validate_tab_group(data["tabs"])
@@ -177,12 +208,14 @@ def migrate(data):
         return validate({"version": 2, "bash_path": data["bash_path"], "tabs": [tab],
                          "active_tab": 0, "confirm_on_exit": True,
                          "terminal": terminal_preferences.defaults(), "workspaces": [],
+                         "preset_groups": [],
                          "workspace_replace_current": False,
                          "updates": {"automatic": True, "download": True}})
     if isinstance(data, dict) and data.get("version") == 2:
         data = copy.deepcopy(data)
         data.setdefault("confirm_on_exit", True)
         data.setdefault("workspaces", [])
+        data.setdefault("preset_groups", [])
         data.setdefault("workspace_replace_current", False)
         if isinstance(data.get("updates", {}), dict):
             data["updates"] = {"automatic": True, "download": True, **data.get("updates", {})}

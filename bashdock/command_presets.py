@@ -11,10 +11,14 @@ class PresetButton:
     description: str
     confirm: bool = False
     message: str = DEFAULT_CONFIRMATION_MESSAGE
+    timing: bool = False
 
     def definition(self):
-        return dict(label=self.label, command=self.command, confirm=self.confirm,
-                    confirmation_message=self.message)
+        result = dict(label=self.label, command=self.command, confirm=self.confirm,
+                      confirmation_message=self.message)
+        if self.timing:
+            result['timing'] = True
+        return result
 
 
 @dataclass(frozen=True)

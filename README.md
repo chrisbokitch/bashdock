@@ -187,11 +187,25 @@ Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab'
 
 **Configure tab → Presets…** offers 18 starter buttons in five groups: Git
 essentials, Git recovery / AI Rescue, Python / Backend, Web / Node, and Docker
-Compose. Select individual buttons or all new buttons in a group. Switching groups
+Compose, alongside any personal groups you create. Select individual buttons or all new buttons in a group. Switching groups
 keeps your selections. The picker shows exact commands, tool requirements and
 confirmation messages; commands that discard, overwrite or stop work have
 confirmation enabled by default. Tools must already be installed, and project
 scripts/files must exist; applying a preset does not install tools or run commands.
+
+Choose **Manage groups…** in the picker to create a personal group, copy a built-in
+group for editing, or change personal groups and their buttons. You can set each
+button's command, description, execution timing, and confirmation message. Built-in
+groups are read-only. **Save** stores your personal library for all tabs, even if
+you later cancel Configure tab; applied buttons stay independent of later preset
+edits. Your library is included in settings exports, imports, and backups.
+
+The manager can **Export groups…** to choose one or more personal groups for a
+portable JSON file. **Import groups…** validates the file and displays the exact
+commands and confirmation messages for review. Matching personal names can be
+replaced explicitly, or both groups kept under distinct names. Import changes
+remain staged until you save the manager. Only import command groups you trust;
+importing and applying never execute them.
 
 Presets append by default. Exact label-and-command matches are marked **Already
 added** and skipped by Select all new buttons; you can explicitly check one to add

@@ -568,6 +568,40 @@ class WorkspaceTests(unittest.TestCase):
         repeated.deleteLater()
         picker.deleteLater()
 
+    def test_personal_preset_library_persists_independently_of_tab_configuration(self):
+        from PySide6.QtCore import Qt
+        from bashdock.preset_manager import PresetManager
+        from bashdock.preset_picker import PresetPicker
+        tab = self.window.current_tab()
+        original = copy.deepcopy(tab.data)
+        group = dict(name='My test scripts', description='Test a project', requirements='Python',
+                     buttons=[dict(label='Test', command='python -m pytest -v',
+                                   description='Run tests', timing=True)])
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        def manage(manager):
+            manager.personal.append(copy.deepcopy(group))
+            manager.commit()
+            return manager.result()
+        def choose(picker):
+            with patch.object(PresetManager, 'exec', manage):
+                picker.manage_groups()
+            picker.groups.setCurrentRow(picker.groups.count() - 1)
+            self.assertIn('My test scripts', picker.groups.currentItem().text())
+            picker.entries.item(0).setCheckState(Qt.CheckState.Checked)
+            picker.commit()
+            return picker.result()
+        try:
+            with patch.object(PresetPicker, 'exec', choose):
+                editor.choose_presets()
+            self.assertEqual('python -m pytest -v', editor.row_data(editor.table.rowCount() - 1)['command'])
+            editor.reject()  # Staged tab edits are discarded; the personal library was saved separately.
+        finally:
+            editor.deleteLater()
+        self.assertEqual([group], config.read(self.path)['preset_groups'])
+        self.assertEqual([group], self.window.data['preset_groups'])
+        self.assertEqual(original, tab.data)
+        self.assertEqual([], tab.terminal.commands)
+
     def test_confirmation_preview_fits_fourteen_lines_and_scrolls_longer_commands(self):
         from bashdock.command_confirmation import CommandConfirmation
         heights = []

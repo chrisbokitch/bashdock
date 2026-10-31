@@ -5,11 +5,13 @@ from PySide6.QtCore import Qt, QSignalBlocker
 from PySide6.QtGui import QFontDatabase
 from PySide6.QtWidgets import (
     QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QListWidget,
-    QListWidgetItem, QMessageBox, QPlainTextEdit, QVBoxLayout, QWidget,
+    QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QVBoxLayout, QWidget,
     QScrollArea, QFrame,
 )
 
 from .command_presets import GROUPS
+from .preset_library import as_group
+from .preset_manager import PresetManager
 
 
 def text_label(text=''):
@@ -27,13 +29,16 @@ class ReviewContent(QWidget):
 
 
 class PresetPicker(QDialog):
-    def __init__(self, existing, parent=None):
+    def __init__(self, existing, parent=None, *, personal_groups=None, save_groups=None):
         super().__init__(parent)
         self.setWindowTitle('Command presets')
         available = self.screen().availableGeometry()
         self.resize(min(840, available.width() - 60), min(650, available.height() - 80))
         self.result_data = None
         self.existing = copy.deepcopy(existing)
+        self.personal_groups = copy.deepcopy(personal_groups or [])
+        self.save_groups = save_groups
+        self.catalog = tuple(GROUPS) + tuple(as_group(group) for group in self.personal_groups)
         self.existing_pairs = {(entry['label'], entry['command']) for entry in existing}
         self.selected = set()
         self.group_index = -1
@@ -51,7 +56,7 @@ class PresetPicker(QDialog):
             QListWidget::item { padding:6px; }
             QListWidget::item:selected { background:#365e66;color:#ffffff; }
         ''')
-        layout.addWidget(text_label('Choose starter buttons for this tab. Review them in Configure tab before saving.'))
+        layout.addWidget(text_label('Choose buttons for this tab. Review them in Configure tab before saving.'))
         columns = QWidget()
         column_layout = QHBoxLayout(columns)
         column_layout.setContentsMargins(0, 0, 0, 0)
@@ -59,7 +64,7 @@ class PresetPicker(QDialog):
         self.groups = QListWidget()
         self.groups.setAccessibleName('Preset groups')
         self.groups.setFixedWidth(180)
-        for group in GROUPS:
+        for group in self.catalog:
             item = QListWidgetItem(group.name)
             item.setToolTip(group.description)
             self.groups.addItem(item)
@@ -94,6 +99,9 @@ class PresetPicker(QDialog):
         right.addWidget(self.confirmation)
         column_layout.addWidget(panel, 1)
         layout.addWidget(columns, 1)
+        self.manage_button = QPushButton('Manage groups…')
+        self.manage_button.clicked.connect(self.manage_groups)
+        layout.addWidget(self.manage_button, 0, Qt.AlignmentFlag.AlignLeft)
         self.replace = QCheckBox(f'Replace existing buttons ({len(existing)} will be removed)')
         self.replace.setEnabled(bool(existing))
         layout.addWidget(self.replace)
@@ -122,11 +130,33 @@ class PresetPicker(QDialog):
     def already_added(self, button):
         return (button.label, button.command) in self.existing_pairs
 
+    def manage_groups(self):
+        manager = PresetManager(self.personal_groups, self.save_groups, self)
+        if manager.exec() == QDialog.DialogCode.Accepted:
+            selected = {(self.catalog[group].name, self.catalog[group].buttons[row].label,
+                         self.catalog[group].buttons[row].command)
+                        for group, row in self.selected}
+            current = self.catalog[self.group_index].name if self.group_index >= 0 else ''
+            self.personal_groups = copy.deepcopy(manager.personal)
+            self.catalog = tuple(GROUPS) + tuple(as_group(group) for group in self.personal_groups)
+            self.selected = {(i, j) for i, group in enumerate(self.catalog)
+                             for j, button in enumerate(group.buttons)
+                             if (group.name, button.label, button.command) in selected}
+            self.groups.clear()
+            for group in self.catalog:
+                item = QListWidgetItem(group.name)
+                item.setToolTip(group.description)
+                self.groups.addItem(item)
+            self.groups.setCurrentRow(next((i for i, group in enumerate(self.catalog)
+                                            if group.name == current), len(GROUPS) if self.personal_groups else 0))
+            self.show_group(self.groups.currentRow())
+        manager.deleteLater()
+
     def show_group(self, index):
         if index < 0:
             return
         self.group_index = index
-        group = GROUPS[index]
+        group = self.catalog[index]
         self.description.setText(group.description)
         self.requirements.setText('Requires: ' + group.requirements)
         blocker = QSignalBlocker(self.entries)
@@ -148,11 +178,13 @@ class PresetPicker(QDialog):
     def show_preview(self, row):
         if self.group_index < 0 or row < 0:
             return
-        button = GROUPS[self.group_index].buttons[row]
+        button = self.catalog[self.group_index].buttons[row]
         self.preview_title.setText('Command preview: ' + button.label)
         self.command.setPlainText(button.command)
-        self.confirmation.setText('Confirm before using: ' + button.message if button.confirm else
-                                  'Confirm before using: off. You can change this in Edit command button.')
+        confirmation = ('Confirm before using: ' + button.message if button.confirm else
+                        'Confirm before using: off. You can change this in Edit command button.')
+        self.confirmation.setText(confirmation + ('\nShow execution time: on' if button.timing else
+                                                   '\nShow execution time: off'))
 
     def selection_changed(self, item):
         key = (self.group_index, self.entries.row(item))
@@ -164,7 +196,7 @@ class PresetPicker(QDialog):
 
     def toggle_group(self, checked):
         blocker = QSignalBlocker(self.entries)
-        for row, button in enumerate(GROUPS[self.group_index].buttons):
+        for row, button in enumerate(self.catalog[self.group_index].buttons):
             key = (self.group_index, row)
             if not checked:
                 self.selected.discard(key)
@@ -177,7 +209,7 @@ class PresetPicker(QDialog):
     def update_selection(self):
         if self.group_index < 0:
             return
-        eligible = [(self.group_index, row) for row, button in enumerate(GROUPS[self.group_index].buttons)
+        eligible = [(self.group_index, row) for row, button in enumerate(self.catalog[self.group_index].buttons)
                     if self.replace.isChecked() or not self.already_added(button)]
         count = sum(key in self.selected for key in eligible)
         state = (Qt.CheckState.Unchecked if count == 0 else Qt.CheckState.Checked if count == len(eligible)
@@ -208,6 +240,6 @@ class PresetPicker(QDialog):
                 QMessageBox.StandardButton.No)
             if answer != QMessageBox.StandardButton.Yes:
                 return
-        definitions = [GROUPS[group].buttons[row].definition() for group, row in sorted(self.selected)]
+        definitions = [self.catalog[group].buttons[row].definition() for group, row in sorted(self.selected)]
         self.result_data = dict(buttons=definitions, replace=self.replace.isChecked())
         self.accept()
