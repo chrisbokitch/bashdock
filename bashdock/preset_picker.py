@@ -29,13 +29,14 @@ class ReviewContent(QWidget):
 
 
 class PresetPicker(QDialog):
-    def __init__(self, existing, parent=None, *, personal_groups=None, save_groups=None):
+    def __init__(self, existing, parent=None, *, personal_groups=None, save_groups=None, tab_name='this tab'):
         super().__init__(parent)
         self.setWindowTitle('Command presets')
         available = self.screen().availableGeometry()
         self.resize(min(840, available.width() - 60), min(650, available.height() - 80))
         self.result_data = None
         self.existing = copy.deepcopy(existing)
+        self.tab_name = tab_name
         self.personal_groups = copy.deepcopy(personal_groups or [])
         self.save_groups = save_groups
         self.catalog = tuple(GROUPS) + tuple(as_group(group) for group in self.personal_groups)
@@ -131,7 +132,8 @@ class PresetPicker(QDialog):
         return (button.label, button.command) in self.existing_pairs
 
     def manage_groups(self):
-        manager = PresetManager(self.personal_groups, self.save_groups, self)
+        manager = PresetManager(self.personal_groups, self.save_groups, self,
+                                source_buttons=self.existing, source_tab_name=self.tab_name)
         if manager.exec() == QDialog.DialogCode.Accepted:
             selected = {(self.catalog[group].name, self.catalog[group].buttons[row].label,
                          self.catalog[group].buttons[row].command)

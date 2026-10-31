@@ -605,6 +605,7 @@ class WorkspaceTests(unittest.TestCase):
     def test_create_preset_copies_staged_buttons_and_saves_library_without_saving_tab(self):
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QDialog
+        from bashdock.preset_manager import PresetManager
         from bashdock.preset_picker import PresetPicker
         tab = self.window.current_tab()
         original = copy.deepcopy(tab.data)
@@ -616,11 +617,26 @@ class WorkspaceTests(unittest.TestCase):
         editor.move_row(-1)
         expected = [editor.row_data(row) for row in range(editor.table.rowCount())]
         review_index = next(index for index, entry in enumerate(expected) if entry['label'] == 'Review')
-        create = next(button for button in editor.findChildren(QPushButton)
-                      if button.text() == 'Create preset…')
-        with patch('bashdock.app.QInputDialog.getText', return_value=('My workflow', True)) as prompt:
-            create.click()
-        self.assertEqual('Staged tab name buttons', prompt.call_args.kwargs['text'])
+        self.assertFalse(any(button.text() == 'Create preset…' for button in editor.findChildren(QPushButton)))
+        def manage(manager):
+            self.assertEqual('Staged tab name', manager.source_tab_name)
+            self.assertEqual(expected, manager.source_buttons)
+            with patch('bashdock.preset_manager.QInputDialog.getText', return_value=('My workflow', True)) as prompt:
+                manager.create_from_tab_control.click()
+            self.assertEqual('Staged tab name buttons', prompt.call_args.kwargs['text'])
+            self.assertEqual([], self.window.data['preset_groups'])  # Staged until manager Save.
+            manager.commit()
+            return manager.result()
+        def choose(picker):
+            with patch.object(PresetManager, 'exec', manage):
+                picker.manage_button.click()
+            picker.groups.setCurrentRow(picker.groups.count() - 1)
+            self.assertEqual('My workflow', picker.groups.currentItem().text())
+            picker.entries.item(review_index).setCheckState(Qt.CheckState.Checked)
+            picker.commit()
+            return picker.result()
+        with patch.object(PresetPicker, 'exec', choose):
+            editor.choose_presets()
         saved = self.window.data['preset_groups'][0]
         self.assertEqual('My workflow', saved['name'])
         self.assertEqual('Buttons copied from Staged tab name.', saved['description'])
@@ -633,14 +649,6 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual([saved], config.read(self.path)['preset_groups'])
         editor.table.item(review_index, 1).setText('changed after creation')
         self.assertEqual('printf "café"\nprintf next', saved['buttons'][review_index]['command'])
-        def choose(picker):
-            picker.groups.setCurrentRow(picker.groups.count() - 1)
-            self.assertEqual('My workflow', picker.groups.currentItem().text())
-            picker.entries.item(review_index).setCheckState(Qt.CheckState.Checked)
-            picker.commit()
-            return picker.result()
-        with patch.object(PresetPicker, 'exec', choose):
-            editor.choose_presets()
         editor.reject()
         self.assertEqual(QDialog.DialogCode.Rejected, editor.result())
         self.assertEqual(original, tab.data)
@@ -649,29 +657,45 @@ class WorkspaceTests(unittest.TestCase):
         editor.deleteLater()
 
     def test_create_preset_cancel_duplicate_empty_tab_and_failed_save_leave_library_untouched(self):
+        from PySide6.QtWidgets import QDialog
+        from bashdock.preset_manager import PresetManager
         editor = SettingsDialog(dict(self.window.current_tab().data, bash_path=str(self.bash)), self.window)
         original = self.path.read_bytes()
-        with patch('bashdock.app.QInputDialog.getText', return_value=('', False)):
-            editor.create_preset()
-        self.assertEqual([], self.window.data['preset_groups'])
-        with patch('bashdock.app.QInputDialog.getText', return_value=('Git essentials', True)), \
-                patch('bashdock.app.QMessageBox.warning') as warning:
-            editor.create_preset()
+        buttons = [editor.row_data(row) for row in range(editor.table.rowCount())]
+        manager = PresetManager([], self.window.store_preset_groups, editor,
+                                source_buttons=buttons, source_tab_name=editor.name.text())
+        with patch('bashdock.preset_manager.QInputDialog.getText', return_value=('', False)):
+            manager.create_from_tab()
+        self.assertEqual([], manager.personal)
+        with patch('bashdock.preset_manager.QInputDialog.getText', return_value=('Git essentials', True)), \
+                patch('bashdock.preset_manager.QMessageBox.warning') as warning:
+            manager.create_from_tab()
         warning.assert_called_once()
+        self.assertEqual([], manager.personal)
+        with patch('bashdock.preset_manager.QInputDialog.getText', return_value=('Personal', True)):
+            manager.create_from_tab()
+        self.assertEqual(1, len(manager.personal))
         self.assertEqual([], self.window.data['preset_groups'])
-        with patch('bashdock.app.QInputDialog.getText', return_value=('Personal', True)), \
-                patch('bashdock.app.config.save', side_effect=OSError('disk full')), \
+        manager.reject()  # Cancel discards the staged group.
+        self.assertEqual(QDialog.DialogCode.Rejected, manager.result())
+        manager.deleteLater()
+        manager = PresetManager([], self.window.store_preset_groups, editor,
+                                source_buttons=buttons, source_tab_name=editor.name.text())
+        with patch('bashdock.preset_manager.QInputDialog.getText', return_value=('Personal', True)):
+            manager.create_from_tab()
+        with patch('bashdock.app.config.save', side_effect=OSError('disk full')), \
                 patch('bashdock.app.QMessageBox.warning') as warning:
-            editor.create_preset()
+            manager.commit()
         warning.assert_called_once()
         self.assertEqual([], self.window.data['preset_groups'])
         self.assertEqual(original, self.path.read_bytes())
         editor.table.setRowCount(0)
-        with patch('bashdock.app.QMessageBox.information') as info, \
-                patch('bashdock.app.QInputDialog.getText') as prompt:
-            editor.create_preset()
-        info.assert_called_once()
-        prompt.assert_not_called()
+        empty = PresetManager([], source_buttons=[], source_tab_name='Empty')
+        self.assertFalse(empty.create_from_tab_control.isEnabled())
+        empty.create_from_tab()
+        self.assertEqual([], empty.personal)
+        empty.deleteLater()
+        manager.deleteLater()
         editor.deleteLater()
 
     def test_confirmation_preview_fits_fourteen_lines_and_scrolls_longer_commands(self):

@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
 
 from . import config
 from .command_presets import GROUPS
-from .preset_library import copy_builtin, export_bytes, merge, read_import
+from .preset_library import copy_builtin, export_bytes, group_from_tab, merge, read_import
 
 
 class PresetButtonEditor(QDialog):
@@ -67,11 +67,13 @@ class PresetButtonEditor(QDialog):
 
 
 class PresetManager(QDialog):
-    def __init__(self, personal_groups, on_save=None, parent=None):
+    def __init__(self, personal_groups, on_save=None, parent=None, *, source_buttons=None, source_tab_name='this tab'):
         super().__init__(parent)
         self.setWindowTitle('Manage preset groups')
         self.resize(860, 600)
         self.personal = copy.deepcopy(personal_groups)
+        self.source_buttons = copy.deepcopy(source_buttons or [])
+        self.source_tab_name = source_tab_name.strip() or 'this tab'
         self.on_save = on_save
         self.loading = False
         outer = QVBoxLayout(self)
@@ -79,12 +81,16 @@ class PresetManager(QDialog):
                       'applied buttons remain independent.')
         note.setWordWrap(True)
         outer.addWidget(note)
+        source = QLabel(f'Current tab: {self.source_tab_name} · {len(self.source_buttons)} buttons available to copy')
+        source.setTextFormat(Qt.TextFormat.PlainText)
+        outer.addWidget(source)
         columns = QHBoxLayout()
         left = QVBoxLayout()
         self.groups = QListWidget()
         self.groups.setAccessibleName('Built-in and personal preset groups')
         left.addWidget(self.groups, 1)
         for label, method, attr in (('New group…', self.new_group, 'new_group_control'),
+                                    ('Create group from current tab…', self.create_from_tab, 'create_from_tab_control'),
                                     ('Copy group', self.copy_group, 'copy_group_control'),
                                     ('Delete group', self.delete_group, 'delete_group_control'),
                                     ('Import groups…', self.import_groups, 'import_control'),
@@ -93,6 +99,8 @@ class PresetManager(QDialog):
             button.clicked.connect(method)
             left.addWidget(button)
             setattr(self, attr, button)
+        self.create_from_tab_control.setEnabled(bool(self.source_buttons))
+        self.create_from_tab_control.setToolTip('Copy all buttons shown in Configure tab into a new personal group.')
         columns.addLayout(left, 1)
         right = QVBoxLayout()
         form = QFormLayout()
@@ -221,6 +229,23 @@ class PresetManager(QDialog):
         self.personal.append(dict(name=self.unique_name(name.strip()), description='', requirements='',
                                   buttons=[editor.result_data]))
         editor.deleteLater()
+        self.refresh(len(GROUPS) + len(self.personal) - 1)
+
+    def create_from_tab(self):
+        if not self.source_buttons:
+            return
+        default_name = self.unique_name(f'{self.source_tab_name} buttons')
+        name, accepted = QInputDialog.getText(self, 'Create group from current tab',
+                                              'New group name:', text=default_name)
+        if not accepted:
+            return
+        try:
+            group = group_from_tab(name, self.source_tab_name, self.source_buttons)
+            config.validate_preset_groups(self.personal + [group])
+        except ValueError as error:
+            QMessageBox.warning(self, 'Cannot create preset group', str(error))
+            return
+        self.personal.append(group)
         self.refresh(len(GROUPS) + len(self.personal) - 1)
 
     def copy_group(self):

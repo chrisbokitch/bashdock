@@ -200,11 +200,12 @@ groups are read-only. **Save** stores your personal library for all tabs, even i
 you later cancel Configure tab; applied buttons stay independent of later preset
 edits. Your library is included in settings exports, imports, and backups.
 
-In **Configure tab**, **Create preset…** copies all buttons currently shown in that
-tab's list, in order, into a new personal group. Give it a unique name; command
-text, confirmation messages, and timing settings are copied exactly. The group
-is saved immediately, separately from any unsaved tab edits, and appears in the
-preset picker. Use **Manage groups…** to add descriptions or requirements later.
+In **Configure tab → Presets… → Manage groups…**, **Create group from current tab…**
+copies all buttons currently shown in Configure tab, in order, into a new personal
+group. Give it a unique name; command text, confirmation messages, and timing
+settings are copied exactly. You can edit its description and requirements there.
+The new group is staged until you click **Save** in Manage preset groups; saving
+it does not save pending Configure tab edits.
 
 The manager can **Export groups…** to choose one or more personal groups for a
 portable JSON file. **Import groups…** validates the file and displays the exact
