@@ -10,6 +10,18 @@ from .command_presets import GROUPS, PresetButton, PresetGroup
 FORMAT = 'bashdock-command-presets'
 
 
+def group_from_tab(name, tab_name, buttons):
+    """Copy staged tab buttons into an editable, app-wide personal group."""
+    group = dict(name=name.strip(), description=f'Buttons copied from {tab_name.strip()}.',
+                 requirements='', buttons=[dict(label=button['label'], command=button['command'],
+                                                description='', confirm=button.get('confirm', False),
+                                                confirmation_message=button.get('confirmation_message',
+                                                    config.DEFAULT_CONFIRMATION_MESSAGE),
+                                                timing=button.get('timing', False)) for button in buttons])
+    config.validate_preset_groups([group])
+    return group
+
+
 def as_group(group):
     return PresetGroup(group['name'], group['description'], group['requirements'],
                        tuple(PresetButton(button['label'], button['command'],

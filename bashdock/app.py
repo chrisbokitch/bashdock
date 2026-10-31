@@ -21,6 +21,7 @@ from .command_bar import CommandButton, CommandFlowLayout, CommandScrollArea
 from .command_editor import CommandEditor
 from .command_confirmation import CommandConfirmation
 from .preset_picker import PresetPicker
+from .preset_library import group_from_tab
 from shiboken6 import isValid
 from .input_diagnostics import recorder as input_recorder
 from ._version import __version__
@@ -285,6 +286,7 @@ class SettingsDialog(QDialog):
         for label, callback in (("Add", self.add_button),
                                 ("Edit…", self.edit_button),
                                 ("Presets…", self.choose_presets),
+                                ("Create preset…", self.create_preset),
                                 ("Delete", self.delete_row),
                                 ("Move left", lambda: self.move_row(-1)),
                                 ("Move right", lambda: self.move_row(1))):
@@ -367,6 +369,29 @@ class SettingsDialog(QDialog):
             for entry in dialog.result_data['buttons']:
                 self.add_row(entry['label'], entry['command'], entry)
         dialog.deleteLater()
+
+    def create_preset(self):
+        owner = self.parent()
+        if not isinstance(owner, MainWindow):
+            return
+        buttons = [self.row_data(row) for row in range(self.table.rowCount())]
+        if not buttons:
+            QMessageBox.information(self, 'No command buttons', 'Add a command button before creating a preset group.')
+            return
+        tab_name = self.name.text().strip()
+        default_name = f'{tab_name} buttons' if tab_name else 'My buttons'
+        name, accepted = QInputDialog.getText(self, 'Create preset group', 'Group name:', text=default_name)
+        if not accepted:
+            return
+        try:
+            group = group_from_tab(name, tab_name or 'this tab', buttons)
+            groups = copy.deepcopy(owner.data.get('preset_groups', [])) + [group]
+            config.validate_preset_groups(groups)
+        except ValueError as error:
+            QMessageBox.warning(self, 'Cannot create preset group', str(error))
+            return
+        if owner.store_preset_groups(groups):
+            owner.statusBar().showMessage(f'Created preset group “{group["name"]}” with {len(buttons)} buttons.')
 
     def row_data(self, row):
         data = copy.deepcopy(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole) or {})
