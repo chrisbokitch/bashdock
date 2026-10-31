@@ -48,6 +48,11 @@ def validate_buttons(buttons):
             raise ValueError("Each button needs a nonempty label and command.")
         if any(ord(ch) < 32 and ch not in "\n\t" for ch in button["command"]):
             raise ValueError("Commands cannot contain terminal control characters.")
+        if 'description' in button:
+            description = button['description']
+            if (not isinstance(description, str) or len(description) > 500 or
+                    any(ord(ch) < 32 for ch in description)):
+                raise ValueError("Button descriptions must be text on one line, at most 500 characters.")
         if 'timing' in button and type(button['timing']) is not bool:
             raise ValueError("Show execution time must be true or false.")
         if 'confirm' in button and type(button['confirm']) is not bool:

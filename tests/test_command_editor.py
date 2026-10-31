@@ -21,8 +21,21 @@ class CommandEditorTests(GuiTestCase):
         self.assertEqual(body, editor.command.toPlainText())
         editor.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
         self.assertEqual(QDialog.DialogCode.Accepted, editor.result())
-        self.assertEqual({'label': ' Build ', 'command': body, 'confirm': False, 'timing': False,
+        self.assertEqual({'label': ' Build ', 'command': body, 'description': '',
+                          'confirm': False, 'timing': False,
                           'confirmation_message': 'Are you sure?'}, editor.result_data)
+
+    def test_optional_description_is_editable_and_validated_on_one_line(self):
+        from bashdock.config import validate_buttons
+        editor = CommandEditor('Build', 'npm run build', description='Build the web app')
+        self.assertEqual('Build the web app', editor.description.text())
+        editor.description.setText('Build for deployment')
+        editor.commit()
+        self.assertEqual('Build for deployment', editor.result_data['description'])
+        validate_buttons([dict(label='Legacy', command='pwd')])
+        for value in (None, 42, 'a\nb', 'x' * 501):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'descriptions'):
+                validate_buttons([dict(label='Build', command='npm run build', description=value)])
 
     def test_timing_is_opt_in_and_round_trips_without_affecting_confirmation(self):
         from bashdock.config import validate_buttons
@@ -143,7 +156,7 @@ class CommandEditorTests(GuiTestCase):
         editor.command.setFocus()
         QTest.keyClick(editor.command, Qt.Key.Key_Tab,
                        Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
-        self.assertTrue(editor.label.hasFocus())
+        self.assertTrue(editor.description.hasFocus())
         QTest.keyClick(editor, Qt.Key.Key_Escape)
         self.assertEqual(QDialog.DialogCode.Rejected, editor.result())
         self.assertIsNone(editor.result_data)

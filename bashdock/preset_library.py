@@ -14,7 +14,8 @@ def group_from_tab(name, tab_name, buttons):
     """Copy staged tab buttons into an editable, app-wide personal group."""
     group = dict(name=name.strip(), description=f'Buttons copied from {tab_name.strip()}.',
                  requirements='', buttons=[dict(label=button['label'], command=button['command'],
-                                                description='', confirm=button.get('confirm', False),
+                                                description=button.get('description', ''),
+                                                confirm=button.get('confirm', False),
                                                 confirmation_message=button.get('confirmation_message',
                                                     config.DEFAULT_CONFIRMATION_MESSAGE),
                                                 timing=button.get('timing', False)) for button in buttons])

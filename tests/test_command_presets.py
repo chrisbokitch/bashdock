@@ -22,6 +22,7 @@ class CommandPresetTests(GuiTestCase):
         definitions = [button.definition() for group in GROUPS for button in group.buttons]
         self.assertEqual(18, len(definitions))
         validate_buttons(definitions)
+        self.assertEqual(GROUPS[0].buttons[0].description, definitions[0]['description'])
         self.assertEqual(18, len({(entry['label'], entry['command']) for entry in definitions}))
         expected = {'git restore --worktree .', 'git clean -fd', 'black . && ruff check --fix .',
                     'python -m pip freeze > requirements.txt', 'npm ci', 'docker compose stop'}

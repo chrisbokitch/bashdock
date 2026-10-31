@@ -183,7 +183,7 @@ timestamps, and exit codes; command text and labels are not added to diagnostic 
 
 Right-click a command button to **Edit…**, **Duplicate**, **Move left**, **Move right**, or **Delete** it. Changes save immediately; editing or organizing buttons never executes their commands. Duplicates keep the command and its confirmation settings. Move actions follow the button order across wrapped rows.
 
-Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command preview. Select a row and click **Edit…**, double-click it, or press **F2/Enter** to open the command editor. **Add** opens the same editor for a new button. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
+Click **Configure tab** at the bottom to add, edit, delete, or reorder that tab's buttons. Each row has a label and a Bash command preview. Select a row and click **Edit…**, double-click it, or press **F2/Enter** to open the command editor. **Add** opens the same editor for a new button. An optional, one-line **Description** sits below the button label; the command row's tooltip and accessible description show it without adding another column. You can change the tab name and startup folder here too. Changing the startup folder resets its remembered folder and applies when you restart that shell. The executable path is shared by all tabs and applies to new/restarted shells.
 
 **Configure tab → Presets…** offers 18 starter buttons in five groups: Git
 essentials, Git recovery / AI Rescue, Python / Backend, Web / Node, and Docker
@@ -202,8 +202,9 @@ edits. Your library is included in settings exports, imports, and backups.
 
 In **Configure tab → Presets… → Manage groups…**, **Create group from current tab…**
 copies all buttons currently shown in Configure tab, in order, into a new personal
-group. Give it a unique name; command text, confirmation messages, and timing
-settings are copied exactly. You can edit its description and requirements there.
+group. Give it a unique name; command text, button descriptions, confirmation
+messages, and timing settings are copied exactly. You can edit the group's
+description and requirements there.
 The new group is staged until you click **Save** in Manage preset groups; saving
 it does not save pending Configure tab edits.
 
@@ -219,13 +220,13 @@ added** and skipped by Select all new buttons; you can explicitly check one to a
 another copy. **Replace existing buttons** previews the labels and commands being
 removed and asks for confirmation. Applying returns to Configure tab with staged,
 ordinary editable buttons. Save keeps them; Cancel discards changes. Buttons keep
-their commands and confirmation settings through workspaces, export/import and
+their commands, descriptions, and confirmation settings through workspaces, export/import and
 recovery, independently of future preset-catalog changes.
 
 Command buttons wrap into additional rows as the window narrows, keeping their
 configured order. Widening returns space to the terminal, and the configure gear
 stays beside the first row. Long labels shorten visually; hover to see the full
-label and command. If there are too many rows to fit comfortably, the command
+label, optional description, and command. If there are too many rows to fit comfortably, the command
 area uses vertical scrolling and takes at most 40% of the tab height (or one row
 in an exceptionally short window), keeping the terminal usable.
 

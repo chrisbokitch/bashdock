@@ -582,6 +582,43 @@ class WorkspaceTests(unittest.TestCase):
         repeated.deleteLater()
         picker.deleteLater()
 
+    def test_button_description_edit_tooltips_persistence_and_context_edit(self):
+        from PySide6.QtCore import Qt, QPoint
+        from PySide6.QtWidgets import QDialog
+        from bashdock.command_editor import CommandEditor
+        tab = self.window.current_tab()
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        editor.table.selectRow(0)
+        def describe(inner):
+            self.assertEqual('', inner.description.text())
+            inner.description.setText('Inspect current Git changes')
+            inner.commit()
+            return inner.result()
+        with patch.object(CommandEditor, 'exec', describe):
+            editor.edit_button()
+        command = editor.row_data(0)['command']
+        self.assertEqual('Inspect current Git changes', editor.row_data(0)['description'])
+        cell = editor.table.item(0, 1)
+        self.assertEqual(f'Inspect current Git changes\n\n{command}', cell.toolTip())
+        self.assertEqual('Inspect current Git changes', cell.data(Qt.ItemDataRole.AccessibleDescriptionRole))
+        editor.commit()
+        with patch('bashdock.app.SettingsDialog', return_value=editor), \
+                patch.object(editor, 'exec', return_value=QDialog.DialogCode.Accepted):
+            self.window.configure(tab)
+        self.assertEqual('Inspect current Git changes', config.read(self.path)['tabs'][0]['buttons'][0]['description'])
+        self.assertEqual(f'Status\nInspect current Git changes\n{command}', tab.command_buttons[0].toolTip())
+        def clear(inner):
+            self.assertEqual('Inspect current Git changes', inner.description.text())
+            inner.description.clear()
+            inner.commit()
+            return inner.result()
+        with self.choose_context_action('Edit…'), patch.object(CommandEditor, 'exec', clear):
+            self.window.show_button_menu(tab, 0, QPoint())
+        self.assertEqual('', config.read(self.path)['tabs'][0]['buttons'][0]['description'])
+        self.assertEqual(f'Status\n{command}', tab.command_buttons[0].toolTip())
+        self.assertEqual([], tab.terminal.commands)
+        editor.deleteLater()
+
     def test_personal_preset_library_persists_independently_of_tab_configuration(self):
         from PySide6.QtCore import Qt
         from bashdock.preset_manager import PresetManager
@@ -608,6 +645,7 @@ class WorkspaceTests(unittest.TestCase):
             with patch.object(PresetPicker, 'exec', choose):
                 editor.choose_presets()
             self.assertEqual('python -m pytest -v', editor.row_data(editor.table.rowCount() - 1)['command'])
+            self.assertEqual('Run tests', editor.row_data(editor.table.rowCount() - 1)['description'])
             editor.reject()  # Staged tab edits are discarded; the personal library was saved separately.
         finally:
             editor.deleteLater()
@@ -626,7 +664,8 @@ class WorkspaceTests(unittest.TestCase):
         editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
         editor.name.setText('Staged tab name')
         editor.add_row('Review', 'printf "café"\nprintf next',
-                       dict(confirm=True, confirmation_message='Run both lines?', timing=True))
+                       dict(description='Check both outputs', confirm=True,
+                            confirmation_message='Run both lines?', timing=True))
         editor.table.selectRow(editor.table.rowCount() - 1)
         editor.move_row(-1)
         expected = [editor.row_data(row) for row in range(editor.table.rowCount())]
@@ -660,6 +699,7 @@ class WorkspaceTests(unittest.TestCase):
                          saved['buttons'][review_index]['confirmation_message'])
         self.assertTrue(saved['buttons'][review_index]['timing'])
         self.assertTrue(saved['buttons'][review_index]['confirm'])
+        self.assertEqual('Check both outputs', saved['buttons'][review_index]['description'])
         self.assertEqual([saved], config.read(self.path)['preset_groups'])
         editor.table.item(review_index, 1).setText('changed after creation')
         self.assertEqual('printf "café"\nprintf next', saved['buttons'][review_index]['command'])
@@ -903,7 +943,8 @@ class WorkspaceTests(unittest.TestCase):
         with patch.object(CommandEditor, 'exec', accept):
             editor.add_button()
         editor.commit()
-        expected = {'label': 'Multiline', 'command': body, 'confirm': False, 'timing': False,
+        expected = {'label': 'Multiline', 'command': body, 'description': '',
+                    'confirm': False, 'timing': False,
                     'confirmation_message': 'Are you sure?'}
         self.assertEqual(expected, editor.result_data['buttons'][-1])
         with patch('bashdock.app.SettingsDialog', return_value=editor), \

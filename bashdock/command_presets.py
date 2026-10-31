@@ -16,6 +16,8 @@ class PresetButton:
     def definition(self):
         result = dict(label=self.label, command=self.command, confirm=self.confirm,
                       confirmation_message=self.message)
+        if self.description:
+            result['description'] = self.description
         if self.timing:
             result['timing'] = True
         return result

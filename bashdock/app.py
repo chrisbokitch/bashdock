@@ -336,10 +336,11 @@ class SettingsDialog(QDialog):
         self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, copy.deepcopy(metadata or {}))
         self.table.setItem(row, 1, QTableWidgetItem(command))
         self.set_command_preview(row, command, (metadata or {}).get('timing', False),
-                                 (metadata or {}).get('confirm', False))
+                                 (metadata or {}).get('confirm', False),
+                                 (metadata or {}).get('description', ''))
         self.table.selectRow(row)
 
-    def set_command_preview(self, row, command, timing, confirm=False):
+    def set_command_preview(self, row, command, timing, confirm=False, button_description=''):
         item = self.table.item(row, 1)
         item.setText(command)
         item.setIcon(self.timing_icon if timing else QIcon())
@@ -349,9 +350,9 @@ class SettingsDialog(QDialog):
             indicators.append("Show execution time enabled")
         if confirm:
             indicators.append("Confirm before using enabled")
-        description = " · ".join(indicators)
-        item.setToolTip(f"{description}\n\n{command}" if description else command)
-        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, description)
+        details = "\n".join(part for part in (button_description, " · ".join(indicators)) if part)
+        item.setToolTip(f"{details}\n\n{command}" if details else command)
+        item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, details)
 
     def add_button(self):
         self.edit_button(new=True)
@@ -382,7 +383,8 @@ class SettingsDialog(QDialog):
         dialog = CommandEditor(original['label'], original['command'], self,
                                confirm=original.get('confirm', False),
                                confirmation_message=original.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
-                               timing=original.get('timing', False))
+                               timing=original.get('timing', False),
+                               description=original.get('description', ''))
         if dialog.exec() == QDialog.DialogCode.Accepted:
             values = dict(original, **dialog.result_data)
             if new:
@@ -391,7 +393,7 @@ class SettingsDialog(QDialog):
                 self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, values)
                 self.table.item(row, 0).setText(values['label'])
                 self.set_command_preview(row, values['command'], values.get('timing', False),
-                                         values.get('confirm', False))
+                                         values.get('confirm', False), values.get('description', ''))
         dialog.deleteLater()
 
     def delete_row(self):
@@ -509,7 +511,8 @@ class ShellTab(QWidget):
         self.command_buttons = []
         for index, entry in enumerate(self.data["buttons"]):
             button = CommandButton(entry["label"])
-            button.setToolTip(f"{entry['label']}\n{entry['command']}")
+            button.setToolTip("\n".join(part for part in
+                              (entry['label'], entry.get('description', ''), entry['command']) if part))
             # A mouse click should return input to this tab's terminal.
             button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             button.clicked.connect(lambda checked=False, definition=copy.deepcopy(entry):
@@ -1502,7 +1505,8 @@ class MainWindow(QMainWindow):
             dialog = CommandEditor(entry['label'], entry['command'], self,
                                    confirm=entry.get('confirm', False),
                                    confirmation_message=entry.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
-                                   staged=False, timing=entry.get('timing', False))
+                                   staged=False, timing=entry.get('timing', False),
+                                   description=entry.get('description', ''))
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 dialog.deleteLater()
                 self.restore_terminal_focus()

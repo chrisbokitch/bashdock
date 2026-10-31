@@ -23,7 +23,8 @@ class CommandBody(QPlainTextEdit):
 
 class CommandEditor(QDialog):
     def __init__(self, label, command, parent=None, *, confirm=False,
-                 confirmation_message=DEFAULT_CONFIRMATION_MESSAGE, staged=True, timing=False):
+                 confirmation_message=DEFAULT_CONFIRMATION_MESSAGE, staged=True, timing=False,
+                 description=''):
         super().__init__(parent)
         self.setWindowTitle("Edit command button")
         self.resize(680, 460)
@@ -32,6 +33,10 @@ class CommandEditor(QDialog):
         form = QFormLayout()
         self.label = QLineEdit(label)
         form.addRow("Button &label", self.label)
+        self.description = QLineEdit(description)
+        self.description.setAccessibleName("Button description")
+        self.description.setPlaceholderText("Optional — what this button does")
+        form.addRow("&Description", self.description)
         layout.addLayout(form)
         heading = QLabel("Bash &command")
         self.command = CommandBody()
@@ -54,7 +59,7 @@ class CommandEditor(QDialog):
             "QLineEdit:disabled { color:#77818f;background:#1b222d; }")
         self.confirm.toggled.connect(self.confirmation_message.setEnabled)
         self.command.leave_editor.connect(lambda backwards:
-            self.label.setFocus(Qt.FocusReason.BacktabFocusReason) if backwards else
+            self.description.setFocus(Qt.FocusReason.BacktabFocusReason) if backwards else
             self.confirm.setFocus(Qt.FocusReason.TabFocusReason))
         confirmation.addWidget(self.confirm)
         confirmation.addWidget(self.confirmation_message, 1)
@@ -85,6 +90,7 @@ class CommandEditor(QDialog):
     def commit(self):
         message = self.confirmation_message.text()
         data = {"label": self.label.text(), "command": self.command.toPlainText(),
+                "description": self.description.text(),
                 "confirm": self.confirm.isChecked(), "timing": self.timing.isChecked(),
                 "confirmation_message": message if message.strip() else DEFAULT_CONFIRMATION_MESSAGE}
         try:
