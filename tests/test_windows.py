@@ -212,7 +212,8 @@ class WindowsTests(GuiTestCase):
             s.wait(restored)
             self.assertNotIn('__bashdock_command_', s.screen())
             t.run_command('printf success > ../after-timed-prompt.txt')
-            s.wait(lambda: (s.folder / 'after-timed-prompt.txt').is_file())
+            s.wait(lambda: (s.folder / 'after-timed-prompt.txt').is_file() and
+                   (s.folder / 'after-timed-prompt.txt').read_text() == 'success')
             self.assertEqual('success', (s.folder / 'after-timed-prompt.txt').read_text())
 
     def test_command_button_confirmation_sends_nothing_until_run_and_executes_once(self):

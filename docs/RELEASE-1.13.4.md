@@ -17,7 +17,8 @@ The updater protocol, signing key, dependency lock, portable installation layout
 - Candidate before release-note preparation: `25e07417ee8c73934162ea10e68f922ec2cf6016`.
 - Local `npm test` at that revision: 344 Python tests passed (32 Windows-only skipped), and 22 JavaScript tests passed.
 - Windows build/package workflow run [41178557929](https://github.com/chrisbokitch/bashdock/actions/runs/41178557929) and four-job input compatibility run [41178557923](https://github.com/chrisbokitch/bashdock/actions/runs/41178557923) succeeded at that revision.
-- The release-note/record commit must pass its own main Windows workflows before tagging. The tagged build must then pass and create a signed draft with the ZIP, checksum, build provenance, source archives and notices.
+- Release-note commit `71bba8660221aa9ce89e71d85d5afa2c11246c29` exposed a receipt-file race in one Python 3.14 compatibility job: the test read a newly created file before Bash wrote its expected contents. The release-preparation follow-up waits for those contents; fresh CI must confirm it.
+- The final preparation commit must pass its own main Windows workflows before tagging. The tagged build must then pass and create a signed draft with the ZIP, checksum, build provenance, source archives and notices.
 
 ## Focused owner acceptance of exact draft ZIP
 
