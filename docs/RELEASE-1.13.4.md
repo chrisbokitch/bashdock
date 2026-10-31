@@ -1,6 +1,8 @@
 # BashDock 1.13.4 release record
 
-Release preparation for the next public version after 1.12.1. The tagged draft and focused owner acceptance are complete; publication remains pending.
+Published as the latest stable release on 2026-10-31 at 00:52 PDT
+(2026-10-31 07:52:20 UTC):
+<https://github.com/chrisbokitch/bashdock/releases/tag/v1.13.4>.
 
 ## Scope
 
@@ -37,4 +39,10 @@ Before publication, verify signed metadata, exact draft asset/source inventory a
 - The owner supplied the draft `bashdock-update.json` and `.sig`. Their SHA-256 digests, respectively `16a40308c9d885d91ffb85cefb1d7b4d4fa30ecf9b349e68a68b43481009f5d8` and `e6fb4f4eb76996731d4d6dfbc27eef0c0502b44e77275e43b85ab55e662466c7`, match the draft asset metadata.
 - Independent RSA PKCS#1 v1.5 / SHA-256 verification passed with the 3072-bit production public key in the exact tagged source. The signed manifest identifies version 1.13.4, the GitHub release ZIP URL, and the same ZIP size and SHA-256 as the accepted draft.
 
-Publication, anonymous public asset checks, update discovery and website version links are still pending.
+## Publication and public checks
+
+- Release 429791624 is public, stable, non-draft and the latest release. Its 12 expected assets retain the draft sizes and SHA-256 digests, including the ZIP and the signed metadata.
+- A fresh anonymous fetch of the public manifest, signature, all-assets checksum file, ZIP checksum file and build-info JSON matched their release-asset digests. The public signature independently verifies with the production key. The ZIP hash agrees across the manifest and both checksum lists; build provenance identifies the exact tagged source.
+- Public HEAD requests to the ZIP and all six application/dependency source archives returned HTTP 200. These establish public access, not a second full download and hash check of the large files; the owner's exact-ZIP checksum and tagged package verification supply that evidence.
+- Public latest-release discovery offers 1.13.4 from 1.12.1 and offers no same-version update from 1.13.4, using independently verified public metadata.
+- Website commit `30516daa110639ecc9ab98bc3bffa042b194431b` updates the download/checksum/source/release links, visible labels, checksum example, README and illustrative app version together. A fresh fetch of <https://www.bashdock.com/> showed 21 references to 1.13.4 and none to 1.12.1. Styles, scripts and historical UI captures were unchanged.

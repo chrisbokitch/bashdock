@@ -1,7 +1,7 @@
 # BashDock feature roadmap
 
-The latest public release is **1.12.1**, published on 2026-10-29. Our current
-small quality-of-life sequence and release verification are complete.
+The latest public release is **1.13.4**, published on 2026-10-31. Our current
+small quality-of-life sequence, personal preset groups and release verification are complete.
 The owner plans to use BashDock for development of other projects and let that
 experience guide further work. The 1.0 acceptance checks remain complete.
 
@@ -17,6 +17,9 @@ experience guide further work. The 1.0 acceptance checks remain complete.
 | Complete | Terminal scrollback search | Live matching, next/previous navigation, Escape to return focus; owner checks passed. |
 | Complete | Read-only keyboard shortcut reference | Help menu reference; automated menu/binding checks and local visual check passed. |
 | Complete | Public 1.12.1 release | Exact ZIP checksum/smoke, signature and public checks passed; website updated; owner automatic update succeeded. |
+| Complete | Personal preset groups and button descriptions | Import/export, create from current tab, description hover help; owner checks passed. |
+| Complete | Confirmation and last-tab polish | Message-first command dialog, clock/bell indicators, final-tab close prompt and menu focus; owner checks passed. |
+| Complete | Public 1.13.4 release | Exact ZIP checksum/smoke, signature and public checks passed; website updated. |
 
 Shortcut remapping and reopening closed tabs are optional future candidates,
 with no committed date. Remapping would cover BashDock actions, detect conflicts,
