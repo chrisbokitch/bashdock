@@ -1269,11 +1269,33 @@ class WindowsTests(GuiTestCase):
                                 repr(dict(route=route, focus=type(focus).__name__,
                                     active=window.isActiveWindow(), popup=app.activePopupWidget(),
                                     modal=app.activeModalWidget())))
+                            # Native Qt focus can return before WebEngine's
+                            # textarea regains DOM focus when a menu closes.
+                            web_focus = {'pending': False, 'focused': False}
+                            def focused_in_page(value):
+                                web_focus['pending'] = False
+                                web_focus['focused'] = value is True
+                            def web_input_focused():
+                                if web_focus['focused']:
+                                    return True
+                                if not web_focus['pending']:
+                                    web_focus['pending'] = True
+                                    tab.terminal.page().runJavaScript(
+                                        'document.activeElement === terminal.textarea', focused_in_page)
+                                return False
+                            wait(lambda: (app.focusWidget() is tab.terminal or
+                                          tab.terminal.isAncestorOf(app.focusWidget())) and web_input_focused())
+                            focus = app.focusWidget()
                             # No terminal click/focus call: the first typed command
                             # must reach this new shell and preserve its first byte.
                             QTest.keyClicks(focus, "printf '%s' x >> typed.txt")
                             QTest.keyClick(focus, Qt.Key.Key_Return)
-                            wait(lambda: receipt.is_file() and receipt.read_text() == 'x' * index)
+                            try:
+                                wait(lambda: receipt.is_file() and receipt.read_text() == 'x' * index)
+                            except AssertionError:
+                                actual = receipt.read_text() if receipt.is_file() else None
+                                self.fail(f'New tab input receipt: route={route}, expected={"x" * index!r}, '
+                                          f'actual={actual!r}, native_focus={type(app.focusWidget()).__name__}')
                             self.assertTrue(first.terminal.process)
                 finally:
                     window.allow_save = False

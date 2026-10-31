@@ -109,6 +109,20 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse(hasattr(first.terminal, 'search_requests'))
         self.assertEqual([], second.terminal.commands)
 
+    def test_manage_menu_close_refocuses_new_tab_after_action(self):
+        self.window.show()
+        self.window.activateWindow()
+        self.app.processEvents()
+        menu = self.window.manage_menu
+        menu.show()
+        action = next(a for a in menu.actions() if a.text() == 'New tab')
+        action.trigger()
+        tab = self.window.current_tab()
+        requested = tab.terminal.focus_requests
+        menu.hide()
+        self.app.processEvents()
+        self.assertGreater(tab.terminal.focus_requests, requested)
+
     def test_font_zoom_menu_targets_current_tab_without_saving_or_starting_shell(self):
         first = self.window.current_tab()
         self.window.new_tab()

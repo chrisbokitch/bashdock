@@ -866,6 +866,9 @@ class MainWindow(QMainWindow):
         # PySide versions otherwise destroy menus when temporary wrappers expire.
         self.manage_menu = add_popup(self.menuBar(), "Manage")
         menu = self.manage_menu
+        # A menu action can create/focus a tab before the popup finishes
+        # closing. Reassert both Qt and xterm focus after the popup releases it.
+        menu.aboutToHide.connect(self.restore_terminal_focus)
         for label, callback, shortcut in (
             ("New tab", self.new_tab, "Ctrl+Shift+T"),
             ("Rename tab…", lambda: self.rename_tab(self.tabs.currentIndex()), ""),
