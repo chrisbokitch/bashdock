@@ -1,6 +1,8 @@
 # BashDock
 
-A Python/Qt Windows desktop app with multiple Git Bash tabs and a custom command bar beneath each terminal.
+BashDock is a free, open-source Windows desktop application that organizes Git Bash into named tabs, with per-tab command buttons, saved workspaces, and custom terminal themes.
+
+Visit [bashdock.com](https://www.bashdock.com/) for screenshots, Windows downloads, and installation help. BashDock is built with Python and Qt.
 
 ## Requirements
 
