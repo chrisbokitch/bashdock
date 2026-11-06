@@ -182,6 +182,47 @@ class WorkspaceTests(unittest.TestCase):
                                        command=definition['command'])
         self.assertIsNotNone(tab.terminal.process)
 
+    def test_external_shell_icon_appears_in_configure_list_and_on_button(self):
+        from PySide6.QtCore import Qt
+        tab = self.window.current_tab()
+        definitions = [dict(label='Web Preview', command='explorer.exe http://localhost:8080',
+                            external=True, confirm=True),
+                       dict(label='Plain', command='pwd')]
+        tab.data['buttons'] = definitions
+        tab.build_buttons()
+        self.assertFalse(tab.command_buttons[0].icon().isNull())
+        self.assertEqual(tab.command_buttons[0].iconSize().width(), 16)
+        self.assertTrue(tab.command_buttons[1].icon().isNull())
+        editor = SettingsDialog(dict(tab.data, bash_path=str(self.bash)), self.window)
+        try:
+            editor.show()
+            self.app.processEvents()
+            item = editor.table.item(0, 1)
+            self.assertTrue(item.icon().isNull())
+            self.assertTrue(item.data(Qt.ItemDataRole.UserRole + 1))
+            self.assertIn('temporary external shell enabled', item.toolTip())
+            self.assertIn('temporary external shell enabled',
+                          item.data(Qt.ItemDataRole.AccessibleDescriptionRole))
+            self.assertFalse(editor.table.item(1, 1).data(Qt.ItemDataRole.UserRole + 1))
+            image = editor.table.viewport().grab().toImage()
+            ratio = image.devicePixelRatio()
+            rect = editor.table.visualItemRect(item)
+            green_x = []
+            for x in range(int(rect.left() * ratio), int((rect.right() + 1) * ratio)):
+                if any((abs((color := image.pixelColor(x, y)).red() - 115) < 15 and
+                        abs(color.green() - 201) < 15 and abs(color.blue() - 145) < 15)
+                       for y in range(int(rect.top() * ratio), int((rect.bottom() + 1) * ratio))):
+                    green_x.append(x)
+            groups = []
+            for x in green_x:
+                if not groups or x - groups[-1][-1] > 3 * ratio:
+                    groups.append([x])
+                else:
+                    groups[-1].append(x)
+            self.assertEqual(2, len(groups))  # Bell, then external Git Bash.
+        finally:
+            editor.deleteLater()
+
     def test_configure_command_clock_follows_timing_edits_and_row_moves_without_changing_script(self):
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QDialog

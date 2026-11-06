@@ -18,9 +18,15 @@ def open_external(bash_path, folder, *, command=None):
     # Git installs expose either bin/bash.exe or usr/bin/bash.exe.
     launcher = next((root / "git-bash.exe" for root in (bash.parent.parent, bash.parent.parent.parent)
                      if (root / "git-bash.exe").is_file()), None)
-    if command is not None:
-        # Run one command in a separate console. Bash exits when it finishes,
-        # leaving the embedded shell free even when it has a foreground job.
+    if command is not None and launcher:
+        # Use the same Git Bash (mintty) launcher as Open external shell. Its
+        # -c argument runs one Bash command, then the window closes on exit.
+        args = [str(launcher), f"--cd={directory.as_posix()}", "-c", command]
+        flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        streams = dict(stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    elif command is not None:
+        # Git installations without git-bash.exe still get an independent
+        # console running their configured bash.exe.
         args = [str(bash), "--login", "-i", "-c", command]
         flags = 0x00000010 | 0x00000200  # CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP
         streams = {}

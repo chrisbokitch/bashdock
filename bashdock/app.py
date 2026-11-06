@@ -184,13 +184,16 @@ class CommandPreviewDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.bell_icon = tab_icons.icon('bell', '#73c991')
+        self.external_icon = tab_icons.icon('terminal', '#73c991')
 
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
         option.text = option.text.replace('\n', ' ↵ ').replace('\t', '    ')
 
     def paint(self, painter, option, index):
-        if not index.data(Qt.ItemDataRole.UserRole):
+        confirm = bool(index.data(Qt.ItemDataRole.UserRole))
+        external = bool(index.data(Qt.ItemDataRole.UserRole + 1))
+        if not confirm and not external:
             super().paint(painter, option, index)
             return
         preview = QStyleOptionViewItem(option)
@@ -204,16 +207,20 @@ class CommandPreviewDelegate(QStyledItemDelegate):
         background.text = ''
         style.drawControl(QStyle.ControlElement.CE_ItemViewItem, background, painter, preview.widget)
         available = QRect(text_rect)
-        available.setLeft(min(available.right() + 1, available.left() + 22))
+        available.setLeft(min(available.right() + 1, available.left() + 22 * (confirm + external)))
         text = preview.fontMetrics.elidedText(preview.text, preview.textElideMode, available.width())
         painter.setFont(preview.font)
         selected = bool(preview.state & QStyle.StateFlag.State_Selected)
         role = QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text
         style.drawItemText(painter, available, preview.displayAlignment, preview.palette,
                            bool(preview.state & QStyle.StateFlag.State_Enabled), text, role)
-        # The bell follows the leading clock, before the command text.
-        bell = QRect(text_rect.left(), preview.rect.center().y() - 7, 16, 16)
-        self.bell_icon.paint(painter, bell, Qt.AlignmentFlag.AlignCenter, QIcon.Mode.Normal)
+        # Qt draws the clock first; then draw bell and external-shell icons.
+        x = text_rect.left()
+        for enabled, icon in ((confirm, self.bell_icon), (external, self.external_icon)):
+            if enabled:
+                rect = QRect(x, preview.rect.center().y() - 7, 16, 16)
+                icon.paint(painter, rect, Qt.AlignmentFlag.AlignCenter, QIcon.Mode.Normal)
+                x += 22
         painter.restore()
 
 
@@ -255,7 +262,7 @@ class SettingsDialog(QDialog):
         terminal_row.addWidget(self.terminal_summary, 1)
         form.addRow("Terminal", terminal_row)
         layout.addLayout(form)
-        note = QLabel("Buttons send commands to the active terminal. Use them at an empty shell prompt.\n"
+        note = QLabel("Buttons run in this tab by default; the external option uses a separate Git Bash window.\n"
                       "Buttons belong to this tab. The Git Bash executable is shared by all tabs.\n"
                       "Startup folder changes apply when you restart this shell.")
         note.setWordWrap(True)
@@ -337,19 +344,23 @@ class SettingsDialog(QDialog):
         self.table.setItem(row, 1, QTableWidgetItem(command))
         self.set_command_preview(row, command, (metadata or {}).get('timing', False),
                                  (metadata or {}).get('confirm', False),
-                                 (metadata or {}).get('description', ''))
+                                 (metadata or {}).get('description', ''),
+                                 (metadata or {}).get('external', False))
         self.table.selectRow(row)
 
-    def set_command_preview(self, row, command, timing, confirm=False, button_description=''):
+    def set_command_preview(self, row, command, timing, confirm=False, button_description='', external=False):
         item = self.table.item(row, 1)
         item.setText(command)
         item.setIcon(self.timing_icon if timing else QIcon())
         item.setData(Qt.ItemDataRole.UserRole, confirm)
+        item.setData(Qt.ItemDataRole.UserRole + 1, external)
         indicators = []
         if timing:
             indicators.append("Show execution time enabled")
         if confirm:
             indicators.append("Confirm before using enabled")
+        if external:
+            indicators.append("Run in temporary external shell enabled")
         details = "\n".join(part for part in (button_description, " · ".join(indicators)) if part)
         item.setToolTip(f"{details}\n\n{command}" if details else command)
         item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, details)
@@ -394,7 +405,8 @@ class SettingsDialog(QDialog):
                 self.table.item(row, 0).setData(Qt.ItemDataRole.UserRole, values)
                 self.table.item(row, 0).setText(values['label'])
                 self.set_command_preview(row, values['command'], values.get('timing', False),
-                                         values.get('confirm', False), values.get('description', ''))
+                                         values.get('confirm', False), values.get('description', ''),
+                                         values.get('external', False))
         dialog.deleteLater()
 
     def delete_row(self):
@@ -512,6 +524,9 @@ class ShellTab(QWidget):
         self.command_buttons = []
         for index, entry in enumerate(self.data["buttons"]):
             button = CommandButton(entry["label"])
+            if entry.get('external', False):
+                button.setIcon(tab_icons.icon('terminal', '#73c991'))
+                button.setIconSize(QSize(16, 16))
             button.setToolTip("\n".join(part for part in
                               (entry['label'], entry.get('description', ''), entry['command']) if part))
             # A mouse click should return input to this tab's terminal.

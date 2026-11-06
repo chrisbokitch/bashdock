@@ -11,8 +11,9 @@ class CommandButton(QPushButton):
         option = QStyleOptionButton()
         self.initStyleOption(option)
         content = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, option, self)
+        icon_width = option.iconSize.width() + 4 if not option.icon.isNull() else 0
         option.text = self.fontMetrics().elidedText(option.text, Qt.TextElideMode.ElideRight,
-                                                   max(0, content.width()))
+                                                   max(0, content.width() - icon_width))
         painter = QStylePainter(self)
         painter.drawControl(QStyle.ControlElement.CE_PushButton, option)
 

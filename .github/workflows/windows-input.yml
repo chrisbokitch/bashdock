@@ -65,6 +65,8 @@ jobs:
       - name: Check command editing, icon search and per-button confirmation
         shell: pwsh
         run: |
+          .venv/Scripts/python.exe -m unittest discover -s tests -p test_external_shell.py -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe -m unittest discover -s tests -p test_command_editor.py -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .venv/Scripts/python.exe -m unittest discover -s tests -p test_command_timing.py -v

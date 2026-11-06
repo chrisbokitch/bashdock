@@ -1,4 +1,6 @@
 import tempfile
+import sys
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch, Mock, call
@@ -7,7 +9,20 @@ from bashdock import external_shell
 
 
 class ExternalShellTests(unittest.TestCase):
-    def test_temporary_command_uses_configured_bash_and_closes_when_command_ends(self):
+    @unittest.skipUnless(sys.platform == 'win32', 'Needs Git Bash on Windows')
+    def test_temporary_git_bash_executes_command_and_exit_line(self):
+        from bashdock.config import find_bash
+        bash = find_bash()
+        with tempfile.TemporaryDirectory(prefix='bashdock external ') as temp:
+            receipt = Path(temp) / 'command receipt.txt'
+            command = "printf '%s' 'external Bash ran' > 'command receipt.txt'\nexit"
+            external_shell.open_external(bash, temp, command=command)
+            deadline = time.monotonic() + 15
+            while not receipt.is_file() and time.monotonic() < deadline:
+                time.sleep(0.1)
+            self.assertEqual('external Bash ran', receipt.read_text(encoding='utf-8'))
+
+    def test_temporary_command_uses_git_bash_launcher_with_literal_command(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / 'Git with spaces'
             bash = root / 'bin' / 'bash.exe'
@@ -21,10 +36,23 @@ class ExternalShellTests(unittest.TestCase):
                     patch.object(external_shell.subprocess, 'Popen') as launch:
                 external_shell.open_external(str(bash), str(folder), command=command)
             args, options = launch.call_args
-            self.assertEqual([str(bash), '--login', '-i', '-c', command], args[0])
+            self.assertEqual([str(root / 'git-bash.exe'), f'--cd={folder.as_posix()}', '-c', command], args[0])
             self.assertEqual(str(folder), options['cwd'])
-            self.assertEqual(0x210, options['creationflags'])
+            self.assertEqual(0x208, options['creationflags'])
+            for stream in ('stdin', 'stdout', 'stderr'):
+                self.assertEqual(external_shell.subprocess.DEVNULL, options[stream])
             self.assertNotIn('shell', options)
+
+    def test_temporary_command_falls_back_to_new_console_without_git_bash_launcher(self):
+        with tempfile.TemporaryDirectory() as temp:
+            bash = Path(temp) / 'bash.exe'
+            bash.touch()
+            with patch.object(external_shell.sys, 'platform', 'win32'), \
+                    patch.object(external_shell.subprocess, 'Popen') as launch:
+                external_shell.open_external(str(bash), temp, command='printf done')
+            args, options = launch.call_args
+            self.assertEqual([str(bash), '--login', '-i', '-c', 'printf done'], args[0])
+            self.assertEqual(0x210, options['creationflags'])
 
     def test_m8_packaged_success_removes_only_runtime_paths_and_restores_parent_dll_lookup(self):
         import os

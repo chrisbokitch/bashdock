@@ -166,13 +166,16 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 ## Command buttons
 
 **Edit command button → Run in temporary external shell** runs that button's
-command in a separate Git Bash console using the tab's current folder. The
-console closes when the command finishes, and the tab's existing shell remains
+command in a separate Git Bash window using the tab's current folder. The
+window closes when the command finishes, and the tab's existing shell remains
 available or can keep a foreground process running. For example, a Web Preview
 button can run `cmd.exe /c start "" "https://localhost:8080"` while `npm run dev`
 continues in the tab. The browser opens in the Windows default browser. Commands
 that keep running also keep the external console open until they finish or you
 interrupt them there. Execution timing in BashDock is unavailable for this mode.
+An icon beside the button name and in Configure tab marks external commands.
+You may add `exit` as the final line, but it is not needed for an ordinary
+one-shot command.
 
 Put `<<interrupt>>` on its own line in a button's Bash command to send Ctrl+C to
 the active terminal. For example, `<<interrupt>>` followed by `npm run dev` on
