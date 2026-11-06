@@ -27,7 +27,7 @@ class CommandEditorTests(GuiTestCase):
 
     def test_temporary_external_shell_is_optional_and_disables_execution_timing(self):
         from bashdock.config import validate_buttons
-        editor = CommandEditor('Web Preview', 'cmd.exe /c start "" "https://example.com"', timing=True)
+        editor = CommandEditor('Web Preview', 'cmd.exe //c start "" "https://example.com"', timing=True)
         editor.external.setChecked(True)
         self.assertFalse(editor.timing.isChecked())
         self.assertFalse(editor.timing.isEnabled())

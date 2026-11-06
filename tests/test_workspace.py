@@ -172,7 +172,7 @@ class WorkspaceTests(unittest.TestCase):
         tab = self.window.current_tab()
         self.ready(tab)
         tab.terminal.ready = False  # The embedded shell is occupied by the server.
-        definition = dict(label='Web Preview', command='cmd.exe /c start "" "https://localhost:8080"',
+        definition = dict(label='Web Preview', command='cmd.exe //c start "" "https://localhost:8080"',
                           external=True)
         with patch.object(tab.terminal, 'run_command') as embedded, \
                 patch('bashdock.app.open_external') as launch:

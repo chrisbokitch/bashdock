@@ -15,14 +15,18 @@ class ExternalShellTests(unittest.TestCase):
         bash = find_bash()
         with tempfile.TemporaryDirectory(prefix='bashdock external ') as temp:
             receipt = Path(temp) / 'command receipt.txt'
-            command = "printf '%s' 'external Bash ran' > 'command receipt.txt'\nexit"
+            cmd_receipt = Path(temp) / 'cmd receipt.txt'
+            command = ("printf '%s' 'external Bash ran' > 'command receipt.txt'\n"
+                       "cmd.exe //c echo cmd-ran > 'cmd receipt.txt'\nexit")
             process = external_shell.open_external(bash, temp, command=command)
             deadline = time.monotonic() + 15
-            while not receipt.is_file() and time.monotonic() < deadline:
+            while not (receipt.is_file() and cmd_receipt.is_file()) and time.monotonic() < deadline:
                 time.sleep(0.1)
             self.assertEqual('external Bash ran', receipt.read_text(encoding='utf-8'))
             process.wait(timeout=15)
+            self.assertEqual('cmd-ran', cmd_receipt.read_text(encoding='utf-8').strip())
             receipt.unlink()
+            cmd_receipt.unlink()
             # Windows cannot remove a process's current directory until the
             # Git Bash window has actually closed, even after it wrote output.
             deadline = time.monotonic() + 15
@@ -44,7 +48,7 @@ class ExternalShellTests(unittest.TestCase):
             (root / 'git-bash.exe').touch()
             folder = Path(temp) / 'Project & café'
             folder.mkdir()
-            command = 'cmd.exe /c start "" "https://example.com/?a=1&b=2"'
+            command = 'cmd.exe //c start "" "https://example.com/?a=1&b=2"'
             with patch.object(external_shell.sys, 'platform', 'win32'), \
                     patch.object(external_shell.subprocess, 'Popen') as launch:
                 external_shell.open_external(str(bash), str(folder), command=command)
