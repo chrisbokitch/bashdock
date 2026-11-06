@@ -101,13 +101,15 @@ M1–M9/U1–U7 checks. Preserve recorded historical passes; select outstanding 
 and retests warranted by the candidate's changes. A new candidate still needs
 its own identity/checksum and final smoke result (F1–F3).
 
-For a small UI update with unchanged dependencies and updater/install behavior,
+For a small update with unchanged dependencies and updater/install behavior,
 use a focused release check: passing Windows CI and compatibility jobs, owner
-checks of the changed UI, and a short smoke of the exact draft ZIP (checksum,
-launch/version, typed and button commands, changed UI, close/reopen). Record the
-selected scope and package identity. Do not repeat the entire 1.0 clean-VM,
-recovery and updater failure matrix unless relevant changes warrant it. Keep
-the signed metadata, asset/source inventory and public download checks.
+checks of the changed behavior when warranted, and an asset inventory. CI
+already checks the ZIP checksum and launches its extracted executable; compare
+the attached ZIP's GitHub SHA-256 digest with the published `.sha256` value.
+A separate owner download and `sha256sum -c` is optional for these releases.
+Record the selected scope and package identity. Repeat the clean-VM, recovery,
+or updater failure checks only when relevant changes warrant them. Keep the
+signed metadata, source inventory, and public download checks.
 
 Download the ZIP attached to the draft and test that exact file on the clean Windows VM:
 
@@ -195,12 +197,14 @@ accepting a release. Source collections deliberately include some
 optional components and build tools. Recheck new dependencies and native DLLs
 when updating the lock or Python version. See `docs/licensing/README.md`.
 
-Run `scripts/verify_release.py` with all assets present: it checks required
-license/source files, source-asset hashes, and the extracted executable. Before
-publishing a draft, download all its assets and run `sha256sum -c
-bashdock-VERSION-SHA256SUMS.txt`; confirm source downloads work with the same
-access as the executable. For public launch, check anonymously, not only as the
-repository owner. Retain released source assets alongside the binaries.
+CI runs `scripts/verify_release.py` with all assets present: it checks required
+license/source files, source-asset hashes, the ZIP checksum, and the extracted
+executable. Before publishing, confirm the attached asset inventory and compare
+GitHub's ZIP SHA-256 digest to the `.sha256` file. Download and run
+`sha256sum -c bashdock-VERSION-SHA256SUMS.txt` when investigating a transfer or
+asset mismatch; it is not a routine owner gate. For public launch, confirm
+source assets are downloadable anonymously with the same access as the executable.
+Retain released source assets alongside the binaries.
 
 The app's About dialog exposes GPLv3 and the dependency overview without a
 network connection. Test this in the VM. Third-party rights, including LGPL
