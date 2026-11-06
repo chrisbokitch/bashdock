@@ -22,7 +22,11 @@ class ExternalShellTests(unittest.TestCase):
                        "cmd.exe //c echo cmd-ran > 'cmd receipt.txt'\nexit")
             process = external_shell.open_external(bash, temp, command=command)
             deadline = time.monotonic() + 15
-            while not (receipt.is_file() and cmd_receipt.is_file()) and time.monotonic() < deadline:
+            while time.monotonic() < deadline:
+                if (receipt.is_file() and cmd_receipt.is_file() and
+                        receipt.read_text(encoding='utf-8') == 'external Bash ran' and
+                        cmd_receipt.read_text(encoding='utf-8').strip() == 'cmd-ran'):
+                    break
                 time.sleep(0.1)
             self.assertEqual('external Bash ran', receipt.read_text(encoding='utf-8'))
             process.wait(timeout=15)
