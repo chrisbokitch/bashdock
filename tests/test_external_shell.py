@@ -17,7 +17,7 @@ class ExternalShellTests(unittest.TestCase):
             receipt = Path(temp) / 'command receipt.txt'
             cmd_receipt = Path(temp) / 'cmd receipt.txt'
             command = ("printf '%s' 'external Bash ran' > 'command receipt.txt'\n"
-                       "cmd.exe //c echo cmd-ran > 'cmd receipt.txt'\nexit")
+                       "cmd.exe /c echo cmd-ran > 'cmd receipt.txt'\nexit")
             process = external_shell.open_external(bash, temp, command=command)
             deadline = time.monotonic() + 15
             while not (receipt.is_file() and cmd_receipt.is_file()) and time.monotonic() < deadline:
@@ -39,13 +39,16 @@ class ExternalShellTests(unittest.TestCase):
                         self.fail('Temporary Git Bash window did not close after exit')
                     time.sleep(0.1)
 
-    def test_temporary_command_uses_git_bash_launcher_with_literal_command(self):
+    def test_temporary_command_passes_literal_text_to_mintty_and_bash(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / 'Git with spaces'
             bash = root / 'bin' / 'bash.exe'
             bash.parent.mkdir(parents=True)
             bash.touch()
             (root / 'git-bash.exe').touch()
+            mintty = root / 'usr' / 'bin' / 'mintty.exe'
+            mintty.parent.mkdir(parents=True)
+            mintty.touch()
             folder = Path(temp) / 'Project & café'
             folder.mkdir()
             command = 'cmd.exe //c start "" "https://example.com/?a=1&b=2"'
@@ -53,7 +56,8 @@ class ExternalShellTests(unittest.TestCase):
                     patch.object(external_shell.subprocess, 'Popen') as launch:
                 external_shell.open_external(str(bash), str(folder), command=command)
             args, options = launch.call_args
-            self.assertEqual([str(root / 'git-bash.exe'), f'--cd={folder.as_posix()}', '-c', command], args[0])
+            self.assertEqual([str(mintty), '--hold=never', '--exec', str(bash),
+                              '--login', '-i', '-c', command], args[0])
             self.assertEqual(str(folder), options['cwd'])
             self.assertEqual(0x208, options['creationflags'])
             for stream in ('stdin', 'stdout', 'stderr'):
