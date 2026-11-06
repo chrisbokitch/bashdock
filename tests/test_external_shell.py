@@ -13,11 +13,13 @@ class ExternalShellTests(unittest.TestCase):
     def test_temporary_git_bash_executes_command_and_exit_line(self):
         from bashdock.config import find_bash
         bash = find_bash()
-        with tempfile.TemporaryDirectory(prefix='bashdock external ') as temp:
+        # If the external terminal hangs, preserve the assertion that explains
+        # the failure instead of replacing it with a Windows cleanup error.
+        with tempfile.TemporaryDirectory(prefix='bashdock external ', ignore_cleanup_errors=True) as temp:
             receipt = Path(temp) / 'command receipt.txt'
             cmd_receipt = Path(temp) / 'cmd receipt.txt'
             command = ("printf '%s' 'external Bash ran' > 'command receipt.txt'\n"
-                       "cmd.exe /c echo cmd-ran > 'cmd receipt.txt'\nexit")
+                       "cmd.exe //c echo cmd-ran > 'cmd receipt.txt'\nexit")
             process = external_shell.open_external(bash, temp, command=command)
             deadline = time.monotonic() + 15
             while not (receipt.is_file() and cmd_receipt.is_file()) and time.monotonic() < deadline:
