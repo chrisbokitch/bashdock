@@ -43,6 +43,7 @@ new QWebChannel(qt.webChannelTransport, channel => {
   let preferences = {copy_on_select: false, right_click_paste: false};
   const readySessions = [];
   const commandEvents = [];
+  let promptReports = 0;
   terminal.parser.registerOscHandler(777, data => {
     const commandPrefix = 'bashdock-command;';
     if (data.startsWith(commandPrefix)) {
@@ -57,6 +58,7 @@ new QWebChannel(qt.webChannelTransport, channel => {
     const prefix = 'bashdock-cwd;';
     if (!data.startsWith(prefix)) return false;
     bridge.directory(data.slice(prefix.length));
+    promptReports++;
     return true;
   });
   terminal.onData(data => bridge.input(data));
@@ -65,6 +67,10 @@ new QWebChannel(qt.webChannelTransport, channel => {
     // xterm parses output asynchronously. Release queued buttons only after
     // startup output (including terminal queries) has actually been processed.
     while (commandEvents.length) bridge.commandEvent(commandEvents.shift());
+    while (promptReports > 0) {
+      promptReports--;
+      bridge.promptReady();
+    }
     while (readySessions.length) bridge.shellReady(readySessions.shift());
   }));
   // Buttons represent typed commands, not clipboard pastes. Send the command

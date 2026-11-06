@@ -165,6 +165,15 @@ Workspaces start fresh shell sessions. They preserve command buttons such as an 
 
 ## Command buttons
 
+Put `<<interrupt>>` on its own line in a button's Bash command to send Ctrl+C to
+the active terminal. For example, `<<interrupt>>` followed by `npm run dev` on
+the next line stops the foreground program, waits for the local Bash prompt,
+then runs the new command. A button containing only `<<interrupt>>` also works
+inside an interactive or remote session. The marker is a BashDock instruction,
+not Bash syntax; the spelling must be exact. If an interactive or remote program
+does not return to the local Bash prompt, any following lines remain pending.
+
+
 **Edit command button → Show execution time** enables timing for that button. It is off
 by default for existing buttons, new buttons, and presets. In **Configure tab**, a small green
 clock before the Bash command marks buttons with timing enabled. A matching green bell before

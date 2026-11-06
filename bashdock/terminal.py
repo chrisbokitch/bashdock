@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from .shell_integration import valid_reported_directory, command_file_for
 from .shell_backend import spawn_shell
 from .command_startup import CommandStartup
+from .command_sequence import command_steps
 from .command_timing import CommandTiming, TRIGGER, stage_command
 from .input_diagnostics import CommandTrace
 from . import terminal_preferences
@@ -92,6 +93,10 @@ class Bridge(QObject):
             self.terminal.at_prompt = True
             self.terminal.directory_changed.emit(path)
 
+    @Slot()
+    def promptReady(self):
+        self.terminal.advance_button_sequence()
+
     @Slot(str)
     def copy(self, text):
         QApplication.clipboard().setText(text)
@@ -141,6 +146,7 @@ class Terminal(QWebEngineView):
         self.init_file = None
         self.command_startup = CommandStartup()
         self.command_timing = CommandTiming()
+        self.button_sequence = None
         self.at_prompt = False
         self.trace = CommandTrace()
         self.preferences = terminal_preferences.defaults()
@@ -194,6 +200,7 @@ class Terminal(QWebEngineView):
         self.cleanup_init_file()
         session_id = self.command_startup.begin()
         self.command_timing.reset()
+        self.button_sequence = None
         self.at_prompt = False
         self.trace.reset()
         self.trace.record('shell_start', rows=self.dimensions[0], cols=self.dimensions[1])
@@ -242,6 +249,7 @@ class Terminal(QWebEngineView):
                 self.process = None
                 self.command_startup.reset()
                 self.command_timing.reset()
+                self.button_sequence = None
                 self.at_prompt = False
                 self.trace.reset()
                 self.trace.record('shell_stop')
@@ -271,12 +279,51 @@ class Terminal(QWebEngineView):
             except (OSError, RuntimeError, EOFError) as error:
                 self.trace.record('write_failed', command=command_id,
                     errno=getattr(error, 'errno', None), winerror=getattr(error, 'winerror', None))
+                self.button_sequence = None
                 if command_id:
                     self.command_timing.reset()
                     self.clear_command_file()
                 self.problem.emit(str(error))
 
     def run_command(self, command, *, label=None):
+        steps = command_steps(command)
+        if any(kind == 'interrupt' for kind, _ in steps):
+            if getattr(self, 'button_sequence', None) is not None:
+                self.problem.emit('A command button is still waiting for the shell prompt.')
+                return
+            self.button_sequence = (self.process, self.command_startup.session_id, steps, label)
+            self.advance_button_sequence()
+            return
+        if getattr(self, 'button_sequence', None) is not None:
+            self.problem.emit('A command button is still waiting for the shell prompt.')
+            return
+        Terminal._run_single_command(self, command, label=label)
+
+    def advance_button_sequence(self):
+        sequence = getattr(self, 'button_sequence', None)
+        if sequence is None:
+            return
+        process, session_id, steps, label = sequence
+        if (not self.process or self.process is not process or
+                self.command_startup.session_id != session_id):
+            self.button_sequence = None
+            return
+        if not self.command_startup.ready:
+            return
+        if not steps:
+            self.button_sequence = None
+            return
+        kind, payload = steps.pop(0)
+        if not steps:
+            self.button_sequence = None
+        if kind == 'interrupt':
+            self.at_prompt = False
+            self.focus_terminal()
+            self.write('\x03')
+        else:
+            Terminal._run_single_command(self, payload, label=label if not steps else None)
+
+    def _run_single_command(self, command, *, label=None):
         timed = (label and self.process and self.init_file and not self.command_timing.token and
                  (self.at_prompt or not self.command_startup.ready))
         if timed:
@@ -330,6 +377,7 @@ class Terminal(QWebEngineView):
         self.trace.record('shell_ready', accepted=session_id == self.command_startup.session_id)
         for command_id, command in self.command_startup.release(session_id):
             self.dispatch_command(command_id, command)
+        Terminal.advance_button_sequence(self)
 
     def cleanup_init_file(self):
         self.clear_command_file()
@@ -345,6 +393,7 @@ class Terminal(QWebEngineView):
         self.trace.reset()
         self.command_startup.reset()
         self.command_timing.reset()
+        self.button_sequence = None
         self.at_prompt = False
         self.stopping.set()
         process, self.process = self.process, None

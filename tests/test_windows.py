@@ -325,6 +325,16 @@ class WindowsTests(GuiTestCase):
             s.receipt('script folder/vi-tab.txt', 'vi\ttab')
             editor.deleteLater()
 
+    def test_button_interrupts_foreground_command_before_running_next_script(self):
+        with self.interactive_session() as s:
+            s.terminal.run_command("sleep 30; printf wrong > interrupted.txt")
+            s.wait(lambda: not s.terminal.at_prompt and 'sleep 30' in s.screen())
+            s.terminal.run_command('<<interrupt>>\nprintf ready > after-interrupt.txt')
+            s.receipt('after-interrupt.txt', 'ready')
+            self.assertFalse((s.folder / 'interrupted.txt').exists())
+            s.terminal.run_command('printf still-running > later.txt')
+            s.receipt('later.txt', 'still-running')
+
     def test_m4_history_editing_completion_interrupt_and_unicode(self):
         with self.interactive_session() as s:
             key, qt = s.key, s.qt
