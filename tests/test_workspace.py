@@ -958,7 +958,7 @@ class WorkspaceTests(unittest.TestCase):
             editor.add_button()
         editor.commit()
         expected = {'label': 'Multiline', 'command': body, 'description': '',
-                    'confirm': False, 'timing': False,
+                    'confirm': False, 'timing': False, 'external': False,
                     'confirmation_message': 'Are you sure?'}
         self.assertEqual(expected, editor.result_data['buttons'][-1])
         with patch('bashdock.app.SettingsDialog', return_value=editor), \
