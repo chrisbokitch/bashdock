@@ -8,6 +8,18 @@ from bashdock import config
 
 
 class ConfigTests(unittest.TestCase):
+    def test_external_button_survives_settings_roundtrip(self):
+        from bashdock.preset_library import as_group, group_from_tab
+        data = config.defaults()
+        button = data['tabs'][0]['buttons'][0]
+        button['external'] = True
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'settings.json'
+            config.save(data, path)
+            self.assertTrue(config.read(path)['tabs'][0]['buttons'][0]['external'])
+        group = group_from_tab('Preview', 'Web', [button])
+        self.assertTrue(as_group(group).buttons[0].definition()['external'])
+
     def test_optional_confirmation_fields_roundtrip_and_legacy_buttons_stay_unconfirmed(self):
         import copy
         data = config.defaults()

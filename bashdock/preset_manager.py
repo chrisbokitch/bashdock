@@ -30,6 +30,11 @@ class PresetButtonEditor(QDialog):
         self.command.setMinimumHeight(140)
         self.timing = QCheckBox('Show execution time')
         self.timing.setChecked(button.get('timing', False))
+        self.external = QCheckBox('Run in temporary external shell')
+        self.external.setChecked(button.get('external', False))
+        self.external.toggled.connect(lambda checked: self.timing.setChecked(False) if checked else None)
+        self.external.toggled.connect(lambda checked: self.timing.setEnabled(not checked))
+        self.timing.setEnabled(not self.external.isChecked())
         self.confirm = QCheckBox('Confirm before using')
         self.confirm.setChecked(button.get('confirm', False))
         self.message = QLineEdit(button.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE))
@@ -39,6 +44,7 @@ class PresetButtonEditor(QDialog):
         form.addRow('Description', self.description)
         form.addRow('Bash command', self.command)
         form.addRow(self.timing)
+        form.addRow(self.external)
         form.addRow(self.confirm)
         form.addRow('Confirmation message', self.message)
         layout.addLayout(form)
@@ -53,6 +59,7 @@ class PresetButtonEditor(QDialog):
     def commit(self):
         data = dict(label=self.label.text(), command=self.command.toPlainText(),
                     description=self.description.text(), timing=self.timing.isChecked(),
+                    external=self.external.isChecked(),
                     confirm=self.confirm.isChecked(),
                     confirmation_message=self.message.text() or config.DEFAULT_CONFIRMATION_MESSAGE)
         try:
@@ -200,10 +207,12 @@ class PresetManager(QDialog):
         description = button.get('description', '') if isinstance(button, dict) else button.description
         confirm = button.get('confirm', False) if isinstance(button, dict) else button.confirm
         timing = button.get('timing', False) if isinstance(button, dict) else button.timing
+        external = button.get('external', False) if isinstance(button, dict) else button.external
         message = button.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE) if isinstance(button, dict) else button.message
         self.preview.setPlainText(f'{description}\n\n{command}\n\nConfirm before using: '
                                   + (message if confirm else 'off') + '\nShow execution time: '
-                                  + ('on' if timing else 'off'))
+                                  + ('on' if timing else 'off') + '\nTemporary external shell: '
+                                  + ('on' if external else 'off'))
 
     def unique_name(self, name):
         occupied = {group.name.casefold() for group in GROUPS} | {

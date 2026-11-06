@@ -384,7 +384,8 @@ class SettingsDialog(QDialog):
                                confirm=original.get('confirm', False),
                                confirmation_message=original.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
                                timing=original.get('timing', False),
-                               description=original.get('description', ''))
+                               description=original.get('description', ''),
+                               external=original.get('external', False))
         if dialog.exec() == QDialog.DialogCode.Accepted:
             values = dict(original, **dialog.result_data)
             if new:
@@ -548,7 +549,14 @@ class ShellTab(QWidget):
         if (isValid(self) and isValid(terminal) and isValid(owner)
                 and owner.tabs.indexOf(self) >= 0 and self.terminal is terminal
                 and terminal.process is process):
-            if entry.get('timing', False):
+            if entry.get('external', False):
+                bash_path = self.shell_bash_path or owner.data['bash_path']
+                try:
+                    open_external(bash_path, self.data['current_folder'], command=entry['command'])
+                except (OSError, ValueError, RuntimeError) as error:
+                    owner.statusBar().showMessage(f"Could not run external command: {error}")
+                    QMessageBox.warning(owner, "Cannot run external command", str(error))
+            elif entry.get('timing', False):
                 terminal.run_command(entry['command'], label=entry['label'])
             else:
                 terminal.run_command(entry['command'])
@@ -1506,7 +1514,8 @@ class MainWindow(QMainWindow):
                                    confirm=entry.get('confirm', False),
                                    confirmation_message=entry.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
                                    staged=False, timing=entry.get('timing', False),
-                                   description=entry.get('description', ''))
+                                   description=entry.get('description', ''),
+                                   external=entry.get('external', False))
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 dialog.deleteLater()
                 self.restore_terminal_focus()

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 
-def open_external(bash_path, folder):
+def open_external(bash_path, folder, *, command=None):
     if sys.platform != "win32":
         raise RuntimeError("Opening an external shell requires Windows.")
     bash = Path(bash_path)
@@ -18,7 +18,13 @@ def open_external(bash_path, folder):
     # Git installs expose either bin/bash.exe or usr/bin/bash.exe.
     launcher = next((root / "git-bash.exe" for root in (bash.parent.parent, bash.parent.parent.parent)
                      if (root / "git-bash.exe").is_file()), None)
-    if launcher:
+    if command is not None:
+        # Run one command in a separate console. Bash exits when it finishes,
+        # leaving the embedded shell free even when it has a foreground job.
+        args = [str(bash), "--login", "-i", "-c", command]
+        flags = 0x00000010 | 0x00000200  # CREATE_NEW_CONSOLE | CREATE_NEW_PROCESS_GROUP
+        streams = {}
+    elif launcher:
         args = [str(launcher), f"--cd={directory.as_posix()}"]
         flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
         streams = dict(stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -12,6 +12,7 @@ class PresetButton:
     confirm: bool = False
     message: str = DEFAULT_CONFIRMATION_MESSAGE
     timing: bool = False
+    external: bool = False
 
     def definition(self):
         result = dict(label=self.label, command=self.command, confirm=self.confirm,
@@ -20,6 +21,8 @@ class PresetButton:
             result['description'] = self.description
         if self.timing:
             result['timing'] = True
+        if self.external:
+            result['external'] = True
         return result
 
 

@@ -186,7 +186,9 @@ class PresetPicker(QDialog):
         confirmation = ('Confirm before using: ' + button.message if button.confirm else
                         'Confirm before using: off. You can change this in Edit command button.')
         self.confirmation.setText(confirmation + ('\nShow execution time: on' if button.timing else
-                                                   '\nShow execution time: off'))
+                                                   '\nShow execution time: off') +
+                                  ('\nTemporary external shell: on' if button.external else
+                                   '\nTemporary external shell: off'))
 
     def selection_changed(self, item):
         key = (self.group_index, self.entries.row(item))

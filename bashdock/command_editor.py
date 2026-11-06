@@ -24,7 +24,7 @@ class CommandBody(QPlainTextEdit):
 class CommandEditor(QDialog):
     def __init__(self, label, command, parent=None, *, confirm=False,
                  confirmation_message=DEFAULT_CONFIRMATION_MESSAGE, staged=True, timing=False,
-                 description=''):
+                 description='', external=False):
         super().__init__(parent)
         self.setWindowTitle("Edit command button")
         self.resize(680, 460)
@@ -73,12 +73,24 @@ class CommandEditor(QDialog):
         self.timing.setChecked(timing)
         self.timing.setToolTip("Show this button's elapsed time and exit status in the footer")
         layout.addWidget(self.timing)
-        note = QLabel("Enter adds a line; Tab inserts indentation. Use Ctrl+Tab to leave the editor.\n"
-                      "Runs in this tab's existing shell at an empty prompt. Bash syntax controls\n"
-                      "whether later commands run after a failure. Saving here only stages edits;\n"
-                      "Save Configure tab to keep them. Nothing runs while editing." if staged else
-                      "Enter adds a line; Tab inserts indentation. Use Ctrl+Tab to leave the editor.\n"
-                      "Save keeps this button immediately. Nothing runs while editing.")
+        self.external = QCheckBox("Run in temporary external shell")
+        self.external.setChecked(external)
+        self.external.setToolTip("Run independently of this tab; the external window closes when the command finishes")
+        self.external.toggled.connect(lambda checked: self.timing.setChecked(False) if checked else None)
+        self.external.toggled.connect(lambda checked: self.timing.setEnabled(not checked))
+        self.timing.setEnabled(not external)
+        layout.addWidget(self.external)
+        note = QLabel()
+        def update_note(checked):
+            location = ("Runs independently in a new console, which closes when the command finishes."
+                        if checked else "Runs in this tab's existing shell at an empty prompt.")
+            saving = ("Saving here only stages edits; Save Configure tab to keep them."
+                      if staged else "Save keeps this button immediately.")
+            note.setText("Enter adds a line; Tab inserts indentation. Use Ctrl+Tab to leave the editor.\n"
+                         f"{location} Bash syntax controls what runs after a failure.\n"
+                         f"{saving} Nothing runs while editing.")
+        self.external.toggled.connect(update_note)
+        update_note(external)
         note.setWordWrap(True)
         layout.addWidget(note)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save |
@@ -92,6 +104,7 @@ class CommandEditor(QDialog):
         data = {"label": self.label.text(), "command": self.command.toPlainText(),
                 "description": self.description.text(),
                 "confirm": self.confirm.isChecked(), "timing": self.timing.isChecked(),
+                "external": self.external.isChecked(),
                 "confirmation_message": message if message.strip() else DEFAULT_CONFIRMATION_MESSAGE}
         try:
             validate_buttons([data])

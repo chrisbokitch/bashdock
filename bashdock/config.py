@@ -55,6 +55,10 @@ def validate_buttons(buttons):
                 raise ValueError("Button descriptions must be text on one line, at most 500 characters.")
         if 'timing' in button and type(button['timing']) is not bool:
             raise ValueError("Show execution time must be true or false.")
+        if 'external' in button and type(button['external']) is not bool:
+            raise ValueError("Temporary external shell must be true or false.")
+        if button.get('external', False) and button.get('timing', False):
+            raise ValueError("Execution time is available only for commands run in the tab.")
         if 'confirm' in button and type(button['confirm']) is not bool:
             raise ValueError("Confirm before using must be true or false.")
         if 'confirmation_message' in button:

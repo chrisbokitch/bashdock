@@ -7,6 +7,25 @@ from bashdock import external_shell
 
 
 class ExternalShellTests(unittest.TestCase):
+    def test_temporary_command_uses_configured_bash_and_closes_when_command_ends(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / 'Git with spaces'
+            bash = root / 'bin' / 'bash.exe'
+            bash.parent.mkdir(parents=True)
+            bash.touch()
+            (root / 'git-bash.exe').touch()
+            folder = Path(temp) / 'Project & café'
+            folder.mkdir()
+            command = 'cmd.exe /c start "" "https://example.com/?a=1&b=2"'
+            with patch.object(external_shell.sys, 'platform', 'win32'), \
+                    patch.object(external_shell.subprocess, 'Popen') as launch:
+                external_shell.open_external(str(bash), str(folder), command=command)
+            args, options = launch.call_args
+            self.assertEqual([str(bash), '--login', '-i', '-c', command], args[0])
+            self.assertEqual(str(folder), options['cwd'])
+            self.assertEqual(0x210, options['creationflags'])
+            self.assertNotIn('shell', options)
+
     def test_m8_packaged_success_removes_only_runtime_paths_and_restores_parent_dll_lookup(self):
         import os
 

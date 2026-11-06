@@ -168,6 +168,20 @@ class WorkspaceTests(unittest.TestCase):
         self.assertTrue(tab.data['buttons'][1]['timing'])
         self.assertTrue(config.load(self.path)['tabs'][0]['buttons'][1]['timing'])
 
+    def test_external_button_launches_while_embedded_shell_has_foreground_job(self):
+        tab = self.window.current_tab()
+        self.ready(tab)
+        tab.terminal.ready = False  # The embedded shell is occupied by the server.
+        definition = dict(label='Web Preview', command='cmd.exe /c start "" "https://localhost:8080"',
+                          external=True)
+        with patch.object(tab.terminal, 'run_command') as embedded, \
+                patch('bashdock.app.open_external') as launch:
+            tab.run_button_command(definition)
+        embedded.assert_not_called()
+        launch.assert_called_once_with(str(self.bash), tab.data['current_folder'],
+                                       command=definition['command'])
+        self.assertIsNotNone(tab.terminal.process)
+
     def test_configure_command_clock_follows_timing_edits_and_row_moves_without_changing_script(self):
         from PySide6.QtCore import Qt
         from PySide6.QtWidgets import QDialog

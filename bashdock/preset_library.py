@@ -18,7 +18,8 @@ def group_from_tab(name, tab_name, buttons):
                                                 confirm=button.get('confirm', False),
                                                 confirmation_message=button.get('confirmation_message',
                                                     config.DEFAULT_CONFIRMATION_MESSAGE),
-                                                timing=button.get('timing', False)) for button in buttons])
+                                                timing=button.get('timing', False),
+                                                external=button.get('external', False)) for button in buttons])
     config.validate_preset_groups([group])
     return group
 
@@ -28,7 +29,8 @@ def as_group(group):
                        tuple(PresetButton(button['label'], button['command'],
                                           button.get('description', ''), button.get('confirm', False),
                                           button.get('confirmation_message', config.DEFAULT_CONFIRMATION_MESSAGE),
-                                          button.get('timing', False)) for button in group['buttons']))
+                                          button.get('timing', False),
+                                          button.get('external', False)) for button in group['buttons']))
 
 
 def copy_builtin(group):

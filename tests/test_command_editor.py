@@ -22,8 +22,24 @@ class CommandEditorTests(GuiTestCase):
         editor.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
         self.assertEqual(QDialog.DialogCode.Accepted, editor.result())
         self.assertEqual({'label': ' Build ', 'command': body, 'description': '',
-                          'confirm': False, 'timing': False,
+                          'confirm': False, 'timing': False, 'external': False,
                           'confirmation_message': 'Are you sure?'}, editor.result_data)
+
+    def test_temporary_external_shell_is_optional_and_disables_execution_timing(self):
+        from bashdock.config import validate_buttons
+        editor = CommandEditor('Web Preview', 'cmd.exe /c start "" "https://example.com"', timing=True)
+        editor.external.setChecked(True)
+        self.assertFalse(editor.timing.isChecked())
+        self.assertFalse(editor.timing.isEnabled())
+        editor.commit()
+        self.assertTrue(editor.result_data['external'])
+        restored = CommandEditor('Web Preview', editor.result_data['command'], external=True)
+        self.assertTrue(restored.external.isChecked())
+        for value in (None, 1, 'true'):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'external shell'):
+                validate_buttons([dict(label='Preview', command='pwd', external=value)])
+        with self.assertRaisesRegex(ValueError, 'Execution time'):
+            validate_buttons([dict(label='Preview', command='pwd', external=True, timing=True)])
 
     def test_optional_description_is_editable_and_validated_on_one_line(self):
         from bashdock.config import validate_buttons
