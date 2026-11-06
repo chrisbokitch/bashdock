@@ -16,11 +16,24 @@ class ExternalShellTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='bashdock external ') as temp:
             receipt = Path(temp) / 'command receipt.txt'
             command = "printf '%s' 'external Bash ran' > 'command receipt.txt'\nexit"
-            external_shell.open_external(bash, temp, command=command)
+            process = external_shell.open_external(bash, temp, command=command)
             deadline = time.monotonic() + 15
             while not receipt.is_file() and time.monotonic() < deadline:
                 time.sleep(0.1)
             self.assertEqual('external Bash ran', receipt.read_text(encoding='utf-8'))
+            process.wait(timeout=15)
+            receipt.unlink()
+            # Windows cannot remove a process's current directory until the
+            # Git Bash window has actually closed, even after it wrote output.
+            deadline = time.monotonic() + 15
+            while True:
+                try:
+                    Path(temp).rmdir()
+                    break
+                except PermissionError:
+                    if time.monotonic() >= deadline:
+                        self.fail('Temporary Git Bash window did not close after exit')
+                    time.sleep(0.1)
 
     def test_temporary_command_uses_git_bash_launcher_with_literal_command(self):
         with tempfile.TemporaryDirectory() as temp:

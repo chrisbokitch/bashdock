@@ -56,8 +56,8 @@ def open_external(bash_path, folder, *, command=None):
         if not set_dll_directory(None):
             raise OSError("Could not reset the DLL search path for the external shell.")
     try:
-        subprocess.Popen(args, cwd=str(directory), env=env,
-                         creationflags=flags, close_fds=True, **streams)
+        return subprocess.Popen(args, cwd=str(directory), env=env,
+                                creationflags=flags, close_fds=True, **streams)
     finally:
         if set_dll_directory is not None:
             set_dll_directory(runtime)
