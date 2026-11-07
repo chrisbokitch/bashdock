@@ -792,7 +792,7 @@ class TabStrip(QTabBar):
         super().mouseDoubleClickEvent(event)
         if event.button() == Qt.MouseButton.LeftButton:
             # Qt calls mousePressEvent after tabBarDoubleClicked returns. By
-            # then the modal rename dialog has already consumed the release.
+            # then the modal configuration dialog has already consumed the release.
             # Finish that press so hovering cannot start dragging the tab.
             release = QMouseEvent(QEvent.Type.MouseButtonRelease, event.position(), event.globalPosition(),
                                   event.button(), Qt.MouseButton.NoButton, event.modifiers())
@@ -864,7 +864,7 @@ class MainWindow(QMainWindow):
         self.tabs.tabBar().setExpanding(False)
         self.tabs.tabBar().setDrawBase(False)
         self.tabs.tabCloseRequested.connect(self.close_tab)
-        self.tabs.tabBarDoubleClicked.connect(self.rename_tab)
+        self.tabs.tabBarDoubleClicked.connect(self.configure_double_clicked_tab)
         self.tabs.tabBar().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabs.tabBar().customContextMenuRequested.connect(self.show_tab_menu)
         self.tabs.currentChanged.connect(self.tab_changed)
@@ -1570,6 +1570,10 @@ class MainWindow(QMainWindow):
             self.tabs.setTabToolTip(index, tab.data['name'])
             self.tabs.tabBar().setAccessibleTabName(index, tab.data['name'])
             self.schedule_save()
+
+    def configure_double_clicked_tab(self, index):
+        if 0 <= index < self.tabs.count():
+            self.configure(self.tabs.widget(index))
 
     def tab_changed(self, *args):
         self.refresh_tab_colors()

@@ -3368,10 +3368,10 @@ class WorkspaceTests(unittest.TestCase):
             self.window.tabs.setCurrentIndex(0)
             self.assertEqual(expected, positions())
 
-    def test_cancelled_tab_rename_does_not_leave_tab_dragging_on_hover(self):
+    def test_cancelled_tab_configuration_does_not_leave_tab_dragging_on_hover(self):
         from PySide6.QtCore import QPoint, Qt, QTimer
         from PySide6.QtTest import QTest
-        from PySide6.QtWidgets import QTabBar, QInputDialog
+        from PySide6.QtWidgets import QTabBar
         self.window.new_tab()
         self.window.show()
         for _ in range(4):
@@ -3388,7 +3388,9 @@ class WorkspaceTests(unittest.TestCase):
         cancelled = []
 
         def cancel_dialog():
-            dialog = next(d for d in self.window.findChildren(QInputDialog) if d.isVisible())
+            dialog = next(d for d in self.window.findChildren(SettingsDialog) if d.isVisible())
+            self.assertEqual('Configure tab', dialog.windowTitle())
+            self.assertEqual(names[0], dialog.name.text())
             cancelled.append(True)
             dialog.reject()
 
@@ -3401,6 +3403,34 @@ class WorkspaceTests(unittest.TestCase):
             self.app.processEvents()
             self.assertEqual(expected, geometry())
         self.assertEqual(names, [self.window.tabs.tabText(i) for i in range(bar.count())])
+
+    def test_double_click_configures_clicked_tab_and_saves_name(self):
+        from PySide6.QtCore import QPoint, Qt, QTimer
+        from PySide6.QtTest import QTest
+        self.window.new_tab()
+        first = self.window.tabs.widget(0)
+        second = self.window.tabs.widget(1)
+        self.window.show()
+        for _ in range(4):
+            self.app.processEvents()
+        bar = self.window.tabs.tabBar()
+        edited = []
+
+        def save_dialog():
+            dialog = next(d for d in self.window.findChildren(SettingsDialog) if d.isVisible())
+            self.assertEqual(first.data['name'], dialog.name.text())
+            dialog.name.setText('Cabin project')
+            dialog.commit()
+            edited.append(True)
+
+        QTimer.singleShot(25, save_dialog)
+        QTest.mouseDClick(bar, Qt.MouseButton.LeftButton,
+                         pos=QPoint(20, bar.tabRect(0).bottom() - 8))
+        self.assertEqual([True], edited)
+        self.assertEqual('Cabin project', first.data['name'])
+        self.assertEqual('Cabin project', self.window.tabs.tabText(0))
+        self.assertEqual('Cabin project', config.read(self.path)['tabs'][0]['name'])
+        self.assertEqual(second.data['name'], self.window.tabs.tabText(1))
 
     def test_external_menu_uses_active_shell_and_remembered_directory_without_stopping_it(self):
         self.window.new_tab()
