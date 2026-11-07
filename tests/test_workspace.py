@@ -2100,8 +2100,8 @@ class WorkspaceTests(unittest.TestCase):
             self.app.processEvents()
             self.assertEqual(2, fourth.terminal.focus_requests)
 
-    def test_tab_rename_dialog_accept_cancel_and_blank_preserve_saved_identity(self):
-        from PySide6.QtCore import Qt, QTimer
+    def test_tab_rename_menu_accept_cancel_and_blank_preserve_saved_identity(self):
+        from PySide6.QtCore import QTimer
         from PySide6.QtTest import QTest
         from PySide6.QtWidgets import QInputDialog
 
@@ -2142,7 +2142,7 @@ class WorkspaceTests(unittest.TestCase):
                         if modal is not None:
                             modal.reject()
 
-                bar = self.window.tabs.tabBar()
+                rename = next(a for a in self.window.manage_menu.actions() if a.text() == 'Rename tab…')
                 self.app.processEvents()
                 timer.timeout.connect(finish_dialog)
                 timer.start()
@@ -2153,8 +2153,7 @@ class WorkspaceTests(unittest.TestCase):
                     QTest.qWait(60)
                     self.assertEqual([], observed)
                     self.assertEqual([], errors)
-                    QTest.mouseDClick(bar, Qt.MouseButton.LeftButton,
-                                     pos=bar.tabRect(0).center())
+                    rename.trigger()
                     if errors:
                         raise errors[0]
                 finally:
