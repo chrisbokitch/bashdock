@@ -151,7 +151,8 @@ Each tab has a persistent random UUID, preserved across renaming, configuration 
 
 Tabs receive distinct generic shape icons automatically, using all 12 shapes before
 repeating the least-used shape. **Configure tab → Tab icon → Choose icon…** offers
-96 original bundled shapes and symbols. **Search icons…** filters immediately by
+105 original bundled shapes and symbols, including cabin and landscape icons.
+**Search icons…** filters immediately by
 name or keyword (for example, SSH, Python, testing or gaming), without Enter.
 Press Down from search to select a visible result with the keyboard. Clearing the
 search restores the remembered selection; a filtered-out selection cannot be

@@ -24,7 +24,7 @@ class TabIconPickerTests(GuiTestCase):
                 for i in range(self.picker.icons.count()) if not self.picker.icons.item(i).isHidden()}
 
     def test_expanded_catalog_renders_and_keeps_the_original_automatic_shapes(self):
-        self.assertEqual(96, len(CATALOG))
+        self.assertEqual(105, len(CATALOG))
         self.assertEqual(set(CATALOG), set(KEYWORDS))
         self.assertEqual(['circle', 'diamond', 'square', 'triangle', 'hexagon', 'star',
                           'cross', 'pentagon', 'rings', 'grid', 'target', 'cube'], list(GENERIC))
@@ -45,6 +45,9 @@ class TabIconPickerTests(GuiTestCase):
         self.assertEqual({'containers'}, self.visible())
         self.picker.search.setText('PYTHON')
         self.assertTrue({'code', 'script', 'flask'} <= self.visible())
+        self.picker.search.setText('cabin')
+        self.assertEqual({'cabin', 'a-frame', 'pine-tree', 'mountain', 'lake',
+                          'campfire', 'tent', 'logs', 'trail'}, self.visible())
 
     def test_no_match_cannot_accept_hidden_selection_and_clear_restores_choice(self):
         self.picker.show()

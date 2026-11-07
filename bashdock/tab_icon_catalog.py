@@ -108,7 +108,19 @@ MORE_SYMBOLS = {
     'heart': ('Heart', '<path d="M12 21 3 12C-2 5 7-1 12 6c5-7 14-1 9 6Z"/>'),
     'leaf': ('Leaf', '<path d="M3 21C-1 5 10 3 22 2c-1 12-3 22-19 19ZM3 21 17 7M9 15V9m0 6h6"/>'),
 }
-CATALOG = {**GENERIC, **SYMBOLS, **MORE_SYMBOLS}
+# Original outdoor line drawings for cabin and landscape projects.
+CABIN_SYMBOLS = {
+    'cabin': ('Cabin', '<path d="m2 11 10-8 10 8M4 10v11h16V10M9 21v-7h6v7M16 4V2h3v5M2 21h20"/>'),
+    'a-frame': ('A-frame', '<path d="M2 21 12 3l10 18ZM7 21l5-10 5 10M10 21v-5h4v5"/>'),
+    'pine-tree': ('Pine tree', '<path d="m12 2-5 7h3l-5 6h3l-5 5h18l-5-5h3l-5-6h3ZM12 20v3"/>'),
+    'mountain': ('Mountain', '<path d="m2 21 8-16 4 8 2-4 6 12ZM7 11l3 2 2-2M16 9l2 2"/>'),
+    'lake': ('Lake', '<path d="m2 13 5-5 3 3 4-6 8 8M2 17c2-2 4 2 6 0s4-2 6 0 4 2 8 0M2 21c2-2 4 2 6 0s4-2 6 0 4 2 8 0"/>'),
+    'campfire': ('Campfire', '<path d="M12 3c2 4-1 5 2 8 1-2 2-3 2-4 4 4 5 7 3 10a7 7 0 0 1-14 0c-1-3 1-6 4-9 0 3 1 4 2 5 2-3-1-5 1-10ZM2 22l20-4M2 18l20 4"/>'),
+    'tent': ('Tent', '<path d="M2 21 12 3l10 18ZM12 3v18m-6 0 6-9 6 9M1 21h22"/>'),
+    'logs': ('Logs', '<circle cx="6" cy="18" r="3"/><circle cx="12" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 15 9 6h12l-3 9M12 15l3-9M3 18l3-9h6m-6 9h12"/>'),
+    'trail': ('Trail', '<path d="M3 22c1-5 7-4 8-8 1-3-3-3-2-6 1-2 4-3 7-5M2 22h20M4 8l2-5 2 5M18 12l2-5 2 5M6 8v3m14 1v3"/>'),
+}
+CATALOG = {**GENERIC, **SYMBOLS, **MORE_SYMBOLS, **CABIN_SYMBOLS}
 
 # Search aliases stay separate from the persisted IDs and display labels.
 KEYWORDS = {
@@ -157,6 +169,15 @@ KEYWORDS = {
     'music': 'audio sound entertainment', 'camera': 'photo photography capture',
     'image': 'picture photo graphics design', 'heart': 'favorite favourite health personal',
     'leaf': 'nature environment garden personal',
+    'cabin': 'lodge cottage house home building architecture wood forest',
+    'a-frame': 'cabin cottage house architecture roof triangle',
+    'pine-tree': 'cabin conifer evergreen fir forest woods nature',
+    'mountain': 'cabin peaks alpine landscape scenery nature',
+    'lake': 'cabin water shoreline landscape reflection nature',
+    'campfire': 'cabin fire flames camping outdoors warmth',
+    'tent': 'cabin camping shelter outdoors campsite',
+    'logs': 'cabin wood timber lumber firewood building',
+    'trail': 'cabin path hiking forest outdoors nature',
 }
 
 
